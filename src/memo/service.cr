@@ -1,0 +1,218 @@
+module Memo
+  # Main service class for semantic search operations
+  #
+  # Encapsulates configuration and provides clean API for indexing and search.
+  #
+  # ## Usage
+  #
+  # ```
+  # # Initialize service
+  # memo = Memo::Service.new(
+  #   db: db,
+  #   provider: "openai",
+  #   api_key: ENV["OPENAI_API_KEY"]
+  # )
+  #
+  # # Index documents
+  # memo.index(source_type: "event", source_id: 123, text: "Document text...")
+  #
+  # # Search
+  # results = memo.search(query: "search query", limit: 10)
+  # ```
+  class Service
+    getter db : DB::Database
+    getter provider : Providers::Base
+    getter service_id : Int64
+    getter chunking_config : Config::Chunking
+
+    # Initialize service with configuration
+    #
+    # Required:
+    # - db: Database connection
+    # - provider: "openai" or "mock"
+    # - api_key: Provider API key (not needed for mock)
+    #
+    # Optional:
+    # - model: Embedding model (default depends on provider)
+    # - dimensions: Vector dimensions (auto-detected from model)
+    # - max_tokens: Provider token limit (auto-detected)
+    # - chunking_max_tokens: Max tokens per chunk (default 2000)
+    def initialize(
+      @db : DB::Database,
+      provider : String,
+      api_key : String? = nil,
+      model : String? = nil,
+      dimensions : Int32? = nil,
+      max_tokens : Int32? = nil,
+      chunking_max_tokens : Int32 = 2000
+    )
+      # Create provider instance
+      @provider = case provider
+                  when "openai"
+                    raise ArgumentError.new("api_key required for openai provider") unless api_key
+                    Providers::OpenAI.new(api_key, model || "text-embedding-3-small")
+                  when "mock"
+                    Providers::Mock.new
+                  else
+                    raise ArgumentError.new("Unknown provider: #{provider}")
+                  end
+
+      # Auto-detect dimensions and max_tokens from provider/model
+      final_model = model || default_model(provider)
+      final_dimensions = dimensions || default_dimensions(provider, final_model)
+      final_max_tokens = max_tokens || default_max_tokens(provider, final_model)
+
+      # Validate chunking doesn't exceed provider limits
+      if chunking_max_tokens > final_max_tokens
+        raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds provider limit (#{final_max_tokens})")
+      end
+
+      # Register service in database
+      @service_id = Storage.register_service(
+        db: @db,
+        provider: provider,
+        model: final_model,
+        version: nil,
+        dimensions: final_dimensions,
+        max_tokens: final_max_tokens
+      )
+
+      # Create chunking config
+      @chunking_config = Config::Chunking.new(
+        min_tokens: 100,
+        max_tokens: chunking_max_tokens,
+        no_chunk_threshold: chunking_max_tokens
+      )
+    end
+
+    # Index a document
+    #
+    # Chunks text, generates embeddings, and stores with source reference.
+    #
+    # Returns number of chunks successfully stored.
+    def index(
+      source_type : String,
+      source_id : Int64,
+      text : String,
+      pair_id : Int64? = nil,
+      parent_id : Int64? = nil
+    ) : Int32
+      # Chunk text
+      chunks = Chunking.chunk_text(text, @chunking_config)
+      return 0 if chunks.empty?
+
+      # Embed chunks
+      embed_result = @provider.embed_texts(chunks)
+
+      # Store chunks
+      success_count = 0
+      current_offset = 0
+
+      @db.transaction do
+        chunks.each_with_index do |chunk_text, idx|
+          hash = Storage.compute_hash(chunk_text)
+          embedding = embed_result.embeddings[idx]
+          token_count = embed_result.token_counts[idx]
+          chunk_size = chunk_text.size
+
+          # Store embedding (deduplicated by hash)
+          Storage.store_embedding(@db, hash, embedding, token_count, @service_id)
+
+          # Create chunk reference
+          Storage.create_chunk(
+            db: @db,
+            hash: hash,
+            source_type: source_type,
+            source_id: source_id,
+            offset: current_offset,
+            size: chunk_size,
+            pair_id: pair_id,
+            parent_id: parent_id
+          )
+
+          success_count += 1
+          current_offset += chunk_size
+        end
+      end
+
+      success_count
+    rescue ex
+      raise Exception.new("Index failed: #{ex.message}")
+    end
+
+    # Search for semantically similar chunks
+    #
+    # Automatically generates query embedding and searches.
+    #
+    # Returns array of search results ranked by similarity.
+    def search(
+      query : String,
+      limit : Int32 = 10,
+      min_score : Float64 = 0.7,
+      source_type : String? = nil,
+      source_id : Int64? = nil,
+      pair_id : Int64? = nil,
+      parent_id : Int64? = nil
+    ) : Array(Search::Result)
+      # Generate query embedding
+      query_embedding, _tokens = @provider.embed_text(query)
+
+      # Build filters
+      filters = if source_type || source_id || pair_id || parent_id
+                  Search::Filters.new(
+                    source_type: source_type,
+                    source_id: source_id,
+                    pair_id: pair_id,
+                    parent_id: parent_id
+                  )
+                else
+                  nil
+                end
+
+      # Search
+      Search.semantic(
+        db: @db,
+        embedding: query_embedding,
+        service_id: @service_id,
+        limit: limit,
+        min_score: min_score,
+        filters: filters
+      )
+    end
+
+    # Mark chunks as read (increment read_count)
+    def mark_as_read(chunk_ids : Array(Int64))
+      Search.mark_as_read(@db, chunk_ids)
+    end
+
+    # Provider defaults (could move to Provider classes later)
+    private def default_model(provider : String) : String
+      case provider
+      when "openai" then "text-embedding-3-small"
+      when "mock"   then "mock-8d"
+      else               raise "Unknown provider"
+      end
+    end
+
+    private def default_dimensions(provider : String, model : String) : Int32
+      case provider
+      when "openai"
+        case model
+        when "text-embedding-3-small" then 1536
+        when "text-embedding-3-large" then 3072
+        else                               1536
+        end
+      when "mock" then 8
+      else             raise "Unknown provider"
+      end
+    end
+
+    private def default_max_tokens(provider : String, model : String) : Int32
+      case provider
+      when "openai" then 8191
+      when "mock"   then 100
+      else               raise "Unknown provider"
+      end
+    end
+  end
+end

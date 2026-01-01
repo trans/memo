@@ -1,0 +1,12 @@
+---
+version: 1.0
+shards:
+  db:
+    git: https://github.com/crystal-lang/crystal-db.git
+    version: 0.14.0
+  sqlite3:
+    git: https://github.com/crystal-lang/crystal-sqlite3.git
+    version: 0.22.0
+  ameba:
+    git: https://github.com/crystal-ameba/ameba.git
+    version: 1.6.4

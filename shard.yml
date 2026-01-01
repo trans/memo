@@ -1,0 +1,23 @@
+name: memo
+version: 0.1.0
+
+description: |
+  Memo - Semantic search and vector storage library for Crystal.
+  Provides chunking, embedding storage, similarity search, and RRF fusion.
+
+authors:
+  - Your Name <your.email@example.com>
+
+crystal: ">= 1.10.0"
+
+dependencies:
+  db:
+    github: crystal-lang/crystal-db
+  sqlite3:
+    github: crystal-lang/crystal-sqlite3
+
+development_dependencies:
+  ameba:
+    github: crystal-ameba/ameba
+
+license: MIT
