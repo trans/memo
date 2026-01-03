@@ -1,15 +1,46 @@
 module Memo
   # Database initialization and schema management
   #
-  # Memo doesn't own the database - the application provides a DB handle
-  # and memo loads its schema into it. All memo tables are prefixed with
-  # the configured table_prefix (default "memo_").
+  # Memo can operate in two modes:
+  # 1. Shared database: Uses table_prefix (default "memo_") to avoid conflicts
+  # 2. Standalone database: No prefix needed, tables named: services, embeddings, chunks, embed_queue
   module Database
     extend self
 
-    # Load memo schema into the provided database
+    # Initialize Memo schema in provided database (standalone mode)
     #
-    # Creates tables: memo_embeddings, memo_chunks, memo_embed_queue
+    # Loads consolidated schema without table prefixes.
+    # Use when Memo has its own dedicated database file.
+    # Safe to call multiple times (uses IF NOT EXISTS)
+    def init(db : DB::Database)
+      schema_path = File.join(__DIR__, "../../db/schema/memo_schema.sql")
+      sql = File.read(schema_path)
+
+      # Split into individual statements and execute separately
+      # SQLite driver may not handle multiple statements in one exec()
+      statements = sql.split(";").map(&.strip).reject(&.empty?)
+      statements.each do |statement|
+        # Skip comment-only statements
+        next if statement.lines.all? { |line| line.strip.empty? || line.strip.starts_with?("--") }
+
+        db.exec(statement)
+      end
+    end
+
+    # Create new database file and initialize schema (standalone mode)
+    #
+    # Creates a new SQLite database at the specified path and loads Memo schema.
+    # Returns the database connection.
+    def create(path : String) : DB::Database
+      db = DB.open("sqlite3:#{path}")
+      init(db)
+      db
+    end
+
+    # Load memo schema into the provided database (shared mode)
+    #
+    # Creates tables with configured prefix: memo_embeddings, memo_chunks, memo_embed_queue
+    # Use when Memo shares database with application tables.
     # Safe to call multiple times (uses IF NOT EXISTS)
     def load_schema(db : DB::Database)
       schema_dir = File.join(__DIR__, "../../db/schema")
