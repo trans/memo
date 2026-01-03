@@ -8,7 +8,7 @@ module Memo
   # ```
   # # Initialize service
   # memo = Memo::Service.new(
-  #   db: db,
+  #   db_path: "embeddings.db",
   #   provider: "openai",
   #   api_key: ENV["OPENAI_API_KEY"]
   # )
@@ -18,6 +18,9 @@ module Memo
   #
   # # Search
   # results = memo.search(query: "search query", limit: 10)
+  #
+  # # Clean up
+  # memo.close
   # ```
   class Service
     getter db : DB::Database
@@ -28,7 +31,7 @@ module Memo
     # Initialize service with configuration
     #
     # Required:
-    # - db: Database connection
+    # - db_path: Path to database file
     # - provider: "openai" or "mock"
     # - api_key: Provider API key (not needed for mock)
     #
@@ -38,7 +41,7 @@ module Memo
     # - max_tokens: Provider token limit (auto-detected)
     # - chunking_max_tokens: Max tokens per chunk (default 2000)
     def initialize(
-      @db : DB::Database,
+      db_path : String,
       provider : String,
       api_key : String? = nil,
       model : String? = nil,
@@ -46,6 +49,12 @@ module Memo
       max_tokens : Int32? = nil,
       chunking_max_tokens : Int32 = 2000
     )
+      # Open and initialize database
+      @db = DB.open("sqlite3://#{db_path}")
+      Database.init(@db)
+
+      # Standalone mode - no table prefix
+      Memo.table_prefix = ""
       # Create provider instance
       @provider = case provider
                   when "openai"
@@ -183,6 +192,21 @@ module Memo
     # Mark chunks as read (increment read_count)
     def mark_as_read(chunk_ids : Array(Int64))
       Search.mark_as_read(@db, chunk_ids)
+    end
+
+    # Close database connection
+    #
+    # Should be called when done with service to free resources.
+    # Safe to call multiple times.
+    def close
+      @db.close
+    rescue
+      # Already closed or other error - ignore
+    end
+
+    # Finalizer ensures cleanup even if close() not called
+    def finalize
+      close
     end
 
     # Provider defaults (could move to Provider classes later)

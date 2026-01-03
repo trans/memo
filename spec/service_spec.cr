@@ -11,35 +11,38 @@ describe Memo::Service do
 
     it "validates chunking vs provider limits" do
       expect_raises(ArgumentError, /exceeds provider limit/) do
-        with_test_db do |db|
-          Memo::Service.new(
-            db: db,
+        with_test_db_path do |db_path|
+          service = Memo::Service.new(
+            db_path: db_path,
             provider: "mock",
             chunking_max_tokens: 10000, # > mock's 100 limit
             max_tokens: 100
           )
+          service.close
         end
       end
     end
 
     it "requires api_key for openai provider" do
       expect_raises(ArgumentError, /api_key required/) do
-        with_test_db do |db|
-          Memo::Service.new(
-            db: db,
+        with_test_db_path do |db_path|
+          service = Memo::Service.new(
+            db_path: db_path,
             provider: "openai"
           )
+          service.close
         end
       end
     end
 
     it "rejects unknown providers" do
       expect_raises(ArgumentError, /Unknown provider/) do
-        with_test_db do |db|
-          Memo::Service.new(
-            db: db,
+        with_test_db_path do |db_path|
+          service = Memo::Service.new(
+            db_path: db_path,
             provider: "unknown"
           )
+          service.close
         end
       end
     end
