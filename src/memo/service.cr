@@ -204,11 +204,6 @@ module Memo
       # Already closed or other error - ignore
     end
 
-    # Finalizer ensures cleanup even if close() not called
-    def finalize
-      close
-    end
-
     # Provider defaults (could move to Provider classes later)
     private def default_model(provider : String) : String
       case provider
