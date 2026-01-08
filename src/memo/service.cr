@@ -28,7 +28,10 @@ module Memo
     getter service_id : Int64
     getter chunking_config : Config::Chunking
 
-    # Initialize service with configuration
+    # Track whether we own the db connection (for close behavior)
+    @owns_db : Bool = true
+
+    # Initialize service with database path
     #
     # Required:
     # - db_path: Path to database file
@@ -36,10 +39,22 @@ module Memo
     # - api_key: Provider API key (not needed for mock)
     #
     # Optional:
+    # - attach: Hash of alias => path for databases to ATTACH
     # - model: Embedding model (default depends on provider)
     # - dimensions: Vector dimensions (auto-detected from model)
     # - max_tokens: Provider token limit (auto-detected)
     # - chunking_max_tokens: Max tokens per chunk (default 2000)
+    #
+    # Example with ATTACH for unified queries:
+    # ```
+    # memo = Memo::Service.new(
+    #   db_path: "embeddings.db",
+    #   attach: {"main" => "data.db"},
+    #   provider: "openai",
+    #   api_key: key
+    # )
+    # # Now can use chunk_filter: "c.source_id IN (SELECT id FROM main.artifact ...)"
+    # ```
     def initialize(
       db_path : String,
       provider : String,
@@ -47,14 +62,81 @@ module Memo
       model : String? = nil,
       dimensions : Int32? = nil,
       max_tokens : Int32? = nil,
-      chunking_max_tokens : Int32 = 2000
+      chunking_max_tokens : Int32 = 2000,
+      attach : Hash(String, String)? = nil
     )
       # Open and initialize database
       @db = DB.open("sqlite3://#{db_path}")
+      @owns_db = true
+      Database.init(@db)
+
+      # ATTACH additional databases if specified
+      attach.try &.each do |db_alias, path|
+        @db.exec("ATTACH DATABASE '#{path}' AS #{db_alias}")
+      end
+
+      # Standalone mode - no table prefix
+      Memo.table_prefix = ""
+
+      # Create provider instance
+      @provider = case provider
+                  when "openai"
+                    raise ArgumentError.new("api_key required for openai provider") unless api_key
+                    Providers::OpenAI.new(api_key, model || "text-embedding-3-small")
+                  when "mock"
+                    Providers::Mock.new
+                  else
+                    raise ArgumentError.new("Unknown provider: #{provider}")
+                  end
+
+      # Auto-detect dimensions and max_tokens from provider/model
+      final_model = model || default_model(provider)
+      final_dimensions = dimensions || default_dimensions(provider, final_model)
+      final_max_tokens = max_tokens || default_max_tokens(provider, final_model)
+
+      # Validate chunking doesn't exceed provider limits
+      if chunking_max_tokens > final_max_tokens
+        raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds provider limit (#{final_max_tokens})")
+      end
+
+      # Register service in database
+      @service_id = Storage.register_service(
+        db: @db,
+        provider: provider,
+        model: final_model,
+        version: nil,
+        dimensions: final_dimensions,
+        max_tokens: final_max_tokens
+      )
+
+      # Create chunking config
+      @chunking_config = Config::Chunking.new(
+        min_tokens: 100,
+        max_tokens: chunking_max_tokens,
+        no_chunk_threshold: chunking_max_tokens
+      )
+    end
+
+    # Initialize service with existing database connection
+    #
+    # Use this when caller manages the connection lifecycle.
+    # Caller is responsible for closing the connection.
+    def initialize(
+      db : DB::Database,
+      provider : String,
+      api_key : String? = nil,
+      model : String? = nil,
+      dimensions : Int32? = nil,
+      max_tokens : Int32? = nil,
+      chunking_max_tokens : Int32 = 2000
+    )
+      @db = db
+      @owns_db = false  # Caller owns the connection
       Database.init(@db)
 
       # Standalone mode - no table prefix
       Memo.table_prefix = ""
+
       # Create provider instance
       @provider = case provider
                   when "openai"
@@ -154,6 +236,10 @@ module Memo
     # Automatically generates query embedding and searches.
     #
     # Returns array of search results ranked by similarity.
+    #
+    # chunk_filter: Raw SQL fragment for filtering chunks. Used with ATTACH
+    #   to filter by external database tables.
+    #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')"
     def search(
       query : String,
       limit : Int32 = 10,
@@ -161,7 +247,8 @@ module Memo
       source_type : String? = nil,
       source_id : Int64? = nil,
       pair_id : Int64? = nil,
-      parent_id : Int64? = nil
+      parent_id : Int64? = nil,
+      chunk_filter : String? = nil
     ) : Array(Search::Result)
       # Generate query embedding
       query_embedding, _tokens = @provider.embed_text(query)
@@ -185,7 +272,8 @@ module Memo
         service_id: @service_id,
         limit: limit,
         min_score: min_score,
-        filters: filters
+        filters: filters,
+        chunk_filter: chunk_filter
       )
     end
 
@@ -198,7 +286,11 @@ module Memo
     #
     # Should be called when done with service to free resources.
     # Safe to call multiple times.
+    #
+    # Note: If service was initialized with an existing db connection,
+    # close is a no-op (caller owns the connection).
     def close
+      return unless @owns_db
       @db.close
     rescue
       # Already closed or other error - ignore

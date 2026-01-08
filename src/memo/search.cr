@@ -52,6 +52,9 @@ module Memo
     # - :reference (default): Just IDs and metadata
     # - :summary: Not yet implemented (for future text storage)
     # - :full: Not yet implemented (for future text storage)
+    #
+    # chunk_filter: Raw SQL fragment to filter chunks (e.g., for ATTACH queries).
+    #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')"
     def semantic(
       db : DB::Database,
       embedding : Array(Float64),
@@ -59,7 +62,8 @@ module Memo
       limit : Int32 = 10,
       min_score : Float64 = 0.7,
       filters : Filters? = nil,
-      detail : Symbol = :reference
+      detail : Symbol = :reference,
+      chunk_filter : String? = nil
     ) : Array(Result)
       prefix = Memo.table_prefix
 
@@ -88,6 +92,11 @@ module Memo
           where_clauses << "c.parent_id = ?"
           params << parent_id
         end
+      end
+
+      # Add raw chunk filter if provided (for ATTACH queries)
+      if chunk_filter && !chunk_filter.empty?
+        where_clauses << "(#{chunk_filter})"
       end
 
       where_clause = "WHERE #{where_clauses.join(" AND ")}"
