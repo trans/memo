@@ -6,7 +6,9 @@ description: |
   Provides chunking, embedding storage, similarity search, and RRF fusion.
 
 authors:
-  - Your Name <your.email@example.com>
+  - trans
+
+repository: https://github.com/trans/memo
 
 crystal: ">= 1.10.0"
 

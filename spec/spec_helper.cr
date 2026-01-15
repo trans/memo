@@ -3,6 +3,9 @@ require "../src/memo"
 
 # Helper to create a test database connection (for low-level API tests)
 def with_test_db(&block : DB::Database ->)
+  # Reset table prefix to default (Service tests may have changed it)
+  Memo.table_prefix = "memo_"
+
   # Use file-based temp database to avoid connection pool isolation issues
   # In-memory databases are per-connection, so transactions can't see schema
   temp_file = File.tempname("memo_test", ".db")
