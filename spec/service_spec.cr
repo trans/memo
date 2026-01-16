@@ -9,6 +9,48 @@ describe Memo::Service do
       end
     end
 
+    it "creates projection vectors on initialization" do
+      with_test_service do |service|
+        service.projection_vectors.size.should eq(Memo::Projection::K)
+        service.projection_vectors.each do |vec|
+          vec.size.should eq(service.dimensions)
+        end
+      end
+    end
+
+    it "retrieves existing projection vectors on re-initialization" do
+      with_test_db_path do |db_path|
+        # First initialization creates vectors
+        service1 = Memo::Service.new(
+          db_path: db_path,
+          provider: "mock",
+          chunking_max_tokens: 50
+        )
+        original_vectors = service1.projection_vectors.clone
+        service_id = service1.service_id
+        service1.close
+
+        # Re-open same database - should get same vectors
+        service2 = Memo::Service.new(
+          db_path: db_path,
+          provider: "mock",
+          chunking_max_tokens: 50
+        )
+
+        service2.service_id.should eq(service_id)
+        service2.projection_vectors.size.should eq(original_vectors.size)
+
+        # Vectors should match (with Float32 precision tolerance)
+        original_vectors.each_with_index do |vec, i|
+          vec.each_with_index do |val, j|
+            (service2.projection_vectors[i][j] - val).abs.should be < 0.001
+          end
+        end
+
+        service2.close
+      end
+    end
+
     it "validates chunking vs provider limits" do
       expect_raises(ArgumentError, /exceeds provider limit/) do
         with_test_db_path do |db_path|
@@ -104,6 +146,26 @@ describe Memo::Service do
           as: {Int64?, Int64?}
         )
         result.should eq({99_i64, 88_i64})
+      end
+    end
+
+    it "stores projections when indexing" do
+      with_test_service do |service|
+        service.index(
+          source_type: "event",
+          source_id: 1_i64,
+          text: "Test document for projection"
+        )
+
+        # Verify projections were stored
+        hash = service.db.query_one(
+          "SELECT hash FROM #{Memo.table_prefix}embeddings LIMIT 1",
+          as: Bytes
+        )
+
+        projections = Memo::Projection.get_projections(service.db, hash)
+        projections.should_not be_nil
+        projections.not_nil!.size.should eq(Memo::Projection::K)
       end
     end
   end
