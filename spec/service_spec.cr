@@ -312,6 +312,73 @@ describe Memo::Service do
         results.should be_empty
       end
     end
+
+    it "filters by text_filter pattern" do
+      with_test_service do |service|
+        service.index(source_type: "event", source_id: 1_i64, text: "Document about cats")
+        service.index(source_type: "event", source_id: 2_i64, text: "Document about dogs")
+
+        # Search with text filter
+        results = service.search(query: "document", text_filter: "%cats%", min_score: 0.0)
+        results.size.should eq(1)
+        results.first.source_id.should eq(1_i64)
+      end
+    end
+
+    it "returns text when include_text is true" do
+      with_test_service do |service|
+        service.index(source_type: "event", source_id: 1_i64, text: "The quick brown fox")
+
+        # Search with include_text
+        results = service.search(query: "fox", include_text: true, min_score: 0.0)
+        results.size.should be > 0
+        results.first.text.should eq("The quick brown fox")
+      end
+    end
+
+    it "returns nil text when include_text is false" do
+      with_test_service do |service|
+        service.index(source_type: "event", source_id: 1_i64, text: "The quick brown fox")
+
+        # Search without include_text
+        results = service.search(query: "fox", include_text: false, min_score: 0.0)
+        results.size.should be > 0
+        results.first.text.should be_nil
+      end
+    end
+  end
+
+  describe "#text_storage" do
+    it "has text storage enabled by default" do
+      with_test_service do |service|
+        service.text_storage?.should be_true
+      end
+    end
+
+    it "stores text in text.db" do
+      with_test_service do |service|
+        service.index(source_type: "event", source_id: 1_i64, text: "Stored text content")
+
+        # Verify text was stored in text_store schema
+        content = service.db.query_one?(
+          "SELECT content FROM text_store.texts LIMIT 1",
+          as: String
+        )
+        content.should eq("Stored text content")
+      end
+    end
+
+    it "deduplicates text by hash" do
+      with_test_service do |service|
+        # Index same text for two different sources
+        service.index(source_type: "event", source_id: 1_i64, text: "Same text")
+        service.index(source_type: "event", source_id: 2_i64, text: "Same text")
+
+        # Should have only one text entry (deduplicated)
+        count = service.db.scalar("SELECT COUNT(*) FROM text_store.texts").as(Int64)
+        count.should eq(1)
+      end
+    end
   end
 
   describe "#mark_as_read" do

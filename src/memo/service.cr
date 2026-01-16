@@ -66,8 +66,14 @@ module Memo
     getter projection_vectors : Array(Array(Float64))
     getter data_dir : String?
 
+    # Schema name for ATTACHed text database
+    TEXT_SCHEMA = "text_store"
+
     # Track whether we own the db connection (for close behavior)
     @owns_db : Bool = true
+
+    # Track whether text storage is enabled
+    getter? text_storage : Bool = false
 
     # Initialize service with data directory
     #
@@ -114,6 +120,12 @@ module Memo
       @db = DB.open("sqlite3://#{embeddings_path}")
       @owns_db = true
       Database.init(@db)
+
+      # ATTACH and initialize text database for text storage
+      text_path = File.join(data_dir, "text.db")
+      @db.exec("ATTACH DATABASE '#{text_path}' AS #{TEXT_SCHEMA}")
+      Database.init_text_db(@db, TEXT_SCHEMA)
+      @text_storage = true
 
       # ATTACH additional databases if specified
       attach.try &.each do |db_alias, path|
@@ -285,6 +297,9 @@ module Memo
             parent_id: parent_id
           )
 
+          # Store text content if text storage is enabled
+          store_text(hash, chunk_text) if @text_storage
+
           success_count += 1
           current_offset += chunk_size
         end
@@ -368,6 +383,9 @@ module Memo
               parent_id: doc.parent_id
             )
 
+            # Store text content if text storage is enabled
+            store_text(hash, chunk_text) if @text_storage
+
             success_count += 1
             current_offset += chunk_size
             embed_idx += 1
@@ -386,9 +404,15 @@ module Memo
     #
     # Returns array of search results ranked by similarity.
     #
+    # text_filter: LIKE pattern to filter by text content (e.g., "%keyword%").
+    #   Only works when text storage is enabled.
+    #
     # chunk_filter: Raw SQL fragment for filtering chunks. Used with ATTACH
     #   to filter by external database tables.
     #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')"
+    #
+    # include_text: If true, includes text content in search results.
+    #   Only works when text storage is enabled.
     def search(
       query : String,
       limit : Int32 = 10,
@@ -397,7 +421,9 @@ module Memo
       source_id : Int64? = nil,
       pair_id : Int64? = nil,
       parent_id : Int64? = nil,
-      chunk_filter : String? = nil
+      text_filter : String? = nil,
+      chunk_filter : String? = nil,
+      include_text : Bool = false
     ) : Array(Search::Result)
       # Generate query embedding
       query_embedding, _tokens = @provider.embed_text(query)
@@ -423,7 +449,10 @@ module Memo
         min_score: min_score,
         filters: filters,
         chunk_filter: chunk_filter,
-        projection_vectors: @projection_vectors
+        projection_vectors: @projection_vectors,
+        text_filter: @text_storage ? text_filter : nil,
+        text_schema: @text_storage ? TEXT_SCHEMA : nil,
+        include_text: @text_storage && include_text
       )
     end
 
@@ -572,6 +601,23 @@ module Memo
       vectors = Projection.generate_orthogonal_vectors(@dimensions)
       Projection.store_projection_vectors(@db, @service_id, vectors)
       vectors
+    end
+
+    # Store text content in text.db (deduplicated by hash)
+    private def store_text(hash : Bytes, content : String)
+      @db.exec(
+        "INSERT OR IGNORE INTO #{TEXT_SCHEMA}.texts (hash, content) VALUES (?, ?)",
+        hash, content
+      )
+    end
+
+    # Get text content by hash
+    private def get_text(hash : Bytes) : String?
+      @db.query_one?(
+        "SELECT content FROM #{TEXT_SCHEMA}.texts WHERE hash = ?",
+        hash,
+        as: String
+      )
     end
   end
 end

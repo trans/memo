@@ -37,6 +37,20 @@ module Memo
       db
     end
 
+    # Initialize text storage database schema
+    #
+    # Creates the texts table for storing document content.
+    # Text is keyed by content hash (same as embeddings).
+    # This database is persistent and survives embedding regeneration.
+    def init_text_db(db : DB::Database, schema_name : String = "text_store")
+      db.exec(<<-SQL)
+        CREATE TABLE IF NOT EXISTS #{schema_name}.texts (
+          hash BLOB PRIMARY KEY,
+          content TEXT NOT NULL
+        )
+      SQL
+    end
+
     # Load memo schema into the provided database (shared mode)
     #
     # Creates tables with configured prefix: memo_embeddings, memo_chunks, memo_embed_queue

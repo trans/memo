@@ -48,13 +48,17 @@ module Memo
     #
     # IMPORTANT: Must provide service_id to ensure embeddings are from same vector space
     #
-    # Detail levels:
-    # - :reference (default): Just IDs and metadata
-    # - :summary: Not yet implemented (for future text storage)
-    # - :full: Not yet implemented (for future text storage)
-    #
     # chunk_filter: Raw SQL fragment to filter chunks (e.g., for ATTACH queries).
     #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')"
+    #
+    # text_filter: LIKE pattern for filtering by text content (e.g., "%keyword%").
+    #   Requires text_schema to be set.
+    #
+    # text_schema: Schema name for ATTACHed text database (e.g., "text_store").
+    #   Required for text_filter and include_text.
+    #
+    # include_text: If true, includes text content in search results.
+    #   Requires text_schema to be set.
     #
     # projection_vectors: Random orthogonal vectors for fast pre-filtering.
     #   If provided, candidates are filtered by projection distance before
@@ -73,7 +77,10 @@ module Memo
       detail : Symbol = :reference,
       chunk_filter : String? = nil,
       projection_vectors : Array(Array(Float64))? = nil,
-      projection_threshold : Float64 = 2.0
+      projection_threshold : Float64 = 2.0,
+      text_filter : String? = nil,
+      text_schema : String? = nil,
+      include_text : Bool = false
     ) : Array(Result)
       prefix = Memo.table_prefix
 
@@ -132,6 +139,20 @@ module Memo
         params << projection_threshold
       end
 
+      # Add text join if text filtering or text inclusion requested
+      text_join = ""
+      text_select = ""
+      if text_schema && (text_filter || include_text)
+        text_join = "JOIN #{text_schema}.texts t ON c.hash = t.hash"
+        text_select = ", t.content" if include_text
+      end
+
+      # Add text filter if provided
+      if text_filter && text_schema && !text_filter.empty?
+        where_clauses << "t.content LIKE ?"
+        params << text_filter
+      end
+
       where_clause = "WHERE #{where_clauses.join(" AND ")}"
 
       # Stream embeddings and keep only top-k results
@@ -141,10 +162,11 @@ module Memo
         <<-SQL,
           SELECT c.id, c.hash, c.source_type, c.source_id, c.pair_id, c.parent_id,
                  c.offset, c.size, c.match_count, c.read_count,
-                 e.embedding
+                 e.embedding#{text_select}
           FROM #{prefix}chunks c
           JOIN #{prefix}embeddings e ON c.hash = e.hash
           #{projection_join}
+          #{text_join}
           #{where_clause}
         SQL
         args: params
@@ -161,6 +183,7 @@ module Memo
           match_count = rs.read(Int32)
           read_count = rs.read(Int32)
           embedding_blob = rs.read(Bytes)
+          text_content = include_text ? rs.read(String?) : nil
 
           # Decode and compute similarity
           stored_embedding = Storage.deserialize_embedding(embedding_blob)
@@ -181,7 +204,7 @@ module Memo
             match_count: match_count,
             read_count: read_count,
             score: score,
-            text: nil  # TODO: Support detail levels when text storage added
+            text: text_content
           )
 
           # Insert maintaining sorted order
