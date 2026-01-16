@@ -4,10 +4,10 @@
 
 Memo is a semantic search library for Crystal that provides:
 - Text chunking with configurable parameters
-- Vector embedding storage with deduplication and service tracking
-- Similarity search with filtering
-- Reciprocal Rank Fusion (RRF) for hybrid search
-- Background embedding queue processing
+- Vector embedding storage with deduplication
+- Similarity search with projection-based pre-filtering
+- Text storage with LIKE and FTS5 full-text search
+- External database integration via ATTACH
 
 ## Core Concepts
 
@@ -15,217 +15,236 @@ Memo is a semantic search library for Crystal that provides:
 
 1. **Chunking**: Break large text into optimal-sized pieces
 2. **Embedding**: Generate vector representations of chunks
-3. **Storage**: Store embeddings with source references and service metadata
-4. **Search**: Find similar chunks via vector similarity (same service only)
-5. **Fusion**: Combine multiple search strategies (RRF)
+3. **Storage**: Store embeddings and optionally text content
+4. **Search**: Find similar chunks via vector similarity with text filtering
+5. **Projection filtering**: Fast candidate pre-filtering using random projections
+
+## Storage Architecture
+
+Memo uses directory-based storage with two SQLite databases:
+
+```
+/var/data/memo/
+├── embeddings.db    # Embeddings, chunks, projections (regenerable)
+└── text.db          # Text content and FTS5 index (persistent)
+```
+
+**Why two databases?**
+- `embeddings.db` can be deleted and regenerated from source text
+- `text.db` persists independently, preserving text even during re-indexing
+- Both are managed as a single logical unit via SQLite ATTACH
 
 ## Database Schema
 
-Memo uses **4 tables** (all prefixed with `memo_` by default):
+### embeddings.db
 
-### 1. `memo_services` - AI Provider Registry
+#### `services` - Provider Registry
 
 Tracks which provider/model created embeddings to ensure compatible vector spaces.
 
 ```sql
-CREATE TABLE memo_services (
+CREATE TABLE services (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    provider TEXT NOT NULL,           -- "openai", "cohere", etc.
+    provider TEXT NOT NULL,           -- "openai", "mock", etc.
     model TEXT NOT NULL,              -- "text-embedding-3-small"
     version TEXT,                     -- Optional model version
-    dimensions INTEGER NOT NULL,      -- 1536, 768, etc.
+    dimensions INTEGER NOT NULL,      -- 1536, 3072, etc.
     max_tokens INTEGER NOT NULL,      -- Model's token limit
     created_at INTEGER NOT NULL,
     UNIQUE(provider, model, version, dimensions)
 );
 ```
 
-**Why?** Different models create incompatible vector spaces. Searching 1536-dim OpenAI embeddings against 768-dim Cohere embeddings is meaningless. The service table ensures we only compare compatible embeddings.
+#### `embeddings` - Vector Storage
 
-### 2. `memo_embeddings` - Vector Storage
-
-Stores actual embedding vectors, deduplicated by content hash.
+Stores embedding vectors, deduplicated by content hash.
 
 ```sql
-CREATE TABLE memo_embeddings (
-    hash BLOB PRIMARY KEY,           -- SHA256 of text (deduplication)
-    embedding BLOB NOT NULL,         -- Float32 array (space efficient)
+CREATE TABLE embeddings (
+    hash BLOB PRIMARY KEY,           -- SHA256 of text
+    embedding BLOB NOT NULL,         -- Float32 array
     token_count INTEGER NOT NULL,
-    service_id INTEGER NOT NULL,     -- FK to memo_services
+    service_id INTEGER NOT NULL,
     created_at INTEGER NOT NULL,
-    FOREIGN KEY (service_id) REFERENCES memo_services(id)
+    FOREIGN KEY (service_id) REFERENCES services(id)
 );
 ```
 
-**Deduplication**: Same text = same hash = stored once, even if indexed multiple times.
+#### `chunks` - Source References
 
-**Service tracking**: Each embedding knows which provider/model created it via `service_id`.
-
-### 3. `memo_chunks` - Source References
-
-Links embeddings back to application sources with usage metrics.
+Links embeddings back to application sources.
 
 ```sql
-CREATE TABLE memo_chunks (
+CREATE TABLE chunks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    hash BLOB NOT NULL,              -- FK to memo_embeddings
-    source_type TEXT NOT NULL,       -- "event", "document", etc.
+    hash BLOB NOT NULL,              -- FK to embeddings
+    source_type TEXT NOT NULL,       -- "article", "note", etc.
     source_id INTEGER NOT NULL,      -- External ID
     pair_id INTEGER,                 -- Related source
     parent_id INTEGER,               -- Hierarchical parent
     offset INTEGER,                  -- Char position in source
     size INTEGER NOT NULL,           -- Chunk size in chars
     match_count INTEGER DEFAULT 0,   -- Times in search results
-    read_count INTEGER DEFAULT 0,    -- Times actually used
+    read_count INTEGER DEFAULT 0,    -- Times marked as read
     created_at INTEGER NOT NULL,
-    FOREIGN KEY (hash) REFERENCES memo_embeddings(hash)
+    FOREIGN KEY (hash) REFERENCES embeddings(hash)
 );
 ```
 
-**Usage tracking**: `match_count` and `read_count` help identify relevant vs noise.
+#### `projections` - Fast Filtering
 
-### 4. `memo_embed_queue` - Background Processing
-
-Tracks pending embedding work (not yet implemented).
+Stores random projection values for pre-filtering candidates.
 
 ```sql
-CREATE TABLE memo_embed_queue (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source_type TEXT NOT NULL,
-    source_id INTEGER NOT NULL,
-    text TEXT,
-    status INTEGER DEFAULT -1,       -- -1=pending, 0=success, >0=error
-    error_message TEXT,
-    attempts INTEGER DEFAULT 0,
-    created_at INTEGER NOT NULL,
-    processed_at INTEGER,
-    UNIQUE(source_type, source_id)
+CREATE TABLE projections (
+    hash BLOB PRIMARY KEY,
+    p0 REAL, p1 REAL, p2 REAL, p3 REAL,
+    p4 REAL, p5 REAL, p6 REAL, p7 REAL,
+    FOREIGN KEY (hash) REFERENCES embeddings(hash)
+);
+```
+
+#### `projection_vectors` - Projection Configuration
+
+Stores the random vectors used for projection (per service).
+
+```sql
+CREATE TABLE projection_vectors (
+    service_id INTEGER PRIMARY KEY,
+    vectors BLOB NOT NULL,           -- Serialized projection vectors
+    FOREIGN KEY (service_id) REFERENCES services(id)
+);
+```
+
+### text.db (ATTACHed as `text_store`)
+
+#### `texts` - Text Content
+
+Stores chunk text, deduplicated by hash.
+
+```sql
+CREATE TABLE texts (
+    hash BLOB PRIMARY KEY,
+    content TEXT NOT NULL
+);
+```
+
+#### `texts_fts` - Full-Text Search Index
+
+FTS5 virtual table for full-text search.
+
+```sql
+CREATE VIRTUAL TABLE texts_fts USING fts5(
+    hash UNINDEXED,
+    content
 );
 ```
 
 ## API Design
 
-### 1. Quick Start
+### Initialization
 
 ```crystal
-require "memo"
-
-# Initialize database
-db = DB.open("sqlite3://app.db")
-Memo::Database.load_schema(db)
-
-# Create service (handles embeddings internally)
+# Standard initialization with text storage
 memo = Memo::Service.new(
-  db: db,
+  data_dir: "/var/data/memo",
   provider: "openai",
-  api_key: ENV["OPENAI_API_KEY"],
-  model: "text-embedding-3-small",  # Optional (defaults to provider default)
-  dimensions: 1536,                  # Optional (auto-detected from model)
-  max_tokens: 8191,                  # Optional (auto-detected from model)
-  chunking_max_tokens: 2000          # Optional (default 2000)
+  api_key: ENV["OPENAI_API_KEY"]
 )
 
-# Index a document
-memo.index(
-  source_type: "document",
-  source_id: 42,
-  text: "Your document text..."
-)
-
-# Search
-results = memo.search(query: "search query", limit: 10)
-```
-
-### 2. Service Configuration
-
-```crystal
-# Required parameters
+# Without text storage (manage text separately)
 memo = Memo::Service.new(
-  db: db,                # Database connection
-  provider: "openai",    # Provider name ("openai" or "mock")
-  api_key: api_key       # Provider API key (not needed for mock)
-)
-
-# Optional parameters with smart defaults
-memo = Memo::Service.new(
-  db: db,
+  data_dir: "/var/data/memo",
   provider: "openai",
   api_key: api_key,
-  model: "text-embedding-3-small",  # Provider default if not specified
-  dimensions: 1536,                  # Auto-detected from model
-  max_tokens: 8191,                  # Auto-detected from model
-  chunking_max_tokens: 2000          # Your preferred chunk size (default 2000)
+  store_text: false
 )
-```
 
-**Key distinction:**
-- `max_tokens` (8191) = Provider's hard limit
-- `chunking_max_tokens` (2000) = Your preference for semantic coherence
-- Validation ensures `chunking_max_tokens <= max_tokens`
-
-### 3. Indexing Documents
-
-```crystal
-# Create service instance
+# With external database for filtering
 memo = Memo::Service.new(
-  db: db,
+  data_dir: "/var/data/memo",
+  attach: {"app" => "/var/data/app.db"},
   provider: "openai",
   api_key: api_key
 )
-
-# Index a document - returns number of chunks stored
-count = memo.index(
-  source_type: "document",
-  source_id: 42,
-  text: "Your document text here...",
-  pair_id: nil,          # Optional: related source
-  parent_id: nil         # Optional: hierarchical parent
-)
-
-puts "Indexed #{count} chunks"
 ```
 
-**What happens internally:**
-1. Validates `chunking_max_tokens <= max_tokens` (at service initialization)
-2. Registers service (or gets existing): `"openai:text-embedding-3-small:1536"` → `service_id`
-3. Chunks text using chunking config
-4. Generates embeddings via provider (OpenAI API)
-5. Stores embeddings with `service_id` (deduplication by hash)
-6. Creates chunk references linking to source
-7. Returns count of chunks successfully stored
-
-### 4. Searching
+### Indexing
 
 ```crystal
-# Service handles query embedding automatically
-results = memo.search(
-  query: "authentication methods",
-  limit: 10,
-  min_score: 0.7,
-  source_type: "document",  # Optional filter
-  parent_id: 123            # Optional filter
+# Single document
+memo.index(
+  source_type: "article",
+  source_id: 123_i64,
+  text: "Document text...",
+  pair_id: nil,      # Optional
+  parent_id: nil     # Optional
 )
 
-# Results contain references
-results.each do |result|
-  puts "Score: #{result.score}"
-  puts "Source: #{result.source_type}:#{result.source_id}"
-  puts "Chunk: #{result.chunk_id}"
-  puts "Match count: #{result.match_count}"
-end
+# Using Document struct
+doc = Memo::Document.new(
+  source_type: "article",
+  source_id: 123_i64,
+  text: "Document text..."
+)
+memo.index(doc)
 
-# Track that results were read (increments read_count)
-chunk_ids = results.map(&.chunk_id)
-memo.mark_as_read(chunk_ids)
+# Batch indexing (more efficient for multiple documents)
+docs = [
+  Memo::Document.new(source_type: "article", source_id: 1_i64, text: "First..."),
+  Memo::Document.new(source_type: "article", source_id: 2_i64, text: "Second..."),
+]
+memo.index_batch(docs)
 ```
 
-**What happens internally:**
-1. Service generates query embedding using its provider
-2. Searches against embeddings from the same service_id only
-3. Filters results by source_type/parent_id if specified
-4. Returns results ranked by cosine similarity
+**Indexing process:**
+1. Chunk text into optimal-sized pieces
+2. Generate embeddings via provider API
+3. Compute projection values for fast filtering
+4. Store embeddings (deduplicated by content hash)
+5. Create chunk references linking to source
+6. Store text content in text.db (if enabled)
 
-### 5. Search Result Structure
+### Search
+
+```crystal
+# Basic search
+results = memo.search(query: "search terms", limit: 10)
+
+# With filters
+results = memo.search(
+  query: "search terms",
+  limit: 10,
+  min_score: 0.7,
+  source_type: "article",
+  parent_id: 42_i64
+)
+
+# With text filtering (requires text storage)
+results = memo.search(query: "cats", like: "%kitten%")
+results = memo.search(query: "pets", like: ["%cat%", "%dog%"])  # AND logic
+results = memo.search(query: "animals", match: "cats OR dogs")  # FTS5
+
+# Include text in results
+results = memo.search(query: "cats", include_text: true)
+
+# With external database filtering
+results = memo.search(
+  query: "updates",
+  sql_where: "c.source_id IN (SELECT id FROM app.articles WHERE status = 'published')"
+)
+```
+
+**Search process:**
+1. Generate query embedding
+2. Compute query projections
+3. Pre-filter candidates using projection distance
+4. Apply text filters (LIKE, FTS5) if specified
+5. Apply custom SQL filter if specified
+6. Compute cosine similarity for candidates
+7. Return results ranked by similarity
+
+### Search Results
 
 ```crystal
 struct Memo::Search::Result
@@ -240,162 +259,104 @@ struct Memo::Search::Result
   getter match_count : Int32
   getter read_count : Int32
   getter score : Float64
-  getter text : String?  # Only populated if include_text: true
+  getter text : String?      # When include_text: true
 end
 ```
 
-### 6. Hybrid Search (RRF)
+### Other Operations
 
 ```crystal
-# Memo provides RRF utility for combining search strategies
-# (Apps implement other search strategies - e.g., keyword search)
+# Statistics
+stats = memo.stats
+# => Stats(embeddings: 1000, chunks: 1200, sources: 50)
 
-# Get semantic results from memo
-semantic_results = memo.search(query: "auth", limit: 50)
+# Delete by source
+memo.delete(source_id: 123_i64)
+memo.delete(source_id: 123_i64, source_type: "article")
 
-# Get keyword results from your app's search
-keyword_results = MyApp.keyword_search(patterns, limit: 50)
+# Mark as read (increments read_count)
+memo.mark_as_read(chunk_ids: [1_i64, 2_i64])
 
-# Convert to RRF format and merge
-semantic_items = semantic_results.map { |r| Memo::RRF::ResultItem.new(r.chunk_id, r.score) }
-keyword_items = keyword_results.map { |r| Memo::RRF::ResultItem.new(r.id, r.relevance) }
-
-merged = Memo::RRF.merge([semantic_items, keyword_items])
-
-# Top results combine both strategies
-top_10 = merged.first(10)
+# Close connection
+memo.close
 ```
 
-### 7. Advanced: Internal Modules
+## Projection Filtering
 
-For advanced use cases, internal modules (Storage, Search, Chunking, RRF) remain accessible, but the Service API is the recommended entry point.
+Memo uses random projection for fast candidate pre-filtering:
+
+1. **Projection vectors**: 8 random orthogonal vectors generated per service
+2. **Projection values**: Each embedding is projected onto these vectors (8 scalar values)
+3. **Distance estimation**: Manhattan distance between query and stored projections approximates cosine distance
+4. **Pre-filtering**: Candidates outside a distance threshold are skipped before expensive cosine computation
+
+This reduces the number of full cosine similarity calculations needed, improving search performance on large datasets.
+
+## Text Filtering
+
+When text storage is enabled, two text filtering methods are available:
+
+### LIKE Patterns
+
+Simple pattern matching with `%` wildcards:
 
 ```crystal
-# Direct storage operations (for advanced use)
-hash = Memo::Storage.compute_hash(text)
-service_id = memo.service_id  # Access service's registered ID
+# Single pattern
+memo.search(query: "cats", like: "%kitten%")
 
-# Direct chunking (Service handles this internally)
-chunks = Memo::Chunking.chunk_text(text, memo.chunking_config)
-
-# Direct search (Service.search wraps this)
-results = Memo::Search.semantic(db, embedding, service_id, limit: 10)
+# Multiple patterns (AND logic)
+memo.search(query: "pets", like: ["%cat%", "%dog%"])
 ```
 
-## Design Principles
+### FTS5 Full-Text Search
 
-1. **Simple service API** - Configure once, use everywhere
-2. **Provider encapsulation** - Built-in providers (OpenAI, Mock), extensible for more
-3. **Flexible filtering** - Filter by source_type, parent_id, pair_id, etc.
-4. **Usage tracking** - Built-in match_count and read_count
-5. **Deduplication** - Same content only embedded once (via hash)
-6. **Service isolation** - Embeddings from different models never mixed
-7. **Crystal-native** - Clean structs, no magic, type-safe
-
-## Example: Full Workflow
+SQLite's FTS5 provides powerful full-text search:
 
 ```crystal
-require "memo"
+memo.search(query: "animals", match: "cats OR dogs")     # Boolean
+memo.search(query: "animals", match: "quick brown*")    # Prefix
+memo.search(query: "animals", match: '"exact phrase"')  # Phrase
+memo.search(query: "animals", match: "cats NOT dogs")   # Negation
+```
 
-# Setup
-db = DB.open("sqlite3://memo.db")
-Memo::Database.load_schema(db)
+## External Database Integration
 
-# Create service
+Use ATTACH to filter against your application's database:
+
+```crystal
 memo = Memo::Service.new(
-  db: db,
+  data_dir: "/var/data/memo",
+  attach: {"app" => "/var/data/app.db"},
   provider: "openai",
-  api_key: ENV["OPENAI_API_KEY"]
+  api_key: key
 )
 
-# Index documents
-memo.index(source_type: "doc", source_id: 1, text: "Authentication guide...")
-memo.index(source_type: "doc", source_id: 2, text: "Authorization patterns...")
-
-# Search
-results = memo.search(query: "how to authenticate users", limit: 5)
-
-# Use results
-results.each do |r|
-  puts "Found in #{r.source_type}:#{r.source_id} (score: #{r.score})"
-end
-
-# Mark as read
-memo.mark_as_read(results.map(&.chunk_id))
+# Filter by external table
+results = memo.search(
+  query: "project updates",
+  sql_where: "c.source_id IN (SELECT id FROM app.articles WHERE user_id = 42)"
+)
 ```
 
-## Design Decisions ✓
+The `sql_where` parameter accepts raw SQL that's inserted into the WHERE clause. The chunk table is aliased as `c`, so use `c.source_id`, `c.source_type`, etc.
 
-1. **Service class architecture**: Apps configure once, then use simple methods
-   - Encapsulates provider, config, and service_id tracking
-   - No manual embedding generation or service registration
-   - Clean dependency injection for testing
+## Design Decisions
 
-2. **Internal providers**: Built-in OpenAI and Mock implementations
-   - Apps don't implement provider interface
-   - Configure by name: `provider: "openai"`
-   - Extensible for future providers (Cohere, etc.)
+1. **Directory-based storage**: Single path configures all database files
+2. **Two-database architecture**: Embeddings regenerable, text persistent
+3. **Projection pre-filtering**: Fast candidate reduction before cosine similarity
+4. **Content-hash deduplication**: Same text stored once regardless of source
+5. **Service isolation**: Embeddings from different models never mixed
+6. **Optional text storage**: Disable with `store_text: false` if managing text separately
+7. **FTS5 integration**: Full-text search alongside semantic search
+8. **ATTACH support**: Filter against external databases without copying data
 
-3. **Service tracking**: Each embedding references a service (provider/model/dimensions)
-   - Prevents mixing incompatible vector spaces
-   - Enables model migration without breaking existing embeddings
-   - Stored once in `memo_services` table, referenced by ID
+## Providers
 
-4. **Two max_tokens**:
-   - `max_tokens` (8191) - Provider's hard limit
-   - `chunking_max_tokens` (2000) - Your preference for semantic coherence
-   - Validated at Service initialization: chunking max must be <= provider max
+Currently supported:
+- `openai` - text-embedding-3-small (1536d), text-embedding-3-large (3072d)
+- `mock` - Deterministic embeddings for testing (8d)
 
-5. **Auto-embedding in search**: `Service.search()` generates query embedding automatically
-   - No manual `embed_text()` calls needed
-   - Service ensures same provider is used for query and stored embeddings
+## License
 
-6. **Search results**: Return references by default (app retrieves text from source)
-
-7. **Metadata**: No metadata column - apps maintain their own mapping tables
-
-8. **Similarity**: Cosine similarity (standard for embeddings)
-
-9. **Deduplication**: Content hash (SHA256) as embedding PK
-
-10. **Storage efficiency**: Float32 serialization (50% smaller than Float64)
-
-## Model Migration Scenario
-
-When switching embedding models (e.g., OpenAI small → large):
-
-```crystal
-# Old service (existing)
-old_memo = Memo::Service.new(
-  db: db,
-  provider: "openai",
-  api_key: api_key,
-  model: "text-embedding-3-small",
-  dimensions: 1536
-)
-old_service_id = old_memo.service_id
-
-# New service (different model)
-new_memo = Memo::Service.new(
-  db: db,
-  provider: "openai",
-  api_key: api_key,
-  model: "text-embedding-3-large",
-  dimensions: 3072  # Different dimensions!
-)
-
-# Re-index documents with new service
-new_memo.index(source_type: "doc", source_id: 1, text: doc_text)
-
-# Search uses new service only (automatic)
-results = new_memo.search(query: "authentication")
-
-# Eventually clean up old embeddings
-db.exec("DELETE FROM memo_embeddings WHERE service_id = ?", old_service_id)
-db.exec("DELETE FROM memo_services WHERE id = ?", old_service_id)
-```
-
-**Key points:**
-- Both models coexist during migration (separate Service instances)
-- Each Service only searches its own embeddings (never mix vector spaces)
-- Old embeddings remain queryable until cleanup
+MIT
