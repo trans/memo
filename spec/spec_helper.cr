@@ -20,23 +20,30 @@ def with_test_db(&block : DB::Database ->)
   end
 end
 
-# Helper to create a test database path (creates temp file)
-def with_test_db_path(&block : String ->)
-  # Use file-based temp database
-  temp_file = File.tempname("memo_test", ".db")
+# Helper to create a test data directory
+def with_test_data_dir(&block : String ->)
+  # Create temp directory for test databases
+  temp_dir = File.tempname("memo_test", "")
+  Dir.mkdir_p(temp_dir)
 
   begin
-    yield temp_file
+    yield temp_dir
   ensure
-    File.delete(temp_file) if File.exists?(temp_file)
+    # Clean up all files in directory
+    if Dir.exists?(temp_dir)
+      Dir.each_child(temp_dir) do |file|
+        File.delete(File.join(temp_dir, file))
+      end
+      Dir.delete(temp_dir)
+    end
   end
 end
 
 # Helper to create a test service instance
 def with_test_service(&block : Memo::Service ->)
-  with_test_db_path do |db_path|
+  with_test_data_dir do |data_dir|
     service = Memo::Service.new(
-      db_path: db_path,
+      data_dir: data_dir,
       provider: "mock",
       chunking_max_tokens: 50  # Mock provider has max_tokens of 100
     )

@@ -19,10 +19,10 @@ describe Memo::Service do
     end
 
     it "retrieves existing projection vectors on re-initialization" do
-      with_test_db_path do |db_path|
+      with_test_data_dir do |data_dir|
         # First initialization creates vectors
         service1 = Memo::Service.new(
-          db_path: db_path,
+          data_dir: data_dir,
           provider: "mock",
           chunking_max_tokens: 50
         )
@@ -32,7 +32,7 @@ describe Memo::Service do
 
         # Re-open same database - should get same vectors
         service2 = Memo::Service.new(
-          db_path: db_path,
+          data_dir: data_dir,
           provider: "mock",
           chunking_max_tokens: 50
         )
@@ -53,9 +53,9 @@ describe Memo::Service do
 
     it "validates chunking vs provider limits" do
       expect_raises(ArgumentError, /exceeds provider limit/) do
-        with_test_db_path do |db_path|
+        with_test_data_dir do |data_dir|
           service = Memo::Service.new(
-            db_path: db_path,
+            data_dir: data_dir,
             provider: "mock",
             chunking_max_tokens: 10000, # > mock's 100 limit
             max_tokens: 100
@@ -67,9 +67,9 @@ describe Memo::Service do
 
     it "requires api_key for openai provider" do
       expect_raises(ArgumentError, /api_key required/) do
-        with_test_db_path do |db_path|
+        with_test_data_dir do |data_dir|
           service = Memo::Service.new(
-            db_path: db_path,
+            data_dir: data_dir,
             provider: "openai"
           )
           service.close
@@ -79,9 +79,9 @@ describe Memo::Service do
 
     it "rejects unknown providers" do
       expect_raises(ArgumentError, /Unknown provider/) do
-        with_test_db_path do |db_path|
+        with_test_data_dir do |data_dir|
           service = Memo::Service.new(
-            db_path: db_path,
+            data_dir: data_dir,
             provider: "unknown"
           )
           service.close

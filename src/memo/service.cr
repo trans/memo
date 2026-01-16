@@ -34,9 +34,9 @@ module Memo
   # ## Usage
   #
   # ```
-  # # Initialize service
+  # # Initialize service with data directory
   # memo = Memo::Service.new(
-  #   db_path: "embeddings.db",
+  #   data_dir: "/var/data/memo",
   #   provider: "openai",
   #   api_key: ENV["OPENAI_API_KEY"]
   # )
@@ -50,6 +50,13 @@ module Memo
   # # Clean up
   # memo.close
   # ```
+  #
+  # ## Database Files
+  #
+  # Memo stores data in the specified directory:
+  # - embeddings.db: Embeddings, chunks, projections (regenerable)
+  # - text.db: Text content (future, persistent)
+  #
   class Service
     getter db : DB::Database
     getter provider : Providers::Base
@@ -57,14 +64,15 @@ module Memo
     getter chunking_config : Config::Chunking
     getter dimensions : Int32
     getter projection_vectors : Array(Array(Float64))
+    getter data_dir : String?
 
     # Track whether we own the db connection (for close behavior)
     @owns_db : Bool = true
 
-    # Initialize service with database path
+    # Initialize service with data directory
     #
     # Required:
-    # - db_path: Path to database file
+    # - data_dir: Directory path for database files
     # - provider: "openai" or "mock"
     # - api_key: Provider API key (not needed for mock)
     #
@@ -78,7 +86,7 @@ module Memo
     # Example with ATTACH for unified queries:
     # ```
     # memo = Memo::Service.new(
-    #   db_path: "embeddings.db",
+    #   data_dir: "/var/data/memo",
     #   attach: {"main" => "data.db"},
     #   provider: "openai",
     #   api_key: key
@@ -86,7 +94,7 @@ module Memo
     # # Now can use chunk_filter: "c.source_id IN (SELECT id FROM main.artifact ...)"
     # ```
     def initialize(
-      db_path : String,
+      data_dir : String,
       provider : String,
       api_key : String? = nil,
       model : String? = nil,
@@ -95,8 +103,15 @@ module Memo
       chunking_max_tokens : Int32 = 2000,
       attach : Hash(String, String)? = nil
     )
-      # Open and initialize database
-      @db = DB.open("sqlite3://#{db_path}")
+      # Store data directory
+      @data_dir = data_dir
+
+      # Create directory if it doesn't exist
+      Dir.mkdir_p(data_dir) unless Dir.exists?(data_dir)
+
+      # Open and initialize embeddings database
+      embeddings_path = File.join(data_dir, "embeddings.db")
+      @db = DB.open("sqlite3://#{embeddings_path}")
       @owns_db = true
       Database.init(@db)
 
@@ -168,6 +183,7 @@ module Memo
       chunking_max_tokens : Int32 = 2000
     )
       @db = db
+      @data_dir = nil  # No data directory when using external connection
       @owns_db = false  # Caller owns the connection
       Database.init(@db)
 
