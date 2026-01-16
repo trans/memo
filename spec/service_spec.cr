@@ -238,4 +238,103 @@ describe Memo::Service do
       end
     end
   end
+
+  describe "#stats" do
+    it "returns zero counts for empty database" do
+      with_test_service do |service|
+        stats = service.stats
+        stats.embeddings.should eq(0)
+        stats.chunks.should eq(0)
+        stats.sources.should eq(0)
+      end
+    end
+
+    it "counts indexed content correctly" do
+      with_test_service do |service|
+        # Index 3 documents
+        service.index(source_type: "event", source_id: 1_i64, text: "First document")
+        service.index(source_type: "event", source_id: 2_i64, text: "Second document")
+        service.index(source_type: "idea", source_id: 3_i64, text: "Third document")
+
+        stats = service.stats
+        stats.embeddings.should eq(3)
+        stats.chunks.should eq(3)
+        stats.sources.should eq(3)
+      end
+    end
+
+    it "counts unique sources when same text is indexed multiple times" do
+      with_test_service do |service|
+        # Index same text for different sources (deduplication)
+        service.index(source_type: "event", source_id: 1_i64, text: "Same text")
+        service.index(source_type: "event", source_id: 2_i64, text: "Same text")
+
+        stats = service.stats
+        stats.embeddings.should eq(1)  # Deduplicated
+        stats.chunks.should eq(2)      # Two chunks
+        stats.sources.should eq(2)     # Two sources
+      end
+    end
+  end
+
+  describe "#delete" do
+    it "deletes chunks for a source" do
+      with_test_service do |service|
+        service.index(source_type: "event", source_id: 1_i64, text: "Document one")
+        service.index(source_type: "event", source_id: 2_i64, text: "Document two")
+
+        stats_before = service.stats
+        stats_before.sources.should eq(2)
+
+        # Delete source 1
+        deleted = service.delete(source_id: 1_i64)
+        deleted.should eq(1)
+
+        stats_after = service.stats
+        stats_after.sources.should eq(1)
+        stats_after.chunks.should eq(1)
+      end
+    end
+
+    it "cleans up orphaned embeddings" do
+      with_test_service do |service|
+        service.index(source_type: "event", source_id: 1_i64, text: "Unique document")
+
+        stats_before = service.stats
+        stats_before.embeddings.should eq(1)
+
+        # Delete the only source referencing this embedding
+        service.delete(source_id: 1_i64)
+
+        stats_after = service.stats
+        stats_after.embeddings.should eq(0)
+      end
+    end
+
+    it "preserves shared embeddings" do
+      with_test_service do |service|
+        # Index same text for two sources
+        service.index(source_type: "event", source_id: 1_i64, text: "Shared text")
+        service.index(source_type: "event", source_id: 2_i64, text: "Shared text")
+
+        stats_before = service.stats
+        stats_before.embeddings.should eq(1)  # Deduplicated
+        stats_before.chunks.should eq(2)
+
+        # Delete one source
+        service.delete(source_id: 1_i64)
+
+        stats_after = service.stats
+        stats_after.embeddings.should eq(1)  # Still referenced by source 2
+        stats_after.chunks.should eq(1)
+      end
+    end
+
+    it "returns 0 when source doesn't exist" do
+      with_test_service do |service|
+        deleted = service.delete(source_id: 999_i64)
+        deleted.should eq(0)
+      end
+    end
+  end
 end

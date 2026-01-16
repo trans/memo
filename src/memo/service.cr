@@ -1,4 +1,14 @@
 module Memo
+  # Statistics about indexed content
+  struct Stats
+    getter embeddings : Int64
+    getter chunks : Int64
+    getter sources : Int64
+
+    def initialize(@embeddings, @chunks, @sources)
+    end
+  end
+
   # Main service class for semantic search operations
   #
   # Encapsulates configuration and provides clean API for indexing and search.
@@ -301,6 +311,90 @@ module Memo
     # Mark chunks as read (increment read_count)
     def mark_as_read(chunk_ids : Array(Int64))
       Search.mark_as_read(@db, chunk_ids)
+    end
+
+    # Get statistics about indexed content
+    #
+    # Returns counts of embeddings, chunks, and unique sources.
+    def stats : Stats
+      prefix = Memo.table_prefix
+
+      embeddings = @db.scalar(
+        "SELECT COUNT(*) FROM #{prefix}embeddings WHERE service_id = ?",
+        @service_id
+      ).as(Int64)
+
+      chunks = @db.scalar(
+        "SELECT COUNT(*) FROM #{prefix}chunks c
+         JOIN #{prefix}embeddings e ON c.hash = e.hash
+         WHERE e.service_id = ?",
+        @service_id
+      ).as(Int64)
+
+      sources = @db.scalar(
+        "SELECT COUNT(DISTINCT c.source_id) FROM #{prefix}chunks c
+         JOIN #{prefix}embeddings e ON c.hash = e.hash
+         WHERE e.service_id = ?",
+        @service_id
+      ).as(Int64)
+
+      Stats.new(embeddings, chunks, sources)
+    end
+
+    # Delete all chunks for a source
+    #
+    # Removes all chunks with the given source_id.
+    # Orphaned embeddings (not referenced by any chunk) are also cleaned up.
+    #
+    # Returns number of chunks deleted.
+    def delete(source_id : Int64) : Int32
+      prefix = Memo.table_prefix
+
+      # Get hashes of chunks to be deleted (for orphan cleanup)
+      hashes = [] of Bytes
+      @db.query(
+        "SELECT DISTINCT c.hash FROM #{prefix}chunks c
+         JOIN #{prefix}embeddings e ON c.hash = e.hash
+         WHERE c.source_id = ? AND e.service_id = ?",
+        source_id, @service_id
+      ) do |rs|
+        rs.each do
+          hashes << rs.read(Bytes)
+        end
+      end
+
+      return 0 if hashes.empty?
+
+      deleted_count = 0
+
+      @db.transaction do
+        # Delete chunks
+        hashes.each do |hash|
+          @db.exec(
+            "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ?",
+            hash, source_id
+          )
+        end
+
+        deleted_count = hashes.size
+
+        # Clean up orphaned embeddings and projections
+        hashes.each do |hash|
+          # Check if any chunks still reference this hash
+          remaining = @db.scalar(
+            "SELECT COUNT(*) FROM #{prefix}chunks WHERE hash = ?",
+            hash
+          ).as(Int64)
+
+          if remaining == 0
+            # No more references - delete embedding and projections
+            @db.exec("DELETE FROM #{prefix}projections WHERE hash = ?", hash)
+            @db.exec("DELETE FROM #{prefix}embeddings WHERE hash = ?", hash)
+          end
+        end
+      end
+
+      deleted_count
     end
 
     # Close database connection
