@@ -347,6 +347,9 @@ module Memo
     # Orphaned embeddings (not referenced by any chunk) are also cleaned up.
     #
     # Returns number of chunks deleted.
+    #
+    # TODO: May need to add source_type parameter if source_id is not globally unique
+    #       across all source types. Current design assumes source_id uniqueness.
     def delete(source_id : Int64) : Int32
       prefix = Memo.table_prefix
 
