@@ -9,6 +9,24 @@ module Memo
     end
   end
 
+  # Document to be indexed
+  struct Document
+    property source_type : String
+    property source_id : Int64
+    property text : String
+    property pair_id : Int64?
+    property parent_id : Int64?
+
+    def initialize(
+      @source_type : String,
+      @source_id : Int64,
+      @text : String,
+      @pair_id : Int64? = nil,
+      @parent_id : Int64? = nil
+    )
+    end
+  end
+
   # Main service class for semantic search operations
   #
   # Encapsulates configuration and provides clean API for indexing and search.
@@ -259,6 +277,91 @@ module Memo
       success_count
     rescue ex
       raise Exception.new("Index failed: #{ex.message}")
+    end
+
+    # Index a document (Document overload)
+    #
+    # Convenience method that accepts a Document struct.
+    def index(doc : Document) : Int32
+      index(
+        source_type: doc.source_type,
+        source_id: doc.source_id,
+        text: doc.text,
+        pair_id: doc.pair_id,
+        parent_id: doc.parent_id
+      )
+    end
+
+    # Index multiple documents in a batch
+    #
+    # More efficient than calling index() multiple times:
+    # - Chunks all documents
+    # - Embeds all chunks in fewer API calls
+    # - Stores all in a single transaction
+    #
+    # Returns total number of chunks successfully stored.
+    def index_batch(docs : Array(Document)) : Int32
+      return 0 if docs.empty?
+
+      # Chunk all documents and track which chunks belong to which doc
+      doc_chunks = [] of {Document, Array(String)}
+      all_chunks = [] of String
+
+      docs.each do |doc|
+        chunks = Chunking.chunk_text(doc.text, @chunking_config)
+        next if chunks.empty?
+        doc_chunks << {doc, chunks}
+        all_chunks.concat(chunks)
+      end
+
+      return 0 if all_chunks.empty?
+
+      # Embed all chunks in one batch call
+      embed_result = @provider.embed_texts(all_chunks)
+
+      # Store all chunks in a single transaction
+      success_count = 0
+      embed_idx = 0
+
+      @db.transaction do
+        doc_chunks.each do |doc, chunks|
+          current_offset = 0
+
+          chunks.each do |chunk_text|
+            hash = Storage.compute_hash(chunk_text)
+            embedding = embed_result.embeddings[embed_idx]
+            token_count = embed_result.token_counts[embed_idx]
+            chunk_size = chunk_text.size
+
+            # Store embedding (deduplicated by hash)
+            Storage.store_embedding(@db, hash, embedding, token_count, @service_id)
+
+            # Compute and store projections for fast filtering
+            projections = Projection.compute_projections(embedding, @projection_vectors)
+            Projection.store_projections(@db, hash, projections)
+
+            # Create chunk reference
+            Storage.create_chunk(
+              db: @db,
+              hash: hash,
+              source_type: doc.source_type,
+              source_id: doc.source_id,
+              offset: current_offset,
+              size: chunk_size,
+              pair_id: doc.pair_id,
+              parent_id: doc.parent_id
+            )
+
+            success_count += 1
+            current_offset += chunk_size
+            embed_idx += 1
+          end
+        end
+      end
+
+      success_count
+    rescue ex
+      raise Exception.new("Batch index failed: #{ex.message}")
     end
 
     # Search for semantically similar chunks

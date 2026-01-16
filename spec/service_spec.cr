@@ -168,6 +168,102 @@ describe Memo::Service do
         projections.not_nil!.size.should eq(Memo::Projection::K)
       end
     end
+
+    it "indexes using Document struct" do
+      with_test_service do |service|
+        doc = Memo::Document.new(
+          source_type: "event",
+          source_id: 1_i64,
+          text: "Document struct test"
+        )
+
+        count = service.index(doc)
+        count.should be > 0
+
+        stats = service.stats
+        stats.sources.should eq(1)
+      end
+    end
+  end
+
+  describe "#index_batch" do
+    it "indexes multiple documents in one call" do
+      with_test_service do |service|
+        docs = [
+          Memo::Document.new(source_type: "event", source_id: 1_i64, text: "First document"),
+          Memo::Document.new(source_type: "event", source_id: 2_i64, text: "Second document"),
+          Memo::Document.new(source_type: "idea", source_id: 3_i64, text: "Third document"),
+        ]
+
+        count = service.index_batch(docs)
+        count.should eq(3)
+
+        stats = service.stats
+        stats.sources.should eq(3)
+        stats.chunks.should eq(3)
+      end
+    end
+
+    it "returns 0 for empty array" do
+      with_test_service do |service|
+        count = service.index_batch([] of Memo::Document)
+        count.should eq(0)
+      end
+    end
+
+    it "skips documents with empty text" do
+      with_test_service do |service|
+        docs = [
+          Memo::Document.new(source_type: "event", source_id: 1_i64, text: "Valid document"),
+          Memo::Document.new(source_type: "event", source_id: 2_i64, text: ""),
+          Memo::Document.new(source_type: "event", source_id: 3_i64, text: "Another valid"),
+        ]
+
+        count = service.index_batch(docs)
+        count.should eq(2)
+
+        stats = service.stats
+        stats.sources.should eq(2)
+      end
+    end
+
+    it "handles Document with pair_id and parent_id" do
+      with_test_service do |service|
+        docs = [
+          Memo::Document.new(
+            source_type: "event",
+            source_id: 1_i64,
+            text: "Document with relationships",
+            pair_id: 99_i64,
+            parent_id: 88_i64
+          ),
+        ]
+
+        service.index_batch(docs)
+
+        result = service.db.query_one(
+          "SELECT pair_id, parent_id FROM #{Memo.table_prefix}chunks LIMIT 1",
+          as: {Int64?, Int64?}
+        )
+        result.should eq({99_i64, 88_i64})
+      end
+    end
+
+    it "deduplicates shared content across documents" do
+      with_test_service do |service|
+        docs = [
+          Memo::Document.new(source_type: "event", source_id: 1_i64, text: "Shared text"),
+          Memo::Document.new(source_type: "event", source_id: 2_i64, text: "Shared text"),
+        ]
+
+        count = service.index_batch(docs)
+        count.should eq(2)
+
+        stats = service.stats
+        stats.embeddings.should eq(1)  # Deduplicated
+        stats.chunks.should eq(2)      # Two chunks
+      end
+    end
   end
 
   describe "#search" do
