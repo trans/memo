@@ -51,11 +51,14 @@ module Memo
     # chunk_filter: Raw SQL fragment to filter chunks (e.g., for ATTACH queries).
     #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')"
     #
-    # text_filter: LIKE pattern for filtering by text content (e.g., "%keyword%").
+    # like: Array of LIKE patterns for AND filtering by text content.
+    #   Requires text_schema to be set.
+    #
+    # match: FTS5 full-text search query (e.g., "cats OR dogs").
     #   Requires text_schema to be set.
     #
     # text_schema: Schema name for ATTACHed text database (e.g., "text_store").
-    #   Required for text_filter and include_text.
+    #   Required for like, match, and include_text.
     #
     # include_text: If true, includes text content in search results.
     #   Requires text_schema to be set.
@@ -78,7 +81,8 @@ module Memo
       chunk_filter : String? = nil,
       projection_vectors : Array(Array(Float64))? = nil,
       projection_threshold : Float64 = 2.0,
-      text_filter : String? = nil,
+      like : Array(String)? = nil,
+      match : String? = nil,
       text_schema : String? = nil,
       include_text : Bool = false
     ) : Array(Result)
@@ -141,16 +145,38 @@ module Memo
 
       # Add text join if text filtering or text inclusion requested
       text_join = ""
+      fts_join = ""
       text_select = ""
-      if text_schema && (text_filter || include_text)
+      needs_text_join = text_schema && (like || include_text)
+      needs_fts_join = text_schema && match
+
+      if needs_text_join
         text_join = "JOIN #{text_schema}.texts t ON c.hash = t.hash"
         text_select = ", t.content" if include_text
       end
 
-      # Add text filter if provided
-      if text_filter && text_schema && !text_filter.empty?
-        where_clauses << "t.content LIKE ?"
-        params << text_filter
+      # Add FTS5 join if match query provided
+      if needs_fts_join
+        fts_join = "JOIN #{text_schema}.texts_fts fts ON c.hash = fts.hash"
+        # Also need text join for include_text if not already added
+        if include_text && !needs_text_join
+          text_join = "JOIN #{text_schema}.texts t ON c.hash = t.hash"
+          text_select = ", t.content"
+        end
+      end
+
+      # Add LIKE filters (AND logic)
+      if like && text_schema && !like.empty?
+        like.each do |pattern|
+          where_clauses << "t.content LIKE ?"
+          params << pattern
+        end
+      end
+
+      # Add FTS5 match filter
+      if match && text_schema && !match.empty?
+        where_clauses << "fts MATCH ?"
+        params << match
       end
 
       where_clause = "WHERE #{where_clauses.join(" AND ")}"
@@ -167,6 +193,7 @@ module Memo
           JOIN #{prefix}embeddings e ON c.hash = e.hash
           #{projection_join}
           #{text_join}
+          #{fts_join}
           #{where_clause}
         SQL
         args: params

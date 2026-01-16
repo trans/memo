@@ -42,12 +42,22 @@ module Memo
     # Creates the texts table for storing document content.
     # Text is keyed by content hash (same as embeddings).
     # This database is persistent and survives embedding regeneration.
+    #
+    # Also creates FTS5 virtual table for full-text search.
     def init_text_db(db : DB::Database, schema_name : String = "text_store")
+      # Main text storage table
       db.exec(<<-SQL)
         CREATE TABLE IF NOT EXISTS #{schema_name}.texts (
           hash BLOB PRIMARY KEY,
           content TEXT NOT NULL
         )
+      SQL
+
+      # FTS5 virtual table for full-text search
+      # Uses hash as the rowid for joining back to texts table
+      db.exec(<<-SQL)
+        CREATE VIRTUAL TABLE IF NOT EXISTS #{schema_name}.texts_fts
+        USING fts5(hash UNINDEXED, content)
       SQL
     end
 

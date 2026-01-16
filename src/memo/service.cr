@@ -408,7 +408,14 @@ module Memo
     #
     # Returns array of search results ranked by similarity.
     #
-    # text_filter: LIKE pattern to filter by text content (e.g., "%keyword%").
+    # like: LIKE pattern(s) to filter by text content.
+    #   Single string or array of strings for AND filtering.
+    #   Example: like: "%cats%" or like: ["%cats%", "%dogs%"]
+    #   Only works when text storage is enabled.
+    #
+    # match: FTS5 full-text search query.
+    #   Supports AND, OR, NOT, prefix*, "phrases".
+    #   Example: match: "cats OR dogs", match: "quick brown*"
     #   Only works when text storage is enabled.
     #
     # chunk_filter: Raw SQL fragment for filtering chunks. Used with ATTACH
@@ -425,7 +432,8 @@ module Memo
       source_id : Int64? = nil,
       pair_id : Int64? = nil,
       parent_id : Int64? = nil,
-      text_filter : String? = nil,
+      like : String | Array(String) | Nil = nil,
+      match : String? = nil,
       chunk_filter : String? = nil,
       include_text : Bool = false
     ) : Array(Search::Result)
@@ -444,6 +452,13 @@ module Memo
                   nil
                 end
 
+      # Normalize like to array
+      like_patterns = case like
+                      when String then [like]
+                      when Array  then like
+                      else             nil
+                      end
+
       # Search with projection filtering
       Search.semantic(
         db: @db,
@@ -454,7 +469,8 @@ module Memo
         filters: filters,
         chunk_filter: chunk_filter,
         projection_vectors: @projection_vectors,
-        text_filter: @text_storage ? text_filter : nil,
+        like: @text_storage ? like_patterns : nil,
+        match: @text_storage ? match : nil,
         text_schema: @text_storage ? TEXT_SCHEMA : nil,
         include_text: @text_storage && include_text
       )
@@ -608,11 +624,27 @@ module Memo
     end
 
     # Store text content in text.db (deduplicated by hash)
+    # Also populates FTS5 index for full-text search
     private def store_text(hash : Bytes, content : String)
+      # Insert into main texts table
       @db.exec(
         "INSERT OR IGNORE INTO #{TEXT_SCHEMA}.texts (hash, content) VALUES (?, ?)",
         hash, content
       )
+
+      # Insert into FTS5 index (also deduplicated via INSERT OR IGNORE behavior)
+      # FTS5 doesn't support INSERT OR IGNORE, so we check first
+      existing = @db.query_one?(
+        "SELECT 1 FROM #{TEXT_SCHEMA}.texts_fts WHERE hash = ?",
+        hash,
+        as: Int32
+      )
+      unless existing
+        @db.exec(
+          "INSERT INTO #{TEXT_SCHEMA}.texts_fts (hash, content) VALUES (?, ?)",
+          hash, content
+        )
+      end
     end
 
     # Get text content by hash

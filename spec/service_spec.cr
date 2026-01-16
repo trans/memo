@@ -313,13 +313,38 @@ describe Memo::Service do
       end
     end
 
-    it "filters by text_filter pattern" do
+    it "filters by like pattern" do
       with_test_service do |service|
         service.index(source_type: "event", source_id: 1_i64, text: "Document about cats")
         service.index(source_type: "event", source_id: 2_i64, text: "Document about dogs")
 
-        # Search with text filter
-        results = service.search(query: "document", text_filter: "%cats%", min_score: 0.0)
+        # Search with like filter
+        results = service.search(query: "document", like: "%cats%", min_score: 0.0)
+        results.size.should eq(1)
+        results.first.source_id.should eq(1_i64)
+      end
+    end
+
+    it "filters by multiple like patterns (AND)" do
+      with_test_service do |service|
+        service.index(source_type: "event", source_id: 1_i64, text: "Document about cats and dogs")
+        service.index(source_type: "event", source_id: 2_i64, text: "Document about cats only")
+        service.index(source_type: "event", source_id: 3_i64, text: "Document about dogs only")
+
+        # Search with multiple like patterns (AND)
+        results = service.search(query: "document", like: ["%cats%", "%dogs%"], min_score: 0.0)
+        results.size.should eq(1)
+        results.first.source_id.should eq(1_i64)
+      end
+    end
+
+    it "filters by FTS5 match query" do
+      with_test_service do |service|
+        service.index(source_type: "event", source_id: 1_i64, text: "The quick brown fox")
+        service.index(source_type: "event", source_id: 2_i64, text: "The lazy dog sleeps")
+
+        # Search with FTS5 match
+        results = service.search(query: "animal", match: "fox", min_score: 0.0)
         results.size.should eq(1)
         results.first.source_id.should eq(1_i64)
       end
