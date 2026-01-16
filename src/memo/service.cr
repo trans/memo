@@ -418,6 +418,12 @@ module Memo
     #   Example: match: "cats OR dogs", match: "quick brown*"
     #   Only works when text storage is enabled.
     #
+    # TODO: Integrate RRF (Reciprocal Rank Fusion) when match is provided.
+    #   Currently match filters results; should instead run both semantic
+    #   and FTS5 searches, then merge rankings via RRF for better results.
+    #   Also consider: other search types, search ordering options, and
+    #   exposing both semantic_score and fts_rank in results.
+    #
     # sql_where: Raw SQL fragment for filtering chunks. Used with ATTACH
     #   to filter by external database tables.
     #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')"
