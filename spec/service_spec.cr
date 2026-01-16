@@ -546,5 +546,28 @@ describe Memo::Service do
         deleted.should eq(0)
       end
     end
+
+    it "deletes only matching source_type when specified" do
+      with_test_service do |service|
+        # Index same source_id with different types
+        service.index(source_type: "event", source_id: 1_i64, text: "Event document")
+        service.index(source_type: "idea", source_id: 1_i64, text: "Idea document")
+
+        stats_before = service.stats
+        stats_before.chunks.should eq(2)
+
+        # Delete only the event type
+        deleted = service.delete(source_id: 1_i64, source_type: "event")
+        deleted.should eq(1)
+
+        stats_after = service.stats
+        stats_after.chunks.should eq(1)
+
+        # Verify the idea document remains
+        results = service.search(query: "document", source_type: "idea", min_score: 0.0)
+        results.size.should eq(1)
+        results.first.source_type.should eq("idea")
+      end
+    end
   end
 end

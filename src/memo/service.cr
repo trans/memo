@@ -511,27 +511,31 @@ module Memo
 
     # Delete all chunks for a source
     #
-    # Removes all chunks with the given source_id.
+    # Removes all chunks with the given source_id (and optionally source_type).
     # Orphaned embeddings (not referenced by any chunk) are also cleaned up.
     #
     # Returns number of chunks deleted.
     #
-    # TODO: May need to add source_type parameter if source_id is not globally unique
-    #       across all source types. Current design assumes source_id uniqueness.
+    # source_type: Optional filter to only delete chunks with matching source_type.
+    #   If nil, deletes all chunks with the given source_id regardless of type.
     #
     # TODO: Consider adding delete_batch(source_ids : Array(Int64)) if bulk deletion
     #       becomes a common use case. Unlike index_batch, there's no API call savings,
     #       but it could reduce transaction overhead for large deletions.
-    def delete(source_id : Int64) : Int32
+    def delete(source_id : Int64, source_type : String? = nil) : Int32
       prefix = Memo.table_prefix
+
+      # Build query based on whether source_type is provided
+      type_filter = source_type ? " AND c.source_type = ?" : ""
+      query_params = source_type ? [source_id, @service_id, source_type] : [source_id, @service_id]
 
       # Get hashes of chunks to be deleted (for orphan cleanup)
       hashes = [] of Bytes
       @db.query(
         "SELECT DISTINCT c.hash FROM #{prefix}chunks c
          JOIN #{prefix}embeddings e ON c.hash = e.hash
-         WHERE c.source_id = ? AND e.service_id = ?",
-        source_id, @service_id
+         WHERE c.source_id = ? AND e.service_id = ?#{type_filter}",
+        args: query_params
       ) do |rs|
         rs.each do
           hashes << rs.read(Bytes)
@@ -545,10 +549,17 @@ module Memo
       @db.transaction do
         # Delete chunks
         hashes.each do |hash|
-          @db.exec(
-            "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ?",
-            hash, source_id
-          )
+          if source_type
+            @db.exec(
+              "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ? AND source_type = ?",
+              hash, source_id, source_type
+            )
+          else
+            @db.exec(
+              "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ?",
+              hash, source_id
+            )
+          end
         end
 
         deleted_count = hashes.size
