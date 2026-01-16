@@ -453,6 +453,10 @@ module Memo
     #
     # TODO: May need to add source_type parameter if source_id is not globally unique
     #       across all source types. Current design assumes source_id uniqueness.
+    #
+    # TODO: Consider adding delete_batch(source_ids : Array(Int64)) if bulk deletion
+    #       becomes a common use case. Unlike index_batch, there's no API call savings,
+    #       but it could reduce transaction overhead for large deletions.
     def delete(source_id : Int64) : Int32
       prefix = Memo.table_prefix
 
