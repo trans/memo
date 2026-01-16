@@ -48,7 +48,7 @@ module Memo
     #
     # IMPORTANT: Must provide service_id to ensure embeddings are from same vector space
     #
-    # chunk_filter: Raw SQL fragment to filter chunks (e.g., for ATTACH queries).
+    # sql_where: Raw SQL fragment to filter chunks (e.g., for ATTACH queries).
     #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')"
     #
     # like: Array of LIKE patterns for AND filtering by text content.
@@ -78,7 +78,7 @@ module Memo
       min_score : Float64 = 0.7,
       filters : Filters? = nil,
       detail : Symbol = :reference,
-      chunk_filter : String? = nil,
+      sql_where : String? = nil,
       projection_vectors : Array(Array(Float64))? = nil,
       projection_threshold : Float64 = 2.0,
       like : Array(String)? = nil,
@@ -122,9 +122,9 @@ module Memo
         end
       end
 
-      # Add raw chunk filter if provided (for ATTACH queries)
-      if chunk_filter && !chunk_filter.empty?
-        where_clauses << "(#{chunk_filter})"
+      # Add raw SQL WHERE clause if provided (for ATTACH queries)
+      if sql_where && !sql_where.empty?
+        where_clauses << "(#{sql_where})"
       end
 
       # Add projection distance filter if projections available

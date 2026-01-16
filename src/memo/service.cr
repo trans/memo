@@ -98,7 +98,7 @@ module Memo
     #   provider: "openai",
     #   api_key: key
     # )
-    # # Now can use chunk_filter: "c.source_id IN (SELECT id FROM main.artifact ...)"
+    # # Now can use sql_where: "c.source_id IN (SELECT id FROM main.artifact ...)"
     # ```
     def initialize(
       data_dir : String,
@@ -418,7 +418,7 @@ module Memo
     #   Example: match: "cats OR dogs", match: "quick brown*"
     #   Only works when text storage is enabled.
     #
-    # chunk_filter: Raw SQL fragment for filtering chunks. Used with ATTACH
+    # sql_where: Raw SQL fragment for filtering chunks. Used with ATTACH
     #   to filter by external database tables.
     #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')"
     #
@@ -434,7 +434,7 @@ module Memo
       parent_id : Int64? = nil,
       like : String | Array(String) | Nil = nil,
       match : String? = nil,
-      chunk_filter : String? = nil,
+      sql_where : String? = nil,
       include_text : Bool = false
     ) : Array(Search::Result)
       # Generate query embedding
@@ -467,7 +467,7 @@ module Memo
         limit: limit,
         min_score: min_score,
         filters: filters,
-        chunk_filter: chunk_filter,
+        sql_where: sql_where,
         projection_vectors: @projection_vectors,
         like: @text_storage ? like_patterns : nil,
         match: @text_storage ? match : nil,
