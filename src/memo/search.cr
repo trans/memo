@@ -55,6 +55,14 @@ module Memo
     #
     # chunk_filter: Raw SQL fragment to filter chunks (e.g., for ATTACH queries).
     #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')"
+    #
+    # projection_vectors: Random orthogonal vectors for fast pre-filtering.
+    #   If provided, candidates are filtered by projection distance before
+    #   computing full cosine similarity.
+    #
+    # projection_threshold: Maximum squared distance in projection space.
+    #   Candidates with projection distance > threshold are skipped.
+    #   Default 2.0 is generous to avoid false negatives.
     def semantic(
       db : DB::Database,
       embedding : Array(Float64),
@@ -63,9 +71,18 @@ module Memo
       min_score : Float64 = 0.7,
       filters : Filters? = nil,
       detail : Symbol = :reference,
-      chunk_filter : String? = nil
+      chunk_filter : String? = nil,
+      projection_vectors : Array(Array(Float64))? = nil,
+      projection_threshold : Float64 = 2.0
     ) : Array(Result)
       prefix = Memo.table_prefix
+
+      # Compute query projections if projection vectors provided
+      query_projections = if proj_vecs = projection_vectors
+                            Projection.compute_projections(embedding, proj_vecs)
+                          else
+                            nil
+                          end
 
       # Build WHERE clauses
       where_clauses = [] of String
@@ -99,6 +116,22 @@ module Memo
         where_clauses << "(#{chunk_filter})"
       end
 
+      # Add projection distance filter if projections available
+      projection_join = ""
+      if qp = query_projections
+        projection_join = "JOIN #{prefix}projections p ON c.hash = p.hash"
+        # Squared Euclidean distance in projection space
+        distance_expr = (0...Projection::K).map { |i|
+          "(p.proj_#{i} - ?) * (p.proj_#{i} - ?)"
+        }.join(" + ")
+        where_clauses << "(#{distance_expr}) <= ?"
+        qp.each do |proj|
+          params << proj
+          params << proj
+        end
+        params << projection_threshold
+      end
+
       where_clause = "WHERE #{where_clauses.join(" AND ")}"
 
       # Stream embeddings and keep only top-k results
@@ -111,6 +144,7 @@ module Memo
                  e.embedding
           FROM #{prefix}chunks c
           JOIN #{prefix}embeddings e ON c.hash = e.hash
+          #{projection_join}
           #{where_clause}
         SQL
         args: params

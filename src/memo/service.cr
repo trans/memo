@@ -27,6 +27,8 @@ module Memo
     getter provider : Providers::Base
     getter service_id : Int64
     getter chunking_config : Config::Chunking
+    getter dimensions : Int32
+    getter projection_vectors : Array(Array(Float64))
 
     # Track whether we own the db connection (for close behavior)
     @owns_db : Bool = true
@@ -99,6 +101,9 @@ module Memo
         raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds provider limit (#{final_max_tokens})")
       end
 
+      # Store dimensions for projection vector generation
+      @dimensions = final_dimensions
+
       # Register service in database
       @service_id = Storage.register_service(
         db: @db,
@@ -108,6 +113,10 @@ module Memo
         dimensions: final_dimensions,
         max_tokens: final_max_tokens
       )
+
+      # Get or create projection vectors for this service
+      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
+                            create_projection_vectors
 
       # Create chunking config
       @chunking_config = Config::Chunking.new(
@@ -158,6 +167,9 @@ module Memo
         raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds provider limit (#{final_max_tokens})")
       end
 
+      # Store dimensions for projection vector generation
+      @dimensions = final_dimensions
+
       # Register service in database
       @service_id = Storage.register_service(
         db: @db,
@@ -167,6 +179,10 @@ module Memo
         dimensions: final_dimensions,
         max_tokens: final_max_tokens
       )
+
+      # Get or create projection vectors for this service
+      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
+                            create_projection_vectors
 
       # Create chunking config
       @chunking_config = Config::Chunking.new(
@@ -208,6 +224,10 @@ module Memo
 
           # Store embedding (deduplicated by hash)
           Storage.store_embedding(@db, hash, embedding, token_count, @service_id)
+
+          # Compute and store projections for fast filtering
+          projections = Projection.compute_projections(embedding, @projection_vectors)
+          Projection.store_projections(@db, hash, projections)
 
           # Create chunk reference
           Storage.create_chunk(
@@ -265,7 +285,7 @@ module Memo
                   nil
                 end
 
-      # Search
+      # Search with projection filtering
       Search.semantic(
         db: @db,
         embedding: query_embedding,
@@ -273,7 +293,8 @@ module Memo
         limit: limit,
         min_score: min_score,
         filters: filters,
-        chunk_filter: chunk_filter
+        chunk_filter: chunk_filter,
+        projection_vectors: @projection_vectors
       )
     end
 
@@ -324,6 +345,13 @@ module Memo
       when "mock"   then 100
       else               raise "Unknown provider"
       end
+    end
+
+    # Generate and store projection vectors for this service
+    private def create_projection_vectors : Array(Array(Float64))
+      vectors = Projection.generate_orthogonal_vectors(@dimensions)
+      Projection.store_projection_vectors(@db, @service_id, vectors)
+      vectors
     end
   end
 end
