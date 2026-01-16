@@ -355,6 +355,28 @@ describe Memo::Service do
       end
     end
 
+    it "can be disabled with store_text: false" do
+      with_test_data_dir do |data_dir|
+        service = Memo::Service.new(
+          data_dir: data_dir,
+          provider: "mock",
+          store_text: false,
+          chunking_max_tokens: 50
+        )
+
+        service.text_storage?.should be_false
+
+        # Index should still work
+        count = service.index(source_type: "event", source_id: 1_i64, text: "Test doc")
+        count.should be > 0
+
+        # text.db should not exist
+        File.exists?(File.join(data_dir, "text.db")).should be_false
+
+        service.close
+      end
+    end
+
     it "stores text in text.db" do
       with_test_service do |service|
         service.index(source_type: "event", source_id: 1_i64, text: "Stored text content")

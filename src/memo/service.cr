@@ -83,6 +83,7 @@ module Memo
     # - api_key: Provider API key (not needed for mock)
     #
     # Optional:
+    # - store_text: Enable text storage in text.db (default true)
     # - attach: Hash of alias => path for databases to ATTACH
     # - model: Embedding model (default depends on provider)
     # - dimensions: Vector dimensions (auto-detected from model)
@@ -107,6 +108,7 @@ module Memo
       dimensions : Int32? = nil,
       max_tokens : Int32? = nil,
       chunking_max_tokens : Int32 = 2000,
+      store_text : Bool = true,
       attach : Hash(String, String)? = nil
     )
       # Store data directory
@@ -121,11 +123,13 @@ module Memo
       @owns_db = true
       Database.init(@db)
 
-      # ATTACH and initialize text database for text storage
-      text_path = File.join(data_dir, "text.db")
-      @db.exec("ATTACH DATABASE '#{text_path}' AS #{TEXT_SCHEMA}")
-      Database.init_text_db(@db, TEXT_SCHEMA)
-      @text_storage = true
+      # ATTACH and initialize text database if text storage enabled
+      if store_text
+        text_path = File.join(data_dir, "text.db")
+        @db.exec("ATTACH DATABASE '#{text_path}' AS #{TEXT_SCHEMA}")
+        Database.init_text_db(@db, TEXT_SCHEMA)
+        @text_storage = true
+      end
 
       # ATTACH additional databases if specified
       attach.try &.each do |db_alias, path|
