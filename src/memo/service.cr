@@ -841,7 +841,7 @@ module Memo
     #
     # Returns number of items queued for re-indexing.
     def reindex(source_type : String) : Int32
-      raise "Text storage required for reindex" unless @text_storage
+      raise "Text storage required for reindex without block" unless @text_storage
 
       prefix = Memo.table_prefix
       queued = 0
@@ -880,6 +880,67 @@ module Memo
 
         # Queue for re-embedding
         chunks.each do |source_id, pair_id, parent_id, text|
+          enqueue(
+            source_type: source_type,
+            source_id: source_id,
+            text: text,
+            pair_id: pair_id,
+            parent_id: parent_id
+          )
+          queued += 1
+        end
+      end
+
+      queued
+    end
+
+    # Re-index all content of a given source type using a block to fetch text
+    #
+    # Use this when text storage is disabled. The block receives each source_id
+    # and should return the text to embed.
+    #
+    # Returns number of items queued for re-indexing.
+    #
+    # Example:
+    # ```
+    # memo.reindex("article") do |source_id|
+    #   app.get_article_text(source_id)
+    # end
+    # memo.process_queue
+    # ```
+    def reindex(source_type : String, &block : Int64 -> String) : Int32
+      prefix = Memo.table_prefix
+      queued = 0
+
+      # Get all source_ids and metadata for this source type
+      sources = [] of {Int64, Int64?, Int64?}
+
+      @db.query(
+        "SELECT DISTINCT c.source_id, c.pair_id, c.parent_id
+         FROM #{prefix}chunks c
+         JOIN #{prefix}embeddings e ON c.hash = e.hash
+         WHERE c.source_type = ? AND e.service_id = ?",
+        source_type, @service_id
+      ) do |rs|
+        rs.each do
+          source_id = rs.read(Int64)
+          pair_id = rs.read(Int64?)
+          parent_id = rs.read(Int64?)
+          sources << {source_id, pair_id, parent_id}
+        end
+      end
+
+      return 0 if sources.empty?
+
+      @db.transaction do
+        # Delete existing chunks and embeddings
+        sources.each do |source_id, _, _|
+          delete(source_id, source_type)
+        end
+
+        # Queue for re-embedding using block to get text
+        sources.each do |source_id, pair_id, parent_id|
+          text = block.call(source_id)
           enqueue(
             source_type: source_type,
             source_id: source_id,

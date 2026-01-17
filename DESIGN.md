@@ -345,13 +345,20 @@ memo.clear_queue
 # (requires text storage enabled)
 queued = memo.reindex(source_type: "article")
 memo.process_queue  # Actually re-embed
+
+# Re-index with block (when text storage disabled)
+# Block receives source_id and returns text
+memo.reindex("article") do |source_id|
+  app.get_article_text(source_id)
+end
+memo.process_queue
 ```
 
 **Queue behavior:**
 - Items are processed in batches using `batch_size` (default: 100)
 - Failed items retry up to `max_retries` times (default: 3)
 - After max retries, items are marked as permanently failed (status > 0)
-- `reindex` requires text storage to retrieve original content
+- `reindex` without block requires text storage; with block works regardless
 
 ## Projection Filtering
 
