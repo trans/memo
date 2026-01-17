@@ -4,7 +4,7 @@ Semantic search and vector storage library for Crystal.
 
 ## Features
 
-- **Text chunking** - Smart segmentation into optimal-sized pieces
+- **Text chunking** - Smart segmentation at semantic boundaries
 - **Embedding storage** - Deduplication by content hash
 - **Similarity search** - Cosine similarity with filtering
 - **Text storage** - Optional persistent text with LIKE and FTS5 full-text search
