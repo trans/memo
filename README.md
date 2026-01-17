@@ -66,9 +66,22 @@ memo = Memo::Service.new(
   provider: "openai",          # Embedding provider
   api_key: "sk-...",           # API key for provider
   model: nil,                  # Optional: override default model
+  dimensions: nil,             # Optional: embedding dimensions (provider default)
   store_text: true,            # Optional: enable text storage (default true)
   chunking_max_tokens: 2000,   # Optional: max tokens per chunk
   attach: nil                  # Optional: external databases to ATTACH
+)
+```
+
+For smaller embeddings (faster search, less storage):
+
+```crystal
+memo = Memo::Service.new(
+  data_dir: "/var/data/memo",
+  provider: "openai",
+  api_key: key,
+  model: "text-embedding-3-large",
+  dimensions: 1024  # Reduced from 3072 default
 )
 ```
 
@@ -156,6 +169,36 @@ results = memo.search(
   query: "project updates",
   sql_where: "c.source_id IN (SELECT id FROM app.articles WHERE status = 'published')"
 )
+```
+
+#### Queue Operations
+
+All indexing goes through an embed queue with automatic retry support:
+
+```crystal
+# Check queue status
+stats = memo.queue_stats
+puts "Pending: #{stats[:pending]}, Failed: #{stats[:failed]}"
+
+# Process any pending/failed items in queue
+memo.process_queue
+
+# Process queue in background (non-blocking)
+memo.process_queue_async
+
+# Re-index all documents of a type (requires text storage)
+memo.reindex("article")
+
+# Re-index with custom text provider (no text storage needed)
+memo.reindex("article") do |source_id|
+  Article.find(source_id).content  # Your app provides text
+end
+
+# Clear completed items from queue
+memo.clear_completed_queue
+
+# Clear entire queue (pending, failed, completed)
+memo.clear_queue
 ```
 
 #### Other Operations
