@@ -202,8 +202,11 @@ memo = Memo::Service.new(
 
 ### Indexing
 
+All indexing operations use the embed queue internally, providing automatic retry
+support and error tracking.
+
 ```crystal
-# Single document
+# Single document (enqueues and processes immediately)
 memo.index(
   source_type: "article",
   source_id: 123_i64,
@@ -220,7 +223,7 @@ doc = Memo::Document.new(
 )
 memo.index(doc)
 
-# Batch indexing (more efficient for multiple documents)
+# Batch indexing (enqueues all, then processes)
 docs = [
   Memo::Document.new(source_type: "article", source_id: 1_i64, text: "First..."),
   Memo::Document.new(source_type: "article", source_id: 2_i64, text: "Second..."),
@@ -229,12 +232,14 @@ memo.index_batch(docs)
 ```
 
 **Indexing process:**
-1. Chunk text into optimal-sized pieces
-2. Generate embeddings via provider API
-3. Compute projection values for fast filtering
-4. Store embeddings (deduplicated by content hash)
-5. Create chunk references linking to source
-6. Store text content in text.db (if enabled)
+1. Enqueue document in embed_queue table
+2. Chunk text into optimal-sized pieces
+3. Generate embeddings via provider API (with retry on failure)
+4. Compute projection values for fast filtering
+5. Store embeddings (deduplicated by content hash)
+6. Create chunk references linking to source
+7. Store text content in text.db (if enabled)
+8. Mark queue item as completed
 
 ### Search
 
@@ -314,21 +319,22 @@ memo.close
 
 ### Queue Operations
 
-The embed queue allows deferred embedding for background processing and re-indexing.
+While `index()` and `index_batch()` use the queue internally and process immediately,
+you can also use the queue directly for deferred/background processing:
 
 ```crystal
-# Enqueue documents (no embedding yet)
+# Enqueue documents for later processing
 memo.enqueue(source_type: "article", source_id: 123_i64, text: "Document text...")
 memo.enqueue(doc)  # Document struct
 
-# Batch enqueue
+# Batch enqueue (no embedding yet)
 memo.enqueue_batch(docs)
 
-# Process queue (blocks until complete)
+# Process queue later (blocks until complete)
 processed = memo.process_queue
 # => 42
 
-# Process queue asynchronously (returns immediately)
+# Or process asynchronously (returns immediately)
 memo.process_queue_async
 
 # Check queue status
