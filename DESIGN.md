@@ -152,6 +152,15 @@ memo = Memo::Service.new(
   api_key: ENV["OPENAI_API_KEY"]
 )
 
+# With explicit model and dimensions
+memo = Memo::Service.new(
+  data_dir: "/var/data/memo",
+  provider: "openai",
+  api_key: api_key,
+  model: "text-embedding-3-large",  # Default: text-embedding-3-small
+  dimensions: 3072                   # Auto-detected from model if not specified
+)
+
 # Without text storage (manage text separately)
 memo = Memo::Service.new(
   data_dir: "/var/data/memo",
@@ -167,7 +176,29 @@ memo = Memo::Service.new(
   provider: "openai",
   api_key: api_key
 )
+
+# With queue configuration
+memo = Memo::Service.new(
+  data_dir: "/var/data/memo",
+  provider: "openai",
+  api_key: api_key,
+  batch_size: 100,    # Max texts per embedding API call (default: 100)
+  max_retries: 3      # Queue retry limit (default: 3)
+)
 ```
+
+**Initialization parameters:**
+- `data_dir`: Directory for database files (required)
+- `provider`: "openai" or "mock" (required)
+- `api_key`: Provider API key (required for openai)
+- `model`: Embedding model (default: text-embedding-3-small)
+- `dimensions`: Vector dimensions (auto-detected from model)
+- `max_tokens`: Provider token limit (auto-detected from model)
+- `chunking_max_tokens`: Max tokens per chunk (default: 2000)
+- `store_text`: Enable text storage in text.db (default: true)
+- `attach`: Hash of alias => path for databases to ATTACH
+- `batch_size`: Max texts per embedding API call (default: 100)
+- `max_retries`: Queue retry limit before marking failed (default: 3)
 
 ### Indexing
 
@@ -280,6 +311,47 @@ memo.mark_as_read(chunk_ids: [1_i64, 2_i64])
 # Close connection
 memo.close
 ```
+
+### Queue Operations
+
+The embed queue allows deferred embedding for background processing and re-indexing.
+
+```crystal
+# Enqueue documents (no embedding yet)
+memo.enqueue(source_type: "article", source_id: 123_i64, text: "Document text...")
+memo.enqueue(doc)  # Document struct
+
+# Batch enqueue
+memo.enqueue_batch(docs)
+
+# Process queue (blocks until complete)
+processed = memo.process_queue
+# => 42
+
+# Process queue asynchronously (returns immediately)
+memo.process_queue_async
+
+# Check queue status
+stats = memo.queue_stats
+# => QueueStats(pending: 10, failed: 2)
+
+# Clear completed items
+memo.clear_completed_queue
+
+# Clear all items
+memo.clear_queue
+
+# Re-index all content of a source type
+# (requires text storage enabled)
+queued = memo.reindex(source_type: "article")
+memo.process_queue  # Actually re-embed
+```
+
+**Queue behavior:**
+- Items are processed in batches using `batch_size` (default: 100)
+- Failed items retry up to `max_retries` times (default: 3)
+- After max retries, items are marked as permanently failed (status > 0)
+- `reindex` requires text storage to retrieve original content
 
 ## Projection Filtering
 

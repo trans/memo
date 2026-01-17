@@ -62,7 +62,9 @@ module Memo
     getter provider : Providers::Base
     getter service_id : Int64
     getter chunking_config : Config::Chunking
+    getter queue_config : Config::Queue
     getter dimensions : Int32
+    getter batch_size : Int32
     getter projection_vectors : Array(Array(Float64))
     getter data_dir : String?
 
@@ -109,7 +111,9 @@ module Memo
       max_tokens : Int32? = nil,
       chunking_max_tokens : Int32 = 2000,
       store_text : Bool = true,
-      attach : Hash(String, String)? = nil
+      attach : Hash(String, String)? = nil,
+      batch_size : Int32 = 100,
+      max_retries : Int32 = 3
     )
       # Store data directory
       @data_dir = data_dir
@@ -183,6 +187,10 @@ module Memo
         max_tokens: chunking_max_tokens,
         no_chunk_threshold: chunking_max_tokens
       )
+
+      # Store batch size and queue config
+      @batch_size = batch_size
+      @queue_config = Config::Queue.new(max_retries: max_retries)
     end
 
     # Initialize service with existing database connection
@@ -196,7 +204,9 @@ module Memo
       model : String? = nil,
       dimensions : Int32? = nil,
       max_tokens : Int32? = nil,
-      chunking_max_tokens : Int32 = 2000
+      chunking_max_tokens : Int32 = 2000,
+      batch_size : Int32 = 100,
+      max_retries : Int32 = 3
     )
       @db = db
       @data_dir = nil  # No data directory when using external connection
@@ -250,6 +260,10 @@ module Memo
         max_tokens: chunking_max_tokens,
         no_chunk_threshold: chunking_max_tokens
       )
+
+      # Store batch size and queue config
+      @batch_size = batch_size
+      @queue_config = Config::Queue.new(max_retries: max_retries)
     end
 
     # Index a document
@@ -597,6 +611,289 @@ module Memo
       # Already closed or other error - ignore
     end
 
+    # =========================================================================
+    # Queue Operations
+    # =========================================================================
+
+    # Queue statistics
+    struct QueueStats
+      getter pending : Int64
+      getter failed : Int64
+
+      def initialize(@pending, @failed)
+      end
+    end
+
+    # Enqueue a document for later embedding
+    #
+    # Adds the document to the embed_queue table without embedding it.
+    # Use process_queue to embed queued items.
+    #
+    # If the source is already in the queue, the text is updated.
+    def enqueue(
+      source_type : String,
+      source_id : Int64,
+      text : String,
+      pair_id : Int64? = nil,
+      parent_id : Int64? = nil
+    )
+      prefix = Memo.table_prefix
+      now = Time.utc.to_unix_ms
+
+      # Store pair_id and parent_id in the text field as metadata prefix
+      # Format: "MEMO_META:pair_id,parent_id\n" followed by actual text
+      stored_text = if pair_id || parent_id
+                      "MEMO_META:#{pair_id || ""},#{parent_id || ""}\n#{text}"
+                    else
+                      text
+                    end
+
+      @db.exec(
+        "INSERT INTO #{prefix}embed_queue (source_type, source_id, text, status, created_at)
+         VALUES (?, ?, ?, -1, ?)
+         ON CONFLICT(source_type, source_id) DO UPDATE SET
+           text = excluded.text,
+           status = -1,
+           error_message = NULL,
+           attempts = 0,
+           processed_at = NULL",
+        source_type, source_id, stored_text, now
+      )
+    end
+
+    # Enqueue a document (Document overload)
+    def enqueue(doc : Document)
+      enqueue(
+        source_type: doc.source_type,
+        source_id: doc.source_id,
+        text: doc.text,
+        pair_id: doc.pair_id,
+        parent_id: doc.parent_id
+      )
+    end
+
+    # Enqueue multiple documents for later embedding
+    #
+    # More efficient than calling enqueue() multiple times.
+    def enqueue_batch(docs : Array(Document))
+      return if docs.empty?
+
+      @db.transaction do
+        docs.each do |doc|
+          enqueue(doc)
+        end
+      end
+    end
+
+    # Process queued items
+    #
+    # Embeds pending items from the queue using the service's batch_size.
+    # Returns number of items successfully processed.
+    #
+    # Failed items have their status set to the error code and can be retried
+    # up to max_retries times.
+    def process_queue : Int32
+      prefix = Memo.table_prefix
+      max_retries = @queue_config.max_retries
+      processed = 0
+
+      loop do
+        # Get a batch of pending items
+        items = [] of {Int64, String, Int64, String, Int64?, Int64?}
+
+        @db.query(
+          "SELECT id, source_type, source_id, text FROM #{prefix}embed_queue
+           WHERE status = -1
+           ORDER BY created_at ASC
+           LIMIT ?",
+          @batch_size
+        ) do |rs|
+          rs.each do
+            id = rs.read(Int64)
+            source_type = rs.read(String)
+            source_id = rs.read(Int64)
+            stored_text = rs.read(String)
+
+            # Parse metadata if present
+            text, pair_id, parent_id = parse_queue_text(stored_text)
+
+            items << {id, source_type, source_id, text, pair_id, parent_id}
+          end
+        end
+
+        break if items.empty?
+
+        # Process each item
+        items.each do |id, source_type, source_id, text, pair_id, parent_id|
+          begin
+            # Index the document (this does the embedding)
+            index(
+              source_type: source_type,
+              source_id: source_id,
+              text: text,
+              pair_id: pair_id,
+              parent_id: parent_id
+            )
+
+            # Mark as successful
+            @db.exec(
+              "UPDATE #{prefix}embed_queue
+               SET status = 0, processed_at = ?, attempts = attempts + 1
+               WHERE id = ?",
+              Time.utc.to_unix_ms, id
+            )
+
+            processed += 1
+
+          rescue ex
+            # Get current attempts
+            attempts = @db.query_one(
+              "SELECT attempts FROM #{prefix}embed_queue WHERE id = ?",
+              id,
+              as: Int32
+            )
+
+            new_attempts = attempts + 1
+
+            if new_attempts >= max_retries
+              # Max retries reached, mark as permanently failed
+              @db.exec(
+                "UPDATE #{prefix}embed_queue
+                 SET status = 1, error_message = ?, attempts = ?, processed_at = ?
+                 WHERE id = ?",
+                ex.message, new_attempts, Time.utc.to_unix_ms, id
+              )
+            else
+              # Keep as pending but increment attempts
+              @db.exec(
+                "UPDATE #{prefix}embed_queue
+                 SET attempts = ?, error_message = ?
+                 WHERE id = ?",
+                new_attempts, ex.message, id
+              )
+            end
+          end
+        end
+      end
+
+      processed
+    end
+
+    # Process queued items asynchronously
+    #
+    # Spawns a fiber to process the queue and returns immediately.
+    # Use queue_stats to check progress.
+    def process_queue_async
+      spawn do
+        process_queue
+      end
+    end
+
+    # Get queue statistics
+    #
+    # Returns counts of pending and failed items.
+    def queue_stats : QueueStats
+      prefix = Memo.table_prefix
+
+      pending = @db.scalar(
+        "SELECT COUNT(*) FROM #{prefix}embed_queue WHERE status = -1",
+      ).as(Int64)
+
+      failed = @db.scalar(
+        "SELECT COUNT(*) FROM #{prefix}embed_queue WHERE status > 0",
+      ).as(Int64)
+
+      QueueStats.new(pending, failed)
+    end
+
+    # Clear completed items from the queue
+    #
+    # Removes successfully processed items (status = 0).
+    # Returns number of items removed.
+    def clear_completed_queue : Int32
+      prefix = Memo.table_prefix
+
+      result = @db.exec(
+        "DELETE FROM #{prefix}embed_queue WHERE status = 0"
+      )
+
+      result.rows_affected.to_i
+    end
+
+    # Clear all items from the queue
+    #
+    # Removes all items regardless of status.
+    # Returns number of items removed.
+    def clear_queue : Int32
+      prefix = Memo.table_prefix
+
+      result = @db.exec(
+        "DELETE FROM #{prefix}embed_queue"
+      )
+
+      result.rows_affected.to_i
+    end
+
+    # Re-index all content of a given source type
+    #
+    # Deletes existing embeddings and queues text for re-embedding.
+    # Requires text storage to be enabled.
+    #
+    # Returns number of items queued for re-indexing.
+    def reindex(source_type : String) : Int32
+      raise "Text storage required for reindex" unless @text_storage
+
+      prefix = Memo.table_prefix
+      queued = 0
+
+      # Get all chunks of this source type with their text
+      chunks = [] of {Int64, Int64?, Int64?, String}
+
+      @db.query(
+        "SELECT c.source_id, c.pair_id, c.parent_id, t.content
+         FROM #{prefix}chunks c
+         JOIN #{prefix}embeddings e ON c.hash = e.hash
+         JOIN #{TEXT_SCHEMA}.texts t ON c.hash = t.hash
+         WHERE c.source_type = ? AND e.service_id = ?
+         GROUP BY c.source_id",
+        source_type, @service_id
+      ) do |rs|
+        rs.each do
+          source_id = rs.read(Int64)
+          pair_id = rs.read(Int64?)
+          parent_id = rs.read(Int64?)
+          text = rs.read(String)
+          chunks << {source_id, pair_id, parent_id, text}
+        end
+      end
+
+      return 0 if chunks.empty?
+
+      @db.transaction do
+        # Delete existing chunks and embeddings for this source type
+        # (orphan cleanup will handle embeddings not referenced elsewhere)
+        source_ids = chunks.map { |c| c[0] }.uniq
+
+        source_ids.each do |source_id|
+          delete(source_id, source_type)
+        end
+
+        # Queue for re-embedding
+        chunks.each do |source_id, pair_id, parent_id, text|
+          enqueue(
+            source_type: source_type,
+            source_id: source_id,
+            text: text,
+            pair_id: pair_id,
+            parent_id: parent_id
+          )
+          queued += 1
+        end
+      end
+
+      queued
+    end
+
     # Provider defaults (could move to Provider classes later)
     private def default_model(provider : String) : String
       case provider
@@ -665,6 +962,30 @@ module Memo
         hash,
         as: String
       )
+    end
+
+    # Parse queue text to extract metadata and actual text
+    #
+    # Format: "MEMO_META:pair_id,parent_id\n" followed by actual text
+    # Returns {text, pair_id, parent_id}
+    private def parse_queue_text(stored_text : String) : {String, Int64?, Int64?}
+      if stored_text.starts_with?("MEMO_META:")
+        newline_idx = stored_text.index('\n')
+        if newline_idx
+          meta_line = stored_text[10...newline_idx]
+          text = stored_text[(newline_idx + 1)..]
+
+          parts = meta_line.split(',', 2)
+          pair_id = parts[0].empty? ? nil : parts[0].to_i64
+          parent_id = parts.size > 1 && !parts[1].empty? ? parts[1].to_i64 : nil
+
+          {text, pair_id, parent_id}
+        else
+          {stored_text, nil, nil}
+        end
+      else
+        {stored_text, nil, nil}
+      end
     end
   end
 end

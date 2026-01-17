@@ -53,12 +53,12 @@ module Memo
     end
 
     # Queue processing configuration
+    #
+    # Note: batch_size for embedding API calls comes from EmbeddingService.batch_size
     struct Queue
-      getter batch_size : Int32
       getter max_retries : Int32
 
       def initialize(
-        @batch_size : Int32 = 100,
         @max_retries : Int32 = 3
       )
       end
