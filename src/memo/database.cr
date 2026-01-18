@@ -39,25 +39,35 @@ module Memo
 
     # Initialize text storage database schema
     #
-    # Creates the texts table for storing document content.
-    # Text is keyed by content hash (same as embeddings).
+    # Creates the texts table for storing original document content.
+    # Text is keyed by (source_type, source_id) - the same source identifier
+    # used by the application.
+    #
     # This database is persistent and survives embedding regeneration.
+    # Chunk text is extracted using offset/size from the chunks table.
     #
     # Also creates FTS5 virtual table for full-text search.
+    #
+    # TODO: Consider whether FTS5 should match on source text or chunk text.
+    #       Current implementation indexes source text, so a match means
+    #       the source document contains the term. This may return chunks
+    #       that don't themselves contain the search term.
     def init_text_db(db : DB::Database, schema_name : String = "text_store")
-      # Main text storage table
+      # Main text storage table - keyed by source, not chunk hash
       db.exec(<<-SQL)
         CREATE TABLE IF NOT EXISTS #{schema_name}.texts (
-          hash BLOB PRIMARY KEY,
-          content TEXT NOT NULL
+          source_type TEXT NOT NULL,
+          source_id INTEGER NOT NULL,
+          content TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (source_type, source_id)
         )
       SQL
 
-      # FTS5 virtual table for full-text search
-      # Uses hash as the rowid for joining back to texts table
+      # FTS5 virtual table for full-text search on source content
       db.exec(<<-SQL)
         CREATE VIRTUAL TABLE IF NOT EXISTS #{schema_name}.texts_fts
-        USING fts5(hash UNINDEXED, content)
+        USING fts5(source_type, source_id UNINDEXED, content)
       SQL
     end
 

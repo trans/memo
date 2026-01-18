@@ -1,8 +1,10 @@
+require "digest/sha256"
+
 module Memo
   module Providers
     # Mock embedding provider for testing
     #
-    # Generates deterministic 8-dimensional vectors based on text hash.
+    # Generates deterministic 8-dimensional vectors based on SHA256 hash.
     # Does not make any external API calls.
     class Mock
       include Base
@@ -20,10 +22,12 @@ module Memo
         EmbedResult.new(embeddings, token_counts, total)
       end
 
-      # Generate deterministic 8-dimensional embedding from text hash
+      # Generate deterministic 8-dimensional embedding from text using SHA256
+      # SHA256 is consistent across processes unlike Crystal's String#hash
       private def generate_deterministic_embedding(text : String) : Array(Float64)
-        hash = text.hash.abs
-        (0...8).map { |i| ((hash >> (i * 4)) & 0xF).to_f / 15.0 }.to_a
+        hash_bytes = Digest::SHA256.digest(text)
+        # Use first 8 bytes to generate 8-dimensional embedding
+        (0...8).map { |i| hash_bytes[i].to_f / 255.0 }.to_a
       end
 
       # Estimate tokens (rough approximation: 4 chars ≈ 1 token)

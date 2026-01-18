@@ -410,24 +410,44 @@ describe Memo::Service do
       with_test_service do |service|
         service.index(source_type: "event", source_id: 1_i64, text: "Stored text content")
 
-        # Verify text was stored in text_store schema
+        # Verify text was stored in text_store schema (keyed by source, not hash)
         content = service.db.query_one?(
-          "SELECT content FROM text_store.texts LIMIT 1",
+          "SELECT content FROM text_store.texts WHERE source_type = ? AND source_id = ?",
+          "event", 1_i64,
           as: String
         )
         content.should eq("Stored text content")
       end
     end
 
-    it "deduplicates text by hash" do
+    it "stores one entry per source" do
       with_test_service do |service|
         # Index same text for two different sources
         service.index(source_type: "event", source_id: 1_i64, text: "Same text")
         service.index(source_type: "event", source_id: 2_i64, text: "Same text")
 
-        # Should have only one text entry (deduplicated)
+        # Should have two text entries (one per source)
+        count = service.db.scalar("SELECT COUNT(*) FROM text_store.texts").as(Int64)
+        count.should eq(2)
+      end
+    end
+
+    it "overwrites text when re-indexing same source" do
+      with_test_service do |service|
+        # Index then re-index with different text
+        service.index(source_type: "event", source_id: 1_i64, text: "Original text")
+        service.index(source_type: "event", source_id: 1_i64, text: "Updated text")
+
+        # Should still have one entry with updated content
         count = service.db.scalar("SELECT COUNT(*) FROM text_store.texts").as(Int64)
         count.should eq(1)
+
+        content = service.db.query_one?(
+          "SELECT content FROM text_store.texts WHERE source_type = ? AND source_id = ?",
+          "event", 1_i64,
+          as: String
+        )
+        content.should eq("Updated text")
       end
     end
   end

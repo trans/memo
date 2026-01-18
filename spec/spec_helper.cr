@@ -3,7 +3,7 @@ require "../src/memo"
 
 # Helper to create a test database connection (for low-level API tests)
 def with_test_db(&block : DB::Database ->)
-  # Reset table prefix to default (Service tests may have changed it)
+  # Reset table prefix for this test
   Memo.table_prefix = "memo_"
 
   # Use file-based temp database to avoid connection pool isolation issues
@@ -17,6 +17,8 @@ def with_test_db(&block : DB::Database ->)
   ensure
     db.close
     File.delete(temp_file) if File.exists?(temp_file)
+    # Reset prefix to empty for Service tests that might run next
+    Memo.table_prefix = ""
   end
 end
 
@@ -41,6 +43,9 @@ end
 
 # Helper to create a test service instance
 def with_test_service(&block : Memo::Service ->)
+  # Reset table prefix to ensure clean state (other specs may have changed it)
+  Memo.table_prefix = ""
+
   with_test_data_dir do |data_dir|
     service = Memo::Service.new(
       data_dir: data_dir,

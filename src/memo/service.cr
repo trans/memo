@@ -170,8 +170,10 @@ module Memo
       Dir.mkdir_p(data_dir) unless Dir.exists?(data_dir)
 
       # Open embeddings database
+      # Use DELETE journal mode (not WAL) for cross-database transaction atomicity
+      # Use initial_pool_size=0 to ensure no connections exist before setup_connection callback
       embeddings_path = File.join(data_dir, "embeddings.db")
-      @db = DB.open("sqlite3://#{embeddings_path}")
+      @db = DB.open("sqlite3://#{embeddings_path}?journal_mode=DELETE&initial_pool_size=0")
       @owns_db = true
 
       # Build list of databases to ATTACH
@@ -187,16 +189,30 @@ module Memo
       end
 
       # Setup ATTACH on ALL connections (current and future)
-      # This ensures every pooled connection has the databases attached
+      # With initial_pool_size=0, no connections exist yet so all will go through callback
       unless attaches.empty?
+        # Copy to local variables for closure capture
+        attach_list = attaches.dup
+
         @db.setup_connection do |conn|
-          attaches.each do |path, db_alias|
+          attach_list.each do |path, db_alias|
             conn.exec("ATTACH DATABASE '#{path}' AS #{db_alias}")
+          end
+        end
+
+        # Verify ATTACH worked by querying the attached database
+        # This also forces connection creation through the callback
+        # Use COUNT(*) which returns 0 for empty tables (not "no results")
+        attach_list.each do |_, db_alias|
+          begin
+            @db.scalar("SELECT COUNT(*) FROM #{db_alias}.sqlite_master")
+          rescue ex
+            raise "Failed to ATTACH database #{db_alias}: #{ex.message}"
           end
         end
       end
 
-      # Initialize schemas (after setup_connection so all connections have ATTACHes)
+      # Initialize schemas
       Database.init(@db)
       if @text_storage && text_path
         Database.init_text_db(@db, TEXT_SCHEMA)
@@ -965,40 +981,38 @@ module Memo
       prefix = Memo.table_prefix
       queued = 0
 
-      # Get all chunks of this source type with their text
-      chunks = [] of {Int64, Int64?, Int64?, String}
+      # Get source texts and metadata from chunks table
+      # texts stores full content, chunks has metadata (pair_id, parent_id)
+      sources = [] of {Int64, Int64?, Int64?, String}
 
       @db.query(
-        "SELECT c.source_id, c.pair_id, c.parent_id, t.content
-         FROM #{prefix}chunks c
-         JOIN #{prefix}embeddings e ON c.hash = e.hash
-         JOIN #{TEXT_SCHEMA}.texts t ON c.hash = t.hash
-         WHERE c.source_type = ? AND e.service_id = ?
-         GROUP BY c.source_id",
-        source_type, @service_id
+        "SELECT st.source_id, c.pair_id, c.parent_id, st.content
+         FROM #{TEXT_SCHEMA}.texts st
+         LEFT JOIN #{prefix}chunks c ON st.source_type = c.source_type AND st.source_id = c.source_id
+         WHERE st.source_type = ?
+         GROUP BY st.source_id",
+        source_type
       ) do |rs|
         rs.each do
           source_id = rs.read(Int64)
           pair_id = rs.read(Int64?)
           parent_id = rs.read(Int64?)
           text = rs.read(String)
-          chunks << {source_id, pair_id, parent_id, text}
+          sources << {source_id, pair_id, parent_id, text}
         end
       end
 
-      return 0 if chunks.empty?
+      return 0 if sources.empty?
 
       @db.transaction do
         # Delete existing chunks and embeddings for this source type
         # (orphan cleanup will handle embeddings not referenced elsewhere)
-        source_ids = chunks.map { |c| c[0] }.uniq
-
-        source_ids.each do |source_id|
+        sources.each do |source_id, _, _, _|
           delete(source_id, source_type)
         end
 
         # Queue for re-embedding
-        chunks.each do |source_id, pair_id, parent_id, text|
+        sources.each do |source_id, pair_id, parent_id, text|
           enqueue(
             source_type: source_type,
             source_id: source_id,
@@ -1180,35 +1194,51 @@ module Memo
       vectors
     end
 
-    # Store text content in text.db (deduplicated by hash)
+    # Store source text in text.db (keyed by source_type/source_id)
     # Also populates FTS5 index for full-text search
-    private def store_text(hash : Bytes, content : String)
-      # Insert into main texts table
+    #
+    # Stores the original un-chunked text. Chunk text is extracted
+    # using offset/size from the chunks table.
+    private def store_source_text(source_type : String, source_id : Int64, content : String)
+      now = Time.utc.to_unix_ms
+
+      # Insert or replace source text
       @db.exec(
-        "INSERT OR IGNORE INTO #{TEXT_SCHEMA}.texts (hash, content) VALUES (?, ?)",
-        hash, content
+        "INSERT OR REPLACE INTO #{TEXT_SCHEMA}.texts (source_type, source_id, content, created_at)
+         VALUES (?, ?, ?, ?)",
+        source_type, source_id, content, now
       )
 
-      # Insert into FTS5 index (also deduplicated via INSERT OR IGNORE behavior)
-      # FTS5 doesn't support INSERT OR IGNORE, so we check first
-      existing = @db.query_one?(
-        "SELECT 1 FROM #{TEXT_SCHEMA}.texts_fts WHERE hash = ?",
-        hash,
-        as: Int32
+      # Update FTS5 index
+      # Delete any existing entry first (FTS5 doesn't support INSERT OR REPLACE)
+      @db.exec(
+        "DELETE FROM #{TEXT_SCHEMA}.texts_fts WHERE source_type = ? AND source_id = ?",
+        source_type, source_id
       )
-      unless existing
-        @db.exec(
-          "INSERT INTO #{TEXT_SCHEMA}.texts_fts (hash, content) VALUES (?, ?)",
-          hash, content
-        )
-      end
+      @db.exec(
+        "INSERT INTO #{TEXT_SCHEMA}.texts_fts (source_type, source_id, content)
+         VALUES (?, ?, ?)",
+        source_type, source_id, content
+      )
     end
 
-    # Get text content by hash
-    private def get_text(hash : Bytes) : String?
+    # Delete source text from text.db
+    private def delete_source_text(source_type : String, source_id : Int64)
+      @db.exec(
+        "DELETE FROM #{TEXT_SCHEMA}.texts WHERE source_type = ? AND source_id = ?",
+        source_type, source_id
+      )
+      @db.exec(
+        "DELETE FROM #{TEXT_SCHEMA}.texts_fts WHERE source_type = ? AND source_id = ?",
+        source_type, source_id
+      )
+    end
+
+    # Get source text by source_type and source_id
+    private def get_source_text(source_type : String, source_id : Int64) : String?
       @db.query_one?(
-        "SELECT content FROM #{TEXT_SCHEMA}.texts WHERE hash = ?",
-        hash,
+        "SELECT content FROM #{TEXT_SCHEMA}.texts WHERE source_type = ? AND source_id = ?",
+        source_type, source_id,
         as: String
       )
     end
@@ -1270,6 +1300,11 @@ module Memo
         # Delete existing chunks for this source before storing new ones
         # This ensures clean state if chunking settings have changed
         delete(source_id, source_type)
+
+        # Store source text once (not per-chunk)
+        # Chunk text is extracted using offset/size when needed
+        store_source_text(source_type, source_id, text) if @text_storage
+
         chunks.each_with_index do |chunk_text, idx|
           hash = Storage.compute_hash(chunk_text)
           embedding = embed_result.embeddings[idx]
@@ -1294,9 +1329,6 @@ module Memo
             pair_id: pair_id,
             parent_id: parent_id
           )
-
-          # Store text content if text storage is enabled
-          store_text(hash, chunk_text) if @text_storage
 
           success_count += 1
           current_offset += chunk_size

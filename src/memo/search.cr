@@ -145,6 +145,8 @@ module Memo
       end
 
       # Add text join if text filtering or text inclusion requested
+      # Text is stored per-source, so join on (source_type, source_id)
+      # Chunk text is extracted via SUBSTR using offset/size
       text_join = ""
       fts_join = ""
       text_select = ""
@@ -152,30 +154,32 @@ module Memo
       needs_fts_join = text_schema && match
 
       if needs_text_join
-        text_join = "JOIN #{text_schema}.texts t ON c.hash = t.hash"
-        text_select = ", t.content" if include_text
+        text_join = "JOIN #{text_schema}.texts st ON c.source_type = st.source_type AND c.source_id = st.source_id"
+        # Extract chunk text using offset and size (SQLite SUBSTR is 1-indexed)
+        text_select = ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text" if include_text
       end
 
       # Add FTS5 join if match query provided
+      # FTS5 searches source text - a match means the source document contains the term
       # Note: FTS5 MATCH doesn't work with table aliases, so we use the full table name
       if needs_fts_join
-        fts_join = "JOIN #{text_schema}.texts_fts ON c.hash = #{text_schema}.texts_fts.hash"
+        fts_join = "JOIN #{text_schema}.texts_fts ON c.source_type = #{text_schema}.texts_fts.source_type AND c.source_id = #{text_schema}.texts_fts.source_id"
         # Also need text join for include_text if not already added
         if include_text && !needs_text_join
-          text_join = "JOIN #{text_schema}.texts t ON c.hash = t.hash"
-          text_select = ", t.content"
+          text_join = "JOIN #{text_schema}.texts st ON c.source_type = st.source_type AND c.source_id = st.source_id"
+          text_select = ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text"
         end
       end
 
-      # Add LIKE filters (AND logic)
+      # Add LIKE filters (AND logic) - searches source text
       if like && text_schema && !like.empty?
         like.each do |pattern|
-          where_clauses << "t.content LIKE ?"
+          where_clauses << "st.content LIKE ?"
           params << pattern
         end
       end
 
-      # Add FTS5 match filter
+      # Add FTS5 match filter - searches source text
       # Use unqualified table name since FTS5 MATCH requires it
       if match && text_schema && !match.empty?
         where_clauses << "texts_fts MATCH ?"
