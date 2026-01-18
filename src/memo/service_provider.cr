@@ -22,6 +22,7 @@ module Memo
       getter model : String
       getter dimensions : Int32
       getter max_tokens : Int32
+      getter? is_default : Bool
       getter created_at : Time
 
       def initialize(
@@ -32,6 +33,7 @@ module Memo
         @model : String,
         @dimensions : Int32,
         @max_tokens : Int32,
+        @is_default : Bool,
         @created_at : Time
       )
       end
@@ -64,7 +66,8 @@ module Memo
       model : String,
       dimensions : Int32,
       max_tokens : Int32,
-      base_url : String? = nil
+      base_url : String? = nil,
+      is_default : Bool = false
     ) : Info
       prefix = Memo.table_prefix
 
@@ -74,12 +77,17 @@ module Memo
         raise ArgumentError.new("Service '#{name}' already exists")
       end
 
+      # If setting as default, clear other defaults first
+      if is_default
+        db.exec("UPDATE #{prefix}services SET is_default = 0 WHERE is_default = 1")
+      end
+
       # Insert new service
       now = Time.utc
       db.exec(
-        "INSERT INTO #{prefix}services (name, format, base_url, model, dimensions, max_tokens, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
-        name, format, base_url, model, dimensions, max_tokens, now.to_unix_ms
+        "INSERT INTO #{prefix}services (name, format, base_url, model, dimensions, max_tokens, is_default, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        name, format, base_url, model, dimensions, max_tokens, is_default ? 1 : 0, now.to_unix_ms
       )
 
       id = db.scalar("SELECT last_insert_rowid()").as(Int64)
@@ -92,6 +100,7 @@ module Memo
         model: model,
         dimensions: dimensions,
         max_tokens: max_tokens,
+        is_default: is_default,
         created_at: now
       )
     end
@@ -103,7 +112,7 @@ module Memo
       prefix = Memo.table_prefix
 
       db.query_one?(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, is_default, created_at
          FROM #{prefix}services WHERE id = ?",
         id
       ) do |rs|
@@ -118,12 +127,44 @@ module Memo
       prefix = Memo.table_prefix
 
       db.query_one?(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, is_default, created_at
          FROM #{prefix}services WHERE name = ?",
         name
       ) do |rs|
         read_info(rs)
       end
+    end
+
+    # Get the default service
+    #
+    # Returns nil if no default is set.
+    def get_default(db : DB::Database) : Info?
+      prefix = Memo.table_prefix
+
+      db.query_one?(
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, is_default, created_at
+         FROM #{prefix}services WHERE is_default = 1 LIMIT 1"
+      ) do |rs|
+        read_info(rs)
+      end
+    end
+
+    # Set a service as the default
+    #
+    # Clears any existing default and sets the specified service.
+    # Returns true if successful, false if service not found.
+    def set_default(db : DB::Database, name : String) : Bool
+      prefix = Memo.table_prefix
+
+      svc = get_by_name(db, name)
+      return false unless svc
+
+      db.transaction do
+        db.exec("UPDATE #{prefix}services SET is_default = 0 WHERE is_default = 1")
+        db.exec("UPDATE #{prefix}services SET is_default = 1 WHERE id = ?", svc.id)
+      end
+
+      true
     end
 
     # List all services
@@ -134,7 +175,7 @@ module Memo
       services = [] of Info
 
       db.query(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, is_default, created_at
          FROM #{prefix}services
          ORDER BY created_at DESC"
       ) do |rs|
@@ -154,7 +195,7 @@ module Memo
       services = [] of Info
 
       db.query(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, is_default, created_at
          FROM #{prefix}services
          WHERE format = ?
          ORDER BY created_at DESC",
@@ -311,6 +352,7 @@ module Memo
         model: rs.read(String),
         dimensions: rs.read(Int32),
         max_tokens: rs.read(Int32),
+        is_default: rs.read(Int32) == 1,
         created_at: Time.unix_ms(rs.read(Int64))
       )
     end

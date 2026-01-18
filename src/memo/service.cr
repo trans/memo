@@ -34,12 +34,21 @@ module Memo
   # ## Quick Start
   #
   # ```
-  # # Initialize with default OpenAI format
-  # memo = Memo::Service.new(
-  #   data_dir: "/var/data/memo",
+  # # Initialize with default service (mock, preloaded)
+  # memo = Memo::Service.new(data_dir: "/var/data/memo")
+  #
+  # # Configure a real service
+  # memo.create_service(
+  #   name: "openai",
   #   format: "openai",
-  #   api_key: ENV["OPENAI_API_KEY"]
+  #   model: "text-embedding-3-small",
+  #   dimensions: 1536,
+  #   max_tokens: 8191
   # )
+  # memo.set_default_service("openai")
+  #
+  # # Switch to it
+  # memo.use_service("openai", api_key: ENV["OPENAI_API_KEY"])
   #
   # # Index documents
   # memo.index(source_type: "event", source_id: 123, text: "Document text...")
@@ -53,13 +62,9 @@ module Memo
   #
   # ## Service Configuration
   #
-  # For custom endpoints (Azure, local LLMs, etc.), create named service configs:
+  # Services are named configurations for embedding providers:
   #
   # ```
-  # # First, initialize memo (e.g., with mock for setup)
-  # memo = Memo::Service.new(data_dir: "/var/data/memo", format: "mock")
-  #
-  # # Create a service configuration
   # memo.create_service(
   #   name: "azure-prod",
   #   format: "openai",
@@ -69,12 +74,8 @@ module Memo
   #   max_tokens: 8191
   # )
   #
-  # # Later, use the service by name
-  # memo2 = Memo::Service.new(
-  #   data_dir: "/var/data/memo",
-  #   service: "azure-prod",
-  #   api_key: ENV["AZURE_API_KEY"]
-  # )
+  # # Switch services at runtime
+  # memo.use_service("azure-prod", api_key: ENV["AZURE_API_KEY"])
   # ```
   #
   # ## Database Files
@@ -568,6 +569,45 @@ module Memo
       ServiceProvider.stats(@db, svc.id)
     end
 
+    # Get the default service configuration
+    def default_service : ServiceProvider::Info?
+      ServiceProvider.get_default(@db)
+    end
+
+    # Set a service as the default
+    #
+    # Returns true if successful, false if service not found.
+    def set_default_service(name : String) : Bool
+      ServiceProvider.set_default(@db, name)
+    end
+
+    # Switch to a different service
+    #
+    # Changes the current provider and service configuration.
+    # The api_key is required for non-mock services.
+    #
+    # Example:
+    # ```
+    # memo.use_service("azure-prod", api_key: ENV["AZURE_API_KEY"])
+    # ```
+    def use_service(name : String, api_key : String? = nil)
+      svc = ServiceProvider.get_by_name(@db, name)
+      raise ArgumentError.new("Service '#{name}' not found") unless svc
+
+      # Create provider instance from stored config
+      provider_instance = Providers::Registry.create(svc.format, api_key, svc.model, svc.base_url)
+      raise ArgumentError.new("Unknown format: #{svc.format}") unless provider_instance
+
+      @provider = provider_instance
+      @service_name = name
+      @service_id = svc.id
+      @dimensions = svc.dimensions
+
+      # Get or create projection vectors for this service
+      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
+                            create_projection_vectors
+    end
+
     # =========================================================================
     # Queue Operations
     # =========================================================================
@@ -980,10 +1020,12 @@ module Memo
       queued
     end
 
-    # Initialize provider from service name or format parameters
+    # Initialize provider from service name, format parameters, or default
     #
-    # If service name is provided, looks up the configuration from the database.
-    # Otherwise, creates a new configuration from the provided format/model/etc.
+    # Priority:
+    # 1. If service name is provided, looks up the configuration from the database
+    # 2. If format is provided, creates inline configuration
+    # 3. Otherwise, uses the default service
     private def init_provider(
       service : String?,
       format : String?,
@@ -1016,9 +1058,9 @@ module Memo
         end
 
         final_max_tokens = svc_max_tokens
-      else
+      elsif format
         # Configure inline from format parameters
-        final_format = format || "openai"
+        final_format = format
 
         # Validate format is supported
         unless Providers::Registry.format?(final_format)
@@ -1054,6 +1096,24 @@ module Memo
         )
 
         @service_name = "#{final_format}/#{final_model}"
+      else
+        # Use the default service
+        default_svc = ServiceProvider.get_default(@db)
+        raise ArgumentError.new("No default service configured") unless default_svc
+
+        @service_name = default_svc.name
+        @service_id = default_svc.id
+        @dimensions = default_svc.dimensions
+
+        # Create provider instance from default service config
+        provider_instance = Providers::Registry.create(default_svc.format, api_key, default_svc.model, default_svc.base_url)
+        raise ArgumentError.new("Unknown format: #{default_svc.format}") unless provider_instance
+        @provider = provider_instance
+
+        # Validate chunking doesn't exceed provider limits
+        if chunking_max_tokens > default_svc.max_tokens
+          raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds service limit (#{default_svc.max_tokens})")
+        end
       end
 
       # Get or create projection vectors for this service
