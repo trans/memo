@@ -8,10 +8,12 @@ require "./memo/chunking"
 require "./memo/providers/base"
 require "./memo/providers/openai"
 require "./memo/providers/mock"
+require "./memo/providers/registry"
 require "./memo/storage"
 require "./memo/projection"
 require "./memo/rrf"
 require "./memo/search"
+require "./memo/service_provider"
 require "./memo/service"
 
 # Memo - Semantic search and vector storage library
@@ -57,7 +59,7 @@ require "./memo/service"
 # Internal modules (Storage, Search, Chunking, RRF) remain accessible
 # for advanced use cases but Service is the recommended entry point.
 module Memo
-  VERSION = "0.1.0"
+  VERSION = "0.2.0"
 
   # Global configuration
   class_property table_prefix : String = "memo_"

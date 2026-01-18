@@ -143,21 +143,15 @@ module Memo
       # Standalone mode - no table prefix
       Memo.table_prefix = ""
 
-      # Create provider instance
-      @provider = case provider
-                  when "openai"
-                    raise ArgumentError.new("api_key required for openai provider") unless api_key
-                    Providers::OpenAI.new(api_key, model || "text-embedding-3-small")
-                  when "mock"
-                    Providers::Mock.new
-                  else
-                    raise ArgumentError.new("Unknown provider: #{provider}")
-                  end
+      # Create provider instance using registry
+      provider_instance = Providers::Registry.create(provider, api_key, model)
+      raise ArgumentError.new("Unknown provider: #{provider}") unless provider_instance
+      @provider = provider_instance
 
-      # Auto-detect dimensions and max_tokens from provider/model
-      final_model = model || default_model(provider)
-      final_dimensions = dimensions || default_dimensions(provider, final_model)
-      final_max_tokens = max_tokens || default_max_tokens(provider, final_model)
+      # Auto-detect dimensions and max_tokens from registry
+      final_model = model || Providers::Registry.default_model(provider) || raise ArgumentError.new("No default model for provider: #{provider}")
+      final_dimensions = dimensions || Providers::Registry.dimensions(provider, final_model) || raise ArgumentError.new("Unknown dimensions for #{provider}/#{final_model}")
+      final_max_tokens = max_tokens || Providers::Registry.max_tokens(provider, final_model) || raise ArgumentError.new("Unknown max_tokens for #{provider}/#{final_model}")
 
       # Validate chunking doesn't exceed provider limits
       if chunking_max_tokens > final_max_tokens
@@ -216,21 +210,15 @@ module Memo
       # Standalone mode - no table prefix
       Memo.table_prefix = ""
 
-      # Create provider instance
-      @provider = case provider
-                  when "openai"
-                    raise ArgumentError.new("api_key required for openai provider") unless api_key
-                    Providers::OpenAI.new(api_key, model || "text-embedding-3-small")
-                  when "mock"
-                    Providers::Mock.new
-                  else
-                    raise ArgumentError.new("Unknown provider: #{provider}")
-                  end
+      # Create provider instance using registry
+      provider_instance = Providers::Registry.create(provider, api_key, model)
+      raise ArgumentError.new("Unknown provider: #{provider}") unless provider_instance
+      @provider = provider_instance
 
-      # Auto-detect dimensions and max_tokens from provider/model
-      final_model = model || default_model(provider)
-      final_dimensions = dimensions || default_dimensions(provider, final_model)
-      final_max_tokens = max_tokens || default_max_tokens(provider, final_model)
+      # Auto-detect dimensions and max_tokens from registry
+      final_model = model || Providers::Registry.default_model(provider) || raise ArgumentError.new("No default model for provider: #{provider}")
+      final_dimensions = dimensions || Providers::Registry.dimensions(provider, final_model) || raise ArgumentError.new("Unknown dimensions for #{provider}/#{final_model}")
+      final_max_tokens = max_tokens || Providers::Registry.max_tokens(provider, final_model) || raise ArgumentError.new("Unknown max_tokens for #{provider}/#{final_model}")
 
       # Validate chunking doesn't exceed provider limits
       if chunking_max_tokens > final_max_tokens
@@ -918,36 +906,6 @@ module Memo
       end
 
       queued
-    end
-
-    # Provider defaults (could move to Provider classes later)
-    private def default_model(provider : String) : String
-      case provider
-      when "openai" then "text-embedding-3-small"
-      when "mock"   then "mock-8d"
-      else               raise "Unknown provider"
-      end
-    end
-
-    private def default_dimensions(provider : String, model : String) : Int32
-      case provider
-      when "openai"
-        case model
-        when "text-embedding-3-small" then 1536
-        when "text-embedding-3-large" then 3072
-        else                               1536
-        end
-      when "mock" then 8
-      else             raise "Unknown provider"
-      end
-    end
-
-    private def default_max_tokens(provider : String, model : String) : Int32
-      case provider
-      when "openai" then 8191
-      when "mock"   then 100
-      else               raise "Unknown provider"
-      end
     end
 
     # Generate and store projection vectors for this service
