@@ -1137,9 +1137,15 @@ module Memo
 
         if existing
           # Use existing service configuration
+          # Don't allow overriding dimensions - it's intrinsic to the model
+          # and overriding would cause projection vector dimension mismatch
           _id, _fmt, _base_url, svc_model, svc_dimensions, svc_max_tokens = existing
+          if dimensions && dimensions != svc_dimensions
+            raise ArgumentError.new("Cannot override dimensions (#{dimensions}) for existing service with dimensions=#{svc_dimensions}")
+          end
           final_model = svc_model
-          final_dimensions = dimensions || svc_dimensions
+          final_dimensions = svc_dimensions
+          # max_tokens can be overridden - it's a limit we choose, not intrinsic to model
           final_max_tokens = max_tokens || svc_max_tokens
         else
           # No existing service - require all parameters
