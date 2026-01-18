@@ -29,9 +29,14 @@ CREATE TABLE IF NOT EXISTS services (
 CREATE INDEX IF NOT EXISTS idx_services_format ON services(format);
 CREATE INDEX IF NOT EXISTS idx_services_default ON services(is_default);
 
--- Preload default mock service for development/testing
+-- Preload services
+-- OpenAI text-embedding-3-small is the default for production use
 INSERT OR IGNORE INTO services (name, format, base_url, model, dimensions, max_tokens, is_default, created_at)
-VALUES ('mock', 'mock', NULL, 'mock-8d', 8, 100, 1, 0);
+VALUES ('openai', 'openai', NULL, 'text-embedding-3-small', 1536, 8191, 1, 0);
+
+-- Mock service for development/testing
+INSERT OR IGNORE INTO services (name, format, base_url, model, dimensions, max_tokens, is_default, created_at)
+VALUES ('mock', 'mock', NULL, 'mock-8d', 8, 100, 0, 0);
 
 -- =============================================================================
 -- Embeddings table: Content hash → vector embedding mapping
