@@ -169,23 +169,37 @@ module Memo
       # Create directory if it doesn't exist
       Dir.mkdir_p(data_dir) unless Dir.exists?(data_dir)
 
-      # Open and initialize embeddings database
+      # Open embeddings database
       embeddings_path = File.join(data_dir, "embeddings.db")
       @db = DB.open("sqlite3://#{embeddings_path}")
       @owns_db = true
-      Database.init(@db)
 
-      # ATTACH and initialize text database if text storage enabled
+      # Build list of databases to ATTACH
+      attaches = [] of {String, String}  # {path, alias}
+      text_path : String? = nil
       if store_text
         text_path = File.join(data_dir, "text.db")
-        @db.exec("ATTACH DATABASE '#{text_path}' AS #{TEXT_SCHEMA}")
-        Database.init_text_db(@db, TEXT_SCHEMA)
+        attaches << {text_path, TEXT_SCHEMA}
         @text_storage = true
       end
-
-      # ATTACH additional databases if specified
       attach.try &.each do |db_alias, path|
-        @db.exec("ATTACH DATABASE '#{path}' AS #{db_alias}")
+        attaches << {path, db_alias}
+      end
+
+      # Setup ATTACH on ALL connections (current and future)
+      # This ensures every pooled connection has the databases attached
+      unless attaches.empty?
+        @db.setup_connection do |conn|
+          attaches.each do |path, db_alias|
+            conn.exec("ATTACH DATABASE '#{path}' AS #{db_alias}")
+          end
+        end
+      end
+
+      # Initialize schemas (after setup_connection so all connections have ATTACHes)
+      Database.init(@db)
+      if @text_storage && text_path
+        Database.init_text_db(@db, TEXT_SCHEMA)
       end
 
       # Standalone mode - no table prefix
@@ -764,7 +778,7 @@ module Memo
         items.each do |id, source_type, source_id, text, pair_id, parent_id|
           begin
             # Embed and store the document
-            embed_and_store(
+            stored = embed_and_store(
               source_type: source_type,
               source_id: source_id,
               text: text,
@@ -780,7 +794,7 @@ module Memo
               Time.utc.to_unix_ms, id
             )
 
-            processed += 1
+            processed += stored
 
           rescue ex
             # Get current attempts

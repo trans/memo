@@ -156,8 +156,9 @@ module Memo
       end
 
       # Add FTS5 join if match query provided
+      # Note: FTS5 MATCH doesn't work with table aliases, so we use the full table name
       if needs_fts_join
-        fts_join = "JOIN #{text_schema}.texts_fts fts ON c.hash = fts.hash"
+        fts_join = "JOIN #{text_schema}.texts_fts ON c.hash = #{text_schema}.texts_fts.hash"
         # Also need text join for include_text if not already added
         if include_text && !needs_text_join
           text_join = "JOIN #{text_schema}.texts t ON c.hash = t.hash"
@@ -174,8 +175,9 @@ module Memo
       end
 
       # Add FTS5 match filter
+      # Use unqualified table name since FTS5 MATCH requires it
       if match && text_schema && !match.empty?
-        where_clauses << "fts MATCH ?"
+        where_clauses << "texts_fts MATCH ?"
         params << match
       end
 
