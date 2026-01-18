@@ -31,17 +31,10 @@ module Memo
   #
   # Encapsulates configuration and provides clean API for indexing and search.
   #
-  # ## Usage
+  # ## Quick Start
   #
   # ```
-  # # Option 1: Use a pre-configured service by name
-  # memo = Memo::Service.new(
-  #   data_dir: "/var/data/memo",
-  #   service: "azure-prod",
-  #   api_key: ENV["AZURE_API_KEY"]
-  # )
-  #
-  # # Option 2: Configure inline (auto-creates service config)
+  # # Initialize with default OpenAI format
   # memo = Memo::Service.new(
   #   data_dir: "/var/data/memo",
   #   format: "openai",
@@ -56,6 +49,32 @@ module Memo
   #
   # # Clean up
   # memo.close
+  # ```
+  #
+  # ## Service Configuration
+  #
+  # For custom endpoints (Azure, local LLMs, etc.), create named service configs:
+  #
+  # ```
+  # # First, initialize memo (e.g., with mock for setup)
+  # memo = Memo::Service.new(data_dir: "/var/data/memo", format: "mock")
+  #
+  # # Create a service configuration
+  # memo.create_service(
+  #   name: "azure-prod",
+  #   format: "openai",
+  #   base_url: "https://mycompany.openai.azure.com/",
+  #   model: "text-embedding-ada-002",
+  #   dimensions: 1536,
+  #   max_tokens: 8191
+  # )
+  #
+  # # Later, use the service by name
+  # memo2 = Memo::Service.new(
+  #   data_dir: "/var/data/memo",
+  #   service: "azure-prod",
+  #   api_key: ENV["AZURE_API_KEY"]
+  # )
   # ```
   #
   # ## Database Files
@@ -462,6 +481,91 @@ module Memo
       @db.close
     rescue
       # Already closed or other error - ignore
+    end
+
+    # =========================================================================
+    # Service Configuration CRUD
+    # =========================================================================
+
+    # Create a new service configuration
+    #
+    # Creates a named service configuration that can be used later with
+    # Service.new(service: "name", ...).
+    #
+    # Example:
+    # ```
+    # memo.create_service(
+    #   name: "azure-prod",
+    #   format: "openai",
+    #   base_url: "https://mycompany.openai.azure.com/",
+    #   model: "text-embedding-ada-002",
+    #   dimensions: 1536,
+    #   max_tokens: 8191
+    # )
+    # ```
+    def create_service(
+      name : String,
+      format : String,
+      model : String,
+      dimensions : Int32,
+      max_tokens : Int32,
+      base_url : String? = nil
+    ) : ServiceProvider::Info
+      ServiceProvider.create(@db, name, format, model, dimensions, max_tokens, base_url)
+    end
+
+    # Get a service configuration by name
+    #
+    # Returns nil if not found.
+    def get_service(name : String) : ServiceProvider::Info?
+      ServiceProvider.get_by_name(@db, name)
+    end
+
+    # List all service configurations
+    #
+    # Returns array of service info, ordered by creation time (newest first).
+    def list_services : Array(ServiceProvider::Info)
+      ServiceProvider.list(@db)
+    end
+
+    # List service configurations by format
+    #
+    # Returns array of service info for the specified API format.
+    def list_services_by_format(format : String) : Array(ServiceProvider::Info)
+      ServiceProvider.list_by_format(@db, format)
+    end
+
+    # Update a service configuration
+    #
+    # Can update base_url and max_tokens.
+    # Returns the updated service info, or nil if not found.
+    def update_service(
+      name : String,
+      base_url : String? = nil,
+      max_tokens : Int32? = nil
+    ) : ServiceProvider::Info?
+      svc = ServiceProvider.get_by_name(@db, name)
+      return nil unless svc
+      ServiceProvider.update(@db, svc.id, base_url, max_tokens)
+    end
+
+    # Delete a service configuration
+    #
+    # By default, fails if the service has any associated embeddings.
+    # Use force: true to delete the service and all associated data.
+    #
+    # Returns true if deleted, false if not found.
+    def delete_service(name : String, force : Bool = false) : Bool
+      svc = ServiceProvider.get_by_name(@db, name)
+      return false unless svc
+      ServiceProvider.delete(@db, svc.id, force)
+    end
+
+    # Get usage statistics for a service
+    def service_stats(name : String) : ServiceProvider::Stats?
+      svc = ServiceProvider.get_by_name(@db, name)
+      return nil unless svc
+      ServiceProvider.stats(@db, svc.id)
     end
 
     # =========================================================================

@@ -1,39 +1,17 @@
 module Memo
-  # Public CRUD interface for service configurations
+  # Internal module for service configuration CRUD operations
   #
-  # Manages the services table which stores named embedding service
-  # configurations. Each service represents a unique embedding
-  # configuration that embeddings are associated with.
+  # Users should access these operations through Service instance methods:
+  # - memo.create_service(...)
+  # - memo.get_service(name)
+  # - memo.list_services
+  # - memo.update_service(name, ...)
+  # - memo.delete_service(name)
   #
-  # ## Usage
+  # This module is exposed for advanced use cases where direct database
+  # access is needed.
   #
-  # ```
-  # db = DB.open("sqlite3://embeddings.db")
-  # Memo::Database.init(db)
-  #
-  # # Create a new service configuration
-  # service = Memo::ServiceProvider.create(
-  #   db: db,
-  #   name: "azure-prod",
-  #   format: "openai",
-  #   base_url: "https://mycompany.openai.azure.com/",
-  #   model: "text-embedding-ada-002",
-  #   dimensions: 1536,
-  #   max_tokens: 8191
-  # )
-  #
-  # # List all services
-  # services = Memo::ServiceProvider.list(db)
-  #
-  # # Get a specific service by name
-  # service = Memo::ServiceProvider.get_by_name(db, "azure-prod")
-  #
-  # # Delete a service (fails if embeddings exist)
-  # Memo::ServiceProvider.delete(db, id: 1)
-  #
-  # # Force delete with all associated data
-  # Memo::ServiceProvider.delete(db, id: 1, force: true)
-  # ```
+  # :nodoc:
   module ServiceProvider
     # Service configuration information
     struct Info
