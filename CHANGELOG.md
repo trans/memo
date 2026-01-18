@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-01-18
+
+### Added
+- Voyage AI embedding provider (voyage-3, voyage-3-lite, voyage-code-3)
+- Default service support with `use_service` method
+- Service CRUD methods (`create_service`, `get_service`, `list_services`, `delete_service`)
+
+### Fixed
+- SQLite3 segfault on close when using ATTACH (now uses setup_connection for connection pool compatibility)
+- FTS5 MATCH queries failing with "no such column" error
+- `index_batch` incorrectly counting documents with empty text
+
 ## [0.1.0] - 2025-01-17
 
 ### Added

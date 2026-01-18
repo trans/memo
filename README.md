@@ -246,6 +246,7 @@ Text storage can be disabled with `store_text: false` if you prefer to manage te
 
 Currently supported:
 - `openai` - OpenAI text-embedding-3-small (default), text-embedding-3-large
+- `voyage` - Voyage AI voyage-3 (default), voyage-3-lite, voyage-code-3
 - `mock` - Deterministic embeddings for testing
 
 ## Architecture

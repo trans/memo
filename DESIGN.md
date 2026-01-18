@@ -440,6 +440,7 @@ The `sql_where` parameter accepts raw SQL that's inserted into the WHERE clause.
 
 Currently supported:
 - `openai` - text-embedding-3-small (1536d), text-embedding-3-large (3072d)
+- `voyage` - voyage-3 (1024d), voyage-3-lite (512d), voyage-code-3 (1024d)
 - `mock` - Deterministic embeddings for testing (8d)
 
 ## License
