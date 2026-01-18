@@ -34,10 +34,17 @@ module Memo
   # ## Usage
   #
   # ```
-  # # Initialize service with data directory
+  # # Option 1: Use a pre-configured service by name
   # memo = Memo::Service.new(
   #   data_dir: "/var/data/memo",
-  #   provider: "openai",
+  #   service: "azure-prod",
+  #   api_key: ENV["AZURE_API_KEY"]
+  # )
+  #
+  # # Option 2: Configure inline (auto-creates service config)
+  # memo = Memo::Service.new(
+  #   data_dir: "/var/data/memo",
+  #   format: "openai",
   #   api_key: ENV["OPENAI_API_KEY"]
   # )
   #
@@ -55,12 +62,13 @@ module Memo
   #
   # Memo stores data in the specified directory:
   # - embeddings.db: Embeddings, chunks, projections (regenerable)
-  # - text.db: Text content (future, persistent)
+  # - text.db: Text content (persistent)
   #
   class Service
     getter db : DB::Database
     getter provider : Providers::Base
     getter service_id : Int64
+    getter service_name : String
     getter chunking_config : Config::Chunking
     getter queue_config : Config::Queue
     getter dimensions : Int32
@@ -79,33 +87,45 @@ module Memo
 
     # Initialize service with data directory
     #
+    # Use EITHER:
+    # - service: Name of pre-configured service (from ServiceProvider.create)
+    # - format: API format ("openai", "mock") to configure inline
+    #
     # Required:
     # - data_dir: Directory path for database files
-    # - provider: "openai" or "mock"
-    # - api_key: Provider API key (not needed for mock)
+    # - api_key: API key (not needed for mock format)
     #
     # Optional:
+    # - service: Name of pre-configured service to use
+    # - format: API format for inline configuration (default "openai")
+    # - base_url: Custom API endpoint (for OpenAI-compatible APIs)
+    # - model: Embedding model (default depends on format)
+    # - dimensions: Vector dimensions (auto-detected from model)
+    # - max_tokens: Token limit (auto-detected from model)
     # - store_text: Enable text storage in text.db (default true)
     # - attach: Hash of alias => path for databases to ATTACH
-    # - model: Embedding model (default depends on provider)
-    # - dimensions: Vector dimensions (auto-detected from model)
-    # - max_tokens: Provider token limit (auto-detected)
     # - chunking_max_tokens: Max tokens per chunk (default 2000)
     #
-    # Example with ATTACH for unified queries:
+    # Example with pre-configured service:
     # ```
+    # # First, create a service configuration
+    # ServiceProvider.create(db, name: "azure", format: "openai",
+    #   base_url: "https://mycompany.openai.azure.com/",
+    #   model: "text-embedding-ada-002", dimensions: 1536, max_tokens: 8191)
+    #
+    # # Then use it by name
     # memo = Memo::Service.new(
     #   data_dir: "/var/data/memo",
-    #   attach: {"main" => "data.db"},
-    #   provider: "openai",
-    #   api_key: key
+    #   service: "azure",
+    #   api_key: ENV["AZURE_API_KEY"]
     # )
-    # # Now can use sql_where: "c.source_id IN (SELECT id FROM main.artifact ...)"
     # ```
     def initialize(
       data_dir : String,
-      provider : String,
       api_key : String? = nil,
+      service : String? = nil,
+      format : String? = nil,
+      base_url : String? = nil,
       model : String? = nil,
       dimensions : Int32? = nil,
       max_tokens : Int32? = nil,
@@ -143,43 +163,16 @@ module Memo
       # Standalone mode - no table prefix
       Memo.table_prefix = ""
 
-      # Create provider instance using registry
-      provider_instance = Providers::Registry.create(provider, api_key, model)
-      raise ArgumentError.new("Unknown provider: #{provider}") unless provider_instance
-      @provider = provider_instance
-
-      # Auto-detect dimensions and max_tokens from registry
-      final_model = model || Providers::Registry.default_model(provider) || raise ArgumentError.new("No default model for provider: #{provider}")
-      final_dimensions = dimensions || Providers::Registry.dimensions(provider, final_model) || raise ArgumentError.new("Unknown dimensions for #{provider}/#{final_model}")
-      final_max_tokens = max_tokens || Providers::Registry.max_tokens(provider, final_model) || raise ArgumentError.new("Unknown max_tokens for #{provider}/#{final_model}")
-
-      # Validate chunking doesn't exceed provider limits
-      if chunking_max_tokens > final_max_tokens
-        raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds provider limit (#{final_max_tokens})")
-      end
-
-      # Store dimensions for projection vector generation
-      @dimensions = final_dimensions
-
-      # Register service in database
-      @service_id = Storage.register_service(
-        db: @db,
-        provider: provider,
-        model: final_model,
-        version: nil,
-        dimensions: final_dimensions,
-        max_tokens: final_max_tokens
-      )
-
-      # Get or create projection vectors for this service
-      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
-                            create_projection_vectors
-
-      # Create chunking config
-      @chunking_config = Config::Chunking.new(
-        min_tokens: 100,
-        max_tokens: chunking_max_tokens,
-        no_chunk_threshold: chunking_max_tokens
+      # Initialize from service name or format
+      init_provider(
+        service: service,
+        format: format,
+        base_url: base_url,
+        model: model,
+        dimensions: dimensions,
+        max_tokens: max_tokens,
+        api_key: api_key,
+        chunking_max_tokens: chunking_max_tokens
       )
 
       # Store batch size and queue config
@@ -193,8 +186,10 @@ module Memo
     # Caller is responsible for closing the connection.
     def initialize(
       db : DB::Database,
-      provider : String,
       api_key : String? = nil,
+      service : String? = nil,
+      format : String? = nil,
+      base_url : String? = nil,
       model : String? = nil,
       dimensions : Int32? = nil,
       max_tokens : Int32? = nil,
@@ -210,43 +205,16 @@ module Memo
       # Standalone mode - no table prefix
       Memo.table_prefix = ""
 
-      # Create provider instance using registry
-      provider_instance = Providers::Registry.create(provider, api_key, model)
-      raise ArgumentError.new("Unknown provider: #{provider}") unless provider_instance
-      @provider = provider_instance
-
-      # Auto-detect dimensions and max_tokens from registry
-      final_model = model || Providers::Registry.default_model(provider) || raise ArgumentError.new("No default model for provider: #{provider}")
-      final_dimensions = dimensions || Providers::Registry.dimensions(provider, final_model) || raise ArgumentError.new("Unknown dimensions for #{provider}/#{final_model}")
-      final_max_tokens = max_tokens || Providers::Registry.max_tokens(provider, final_model) || raise ArgumentError.new("Unknown max_tokens for #{provider}/#{final_model}")
-
-      # Validate chunking doesn't exceed provider limits
-      if chunking_max_tokens > final_max_tokens
-        raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds provider limit (#{final_max_tokens})")
-      end
-
-      # Store dimensions for projection vector generation
-      @dimensions = final_dimensions
-
-      # Register service in database
-      @service_id = Storage.register_service(
-        db: @db,
-        provider: provider,
-        model: final_model,
-        version: nil,
-        dimensions: final_dimensions,
-        max_tokens: final_max_tokens
-      )
-
-      # Get or create projection vectors for this service
-      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
-                            create_projection_vectors
-
-      # Create chunking config
-      @chunking_config = Config::Chunking.new(
-        min_tokens: 100,
-        max_tokens: chunking_max_tokens,
-        no_chunk_threshold: chunking_max_tokens
+      # Initialize from service name or format
+      init_provider(
+        service: service,
+        format: format,
+        base_url: base_url,
+        model: model,
+        dimensions: dimensions,
+        max_tokens: max_tokens,
+        api_key: api_key,
+        chunking_max_tokens: chunking_max_tokens
       )
 
       # Store batch size and queue config
@@ -906,6 +874,94 @@ module Memo
       end
 
       queued
+    end
+
+    # Initialize provider from service name or format parameters
+    #
+    # If service name is provided, looks up the configuration from the database.
+    # Otherwise, creates a new configuration from the provided format/model/etc.
+    private def init_provider(
+      service : String?,
+      format : String?,
+      base_url : String?,
+      model : String?,
+      dimensions : Int32?,
+      max_tokens : Int32?,
+      api_key : String?,
+      chunking_max_tokens : Int32
+    )
+      if service
+        # Look up existing service configuration by name
+        svc = Storage.get_service_by_name(@db, service)
+        raise ArgumentError.new("Service '#{service}' not found") unless svc
+
+        svc_id, svc_format, svc_base_url, svc_model, svc_dimensions, svc_max_tokens = svc
+
+        @service_name = service
+        @service_id = svc_id
+        @dimensions = svc_dimensions
+
+        # Create provider instance from stored config
+        provider_instance = Providers::Registry.create(svc_format, api_key, svc_model, svc_base_url)
+        raise ArgumentError.new("Unknown format: #{svc_format}") unless provider_instance
+        @provider = provider_instance
+
+        # Validate chunking doesn't exceed provider limits
+        if chunking_max_tokens > svc_max_tokens
+          raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds service limit (#{svc_max_tokens})")
+        end
+
+        final_max_tokens = svc_max_tokens
+      else
+        # Configure inline from format parameters
+        final_format = format || "openai"
+
+        # Validate format is supported
+        unless Providers::Registry.format?(final_format)
+          raise ArgumentError.new("Unknown format: #{final_format}")
+        end
+
+        # Auto-detect model, dimensions, and max_tokens from registry
+        final_model = model || Providers::Registry.default_model(final_format) || raise ArgumentError.new("No default model for format: #{final_format}")
+        final_dimensions = dimensions || Providers::Registry.dimensions(final_format, final_model) || raise ArgumentError.new("Unknown dimensions for #{final_format}/#{final_model}")
+        final_max_tokens = max_tokens || Providers::Registry.max_tokens(final_format, final_model) || raise ArgumentError.new("Unknown max_tokens for #{final_format}/#{final_model}")
+
+        # Validate chunking doesn't exceed provider limits
+        if chunking_max_tokens > final_max_tokens
+          raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds provider limit (#{final_max_tokens})")
+        end
+
+        @dimensions = final_dimensions
+
+        # Create provider instance
+        provider_instance = Providers::Registry.create(final_format, api_key, final_model, base_url)
+        raise ArgumentError.new("Failed to create provider for format: #{final_format}") unless provider_instance
+        @provider = provider_instance
+
+        # Register or get existing service in database (auto-generates name)
+        @service_id = Storage.register_service(
+          db: @db,
+          name: nil,  # Auto-generate from format/model
+          format: final_format,
+          base_url: base_url,
+          model: final_model,
+          dimensions: final_dimensions,
+          max_tokens: final_max_tokens
+        )
+
+        @service_name = "#{final_format}/#{final_model}"
+      end
+
+      # Get or create projection vectors for this service
+      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
+                            create_projection_vectors
+
+      # Create chunking config
+      @chunking_config = Config::Chunking.new(
+        min_tokens: 100,
+        max_tokens: chunking_max_tokens,
+        no_chunk_threshold: chunking_max_tokens
+      )
     end
 
     # Generate and store projection vectors for this service

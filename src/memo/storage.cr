@@ -8,23 +8,28 @@ module Memo
       Digest::SHA256.digest(text)
     end
 
-    # Register or get existing service
+    # Register or get existing service by name
     #
-    # Returns service_id for the provider/model combination
+    # Returns service_id for the named service configuration.
+    # If name is nil, auto-generates from "format/model".
     def register_service(
       db : DB::Database,
-      provider : String,
+      name : String?,
+      format : String,
+      base_url : String?,
       model : String,
-      version : String?,
       dimensions : Int32,
       max_tokens : Int32
     ) : Int64
       prefix = Memo.table_prefix
 
-      # Try to get existing service
+      # Auto-generate name if not provided
+      service_name = name || "#{format}/#{model}"
+
+      # Try to get existing service by name
       service_id = db.query_one?(
-        "SELECT id FROM #{prefix}services WHERE provider = ? AND model = ? AND version IS ? AND dimensions = ?",
-        provider, model, version, dimensions,
+        "SELECT id FROM #{prefix}services WHERE name = ?",
+        service_name,
         as: Int64
       )
 
@@ -32,12 +37,37 @@ module Memo
 
       # Insert new service
       db.exec(
-        "INSERT INTO #{prefix}services (provider, model, version, dimensions, max_tokens, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)",
-        provider, model, version, dimensions, max_tokens, Time.utc.to_unix_ms
+        "INSERT INTO #{prefix}services (name, format, base_url, model, dimensions, max_tokens, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
+        service_name, format, base_url, model, dimensions, max_tokens, Time.utc.to_unix_ms
       )
 
       db.scalar("SELECT last_insert_rowid()").as(Int64)
+    end
+
+    # Get service by name
+    #
+    # Returns service record or nil if not found
+    def get_service_by_name(
+      db : DB::Database,
+      name : String
+    ) : {Int64, String, String?, String, Int32, Int32}?
+      prefix = Memo.table_prefix
+
+      db.query_one?(
+        "SELECT id, format, base_url, model, dimensions, max_tokens
+         FROM #{prefix}services WHERE name = ?",
+        name
+      ) do |rs|
+        {
+          rs.read(Int64),   # id
+          rs.read(String),  # format
+          rs.read(String?), # base_url
+          rs.read(String),  # model
+          rs.read(Int32),   # dimensions
+          rs.read(Int32),   # max_tokens
+        }
+      end
     end
 
     # Store embedding in database (deduplicated by hash)

@@ -6,15 +6,21 @@ module Memo
     # OpenAI embedding provider
     #
     # Generates embeddings using OpenAI's embeddings API.
+    # Compatible with OpenAI, Azure OpenAI, and other OpenAI-compatible APIs.
     class OpenAI
       include Base
 
-      API_BASE = "https://api.openai.com/v1"
+      DEFAULT_BASE_URL = "https://api.openai.com/v1"
 
       getter api_key : String
       getter model : String
+      getter base_url : String
 
-      def initialize(@api_key : String, @model : String = "text-embedding-3-small")
+      def initialize(
+        @api_key : String,
+        @model : String = "text-embedding-3-small",
+        @base_url : String = DEFAULT_BASE_URL
+      )
       end
 
       def embed_text(text : String) : {Array(Float64), Int32}
@@ -25,7 +31,7 @@ module Memo
       def embed_texts(texts : Array(String)) : EmbedResult
         return EmbedResult.new([] of Array(Float64), [] of Int32, 0) if texts.empty?
 
-        url = "#{API_BASE}/embeddings"
+        url = "#{@base_url}/embeddings"
         body = {
           "model"           => @model,
           "input"           => texts,

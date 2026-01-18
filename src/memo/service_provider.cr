@@ -1,8 +1,8 @@
 module Memo
-  # Public CRUD interface for service provider configurations
+  # Public CRUD interface for service configurations
   #
-  # Manages the services table which tracks provider/model combinations
-  # and their configurations. Each service represents a unique embedding
+  # Manages the services table which stores named embedding service
+  # configurations. Each service represents a unique embedding
   # configuration that embeddings are associated with.
   #
   # ## Usage
@@ -14,8 +14,10 @@ module Memo
   # # Create a new service configuration
   # service = Memo::ServiceProvider.create(
   #   db: db,
-  #   provider: "openai",
-  #   model: "text-embedding-3-small",
+  #   name: "azure-prod",
+  #   format: "openai",
+  #   base_url: "https://mycompany.openai.azure.com/",
+  #   model: "text-embedding-ada-002",
   #   dimensions: 1536,
   #   max_tokens: 8191
   # )
@@ -23,8 +25,8 @@ module Memo
   # # List all services
   # services = Memo::ServiceProvider.list(db)
   #
-  # # Get a specific service
-  # service = Memo::ServiceProvider.get(db, id: 1)
+  # # Get a specific service by name
+  # service = Memo::ServiceProvider.get_by_name(db, "azure-prod")
   #
   # # Delete a service (fails if embeddings exist)
   # Memo::ServiceProvider.delete(db, id: 1)
@@ -36,18 +38,20 @@ module Memo
     # Service configuration information
     struct Info
       getter id : Int64
-      getter provider : String
+      getter name : String
+      getter format : String
+      getter base_url : String?
       getter model : String
-      getter version : String?
       getter dimensions : Int32
       getter max_tokens : Int32
       getter created_at : Time
 
       def initialize(
         @id : Int64,
-        @provider : String,
+        @name : String,
+        @format : String,
+        @base_url : String?,
         @model : String,
-        @version : String?,
         @dimensions : Int32,
         @max_tokens : Int32,
         @created_at : Time
@@ -72,39 +76,42 @@ module Memo
 
     # Create a new service configuration
     #
-    # If a service with the same provider/model/version/dimensions already exists,
-    # returns the existing service.
+    # If a service with the same name already exists, raises an error.
     #
-    # Returns the created or existing service info.
+    # Returns the created service info.
     def create(
       db : DB::Database,
-      provider : String,
+      name : String,
+      format : String,
       model : String,
       dimensions : Int32,
       max_tokens : Int32,
-      version : String? = nil
+      base_url : String? = nil
     ) : Info
       prefix = Memo.table_prefix
 
-      # Check if already exists
-      existing = get_by_config(db, provider, model, version, dimensions)
-      return existing if existing
+      # Check if name already exists
+      existing = get_by_name(db, name)
+      if existing
+        raise ArgumentError.new("Service '#{name}' already exists")
+      end
 
       # Insert new service
       now = Time.utc
       db.exec(
-        "INSERT INTO #{prefix}services (provider, model, version, dimensions, max_tokens, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)",
-        provider, model, version, dimensions, max_tokens, now.to_unix_ms
+        "INSERT INTO #{prefix}services (name, format, base_url, model, dimensions, max_tokens, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)",
+        name, format, base_url, model, dimensions, max_tokens, now.to_unix_ms
       )
 
       id = db.scalar("SELECT last_insert_rowid()").as(Int64)
 
       Info.new(
         id: id,
-        provider: provider,
+        name: name,
+        format: format,
+        base_url: base_url,
         model: model,
-        version: version,
         dimensions: dimensions,
         max_tokens: max_tokens,
         created_at: now
@@ -118,7 +125,7 @@ module Memo
       prefix = Memo.table_prefix
 
       db.query_one?(
-        "SELECT id, provider, model, version, dimensions, max_tokens, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, created_at
          FROM #{prefix}services WHERE id = ?",
         id
       ) do |rs|
@@ -126,23 +133,16 @@ module Memo
       end
     end
 
-    # Get a service by its configuration
+    # Get a service by name
     #
     # Returns nil if not found.
-    def get_by_config(
-      db : DB::Database,
-      provider : String,
-      model : String,
-      version : String?,
-      dimensions : Int32
-    ) : Info?
+    def get_by_name(db : DB::Database, name : String) : Info?
       prefix = Memo.table_prefix
 
       db.query_one?(
-        "SELECT id, provider, model, version, dimensions, max_tokens, created_at
-         FROM #{prefix}services
-         WHERE provider = ? AND model = ? AND version IS ? AND dimensions = ?",
-        provider, model, version, dimensions
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, created_at
+         FROM #{prefix}services WHERE name = ?",
+        name
       ) do |rs|
         read_info(rs)
       end
@@ -156,7 +156,7 @@ module Memo
       services = [] of Info
 
       db.query(
-        "SELECT id, provider, model, version, dimensions, max_tokens, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, created_at
          FROM #{prefix}services
          ORDER BY created_at DESC"
       ) do |rs|
@@ -168,19 +168,19 @@ module Memo
       services
     end
 
-    # List services by provider
+    # List services by format
     #
-    # Returns array of service info for the specified provider.
-    def list_by_provider(db : DB::Database, provider : String) : Array(Info)
+    # Returns array of service info for the specified API format.
+    def list_by_format(db : DB::Database, format : String) : Array(Info)
       prefix = Memo.table_prefix
       services = [] of Info
 
       db.query(
-        "SELECT id, provider, model, version, dimensions, max_tokens, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, created_at
          FROM #{prefix}services
-         WHERE provider = ?
+         WHERE format = ?
          ORDER BY created_at DESC",
-        provider
+        format
       ) do |rs|
         rs.each do
           services << read_info(rs)
@@ -190,16 +190,39 @@ module Memo
       services
     end
 
-    # Update a service's max_tokens
+    # Update a service configuration
     #
-    # Only max_tokens can be updated as other fields define the service identity.
+    # Can update base_url and max_tokens. Other fields define the service identity.
     # Returns the updated service info, or nil if not found.
-    def update(db : DB::Database, id : Int64, max_tokens : Int32) : Info?
+    def update(
+      db : DB::Database,
+      id : Int64,
+      base_url : String? = nil,
+      max_tokens : Int32? = nil
+    ) : Info?
       prefix = Memo.table_prefix
 
+      # Build update query dynamically
+      updates = [] of String
+      params = [] of DB::Any
+
+      if base_url
+        updates << "base_url = ?"
+        params << base_url
+      end
+
+      if max_tokens
+        updates << "max_tokens = ?"
+        params << max_tokens
+      end
+
+      return get(db, id) if updates.empty?
+
+      params << id
+
       result = db.exec(
-        "UPDATE #{prefix}services SET max_tokens = ? WHERE id = ?",
-        max_tokens, id
+        "UPDATE #{prefix}services SET #{updates.join(", ")} WHERE id = ?",
+        args: params
       )
 
       return nil if result.rows_affected == 0
@@ -304,9 +327,10 @@ module Memo
     private def read_info(rs) : Info
       Info.new(
         id: rs.read(Int64),
-        provider: rs.read(String),
+        name: rs.read(String),
+        format: rs.read(String),
+        base_url: rs.read(String?),
         model: rs.read(String),
-        version: rs.read(String?),
         dimensions: rs.read(Int32),
         max_tokens: rs.read(Int32),
         created_at: Time.unix_ms(rs.read(Int64))
