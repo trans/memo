@@ -11,12 +11,13 @@
 -- compatible vector spaces.
 
 CREATE TABLE IF NOT EXISTS embeddings (
-    hash BLOB PRIMARY KEY,           -- Content hash (SHA256 of text)
+    hash BLOB NOT NULL,              -- Content hash (SHA256 of text)
+    service_id INTEGER NOT NULL,     -- FK to services table
     embedding BLOB NOT NULL,         -- Vector embedding (serialized floats)
     token_count INTEGER NOT NULL,    -- Tokens in embedded text
-    service_id INTEGER NOT NULL,     -- FK to services table
     created_at INTEGER NOT NULL,     -- Unix timestamp (ms)
 
+    PRIMARY KEY (hash, service_id),
     FOREIGN KEY (service_id) REFERENCES services(id)
 );
 

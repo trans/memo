@@ -161,9 +161,9 @@ describe Memo::Projection do
           Memo::Storage.store_embedding(db, hash, embedding, 10, service_id)
 
           projections = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-          Memo::Projection.store_projections(db, hash, projections)
+          Memo::Projection.store_projections(db, hash, service_id, projections)
 
-          retrieved = Memo::Projection.get_projections(db, hash)
+          retrieved = Memo::Projection.get_projections(db, hash, service_id)
           retrieved.should_not be_nil
 
           retrieved_projections = retrieved.not_nil!
@@ -178,7 +178,7 @@ describe Memo::Projection do
       it "returns nil for non-existent hash" do
         with_test_db do |db|
           hash = Memo::Storage.compute_hash("nonexistent")
-          retrieved = Memo::Projection.get_projections(db, hash)
+          retrieved = Memo::Projection.get_projections(db, hash, 1_i64)
           retrieved.should be_nil
         end
       end
@@ -217,7 +217,7 @@ describe Memo::Projection do
 
           # Compute and store projections
           projections = Memo::Projection.compute_projections(emb, proj_vectors)
-          Memo::Projection.store_projections(db, hash, projections)
+          Memo::Projection.store_projections(db, hash, service_id, projections)
 
           Memo::Storage.create_chunk(db, hash, "document", i.to_i64, 0, 100)
         end

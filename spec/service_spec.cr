@@ -167,7 +167,7 @@ describe Memo::Service do
           as: Bytes
         )
 
-        projections = Memo::Projection.get_projections(service.db, hash)
+        projections = Memo::Projection.get_projections(service.db, hash, service.service_id)
         projections.should_not be_nil
         projections.not_nil!.size.should eq(Memo::Projection::K)
       end

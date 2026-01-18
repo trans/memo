@@ -103,35 +103,36 @@ module Memo
       end
     end
 
-    # Store projections for an embedding
+    # Store projections for an embedding (per service)
     def store_projections(
       db : DB::Database,
       hash : Bytes,
+      service_id : Int64,
       projections : Array(Float64)
     )
       prefix = Memo.table_prefix
 
       db.exec(
         "INSERT OR REPLACE INTO #{prefix}projections
-         (hash, proj_0, proj_1, proj_2, proj_3, proj_4, proj_5, proj_6, proj_7)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        hash,
+         (hash, service_id, proj_0, proj_1, proj_2, proj_3, proj_4, proj_5, proj_6, proj_7)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        hash, service_id,
         projections[0], projections[1], projections[2], projections[3],
         projections[4], projections[5], projections[6], projections[7]
       )
     end
 
-    # Get projections for an embedding
+    # Get projections for an embedding (per service)
     #
     # Returns nil if not found
-    def get_projections(db : DB::Database, hash : Bytes) : Array(Float64)?
+    def get_projections(db : DB::Database, hash : Bytes, service_id : Int64) : Array(Float64)?
       prefix = Memo.table_prefix
 
       db.query_one?(
         "SELECT proj_0, proj_1, proj_2, proj_3, proj_4, proj_5, proj_6, proj_7
          FROM #{prefix}projections
-         WHERE hash = ?",
-        hash
+         WHERE hash = ? AND service_id = ?",
+        hash, service_id
       ) do |rs|
         projections = [] of Float64
         K.times do

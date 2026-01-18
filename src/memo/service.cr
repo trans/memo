@@ -467,15 +467,15 @@ module Memo
       prefix = Memo.table_prefix
 
       # Build query based on whether source_type is provided
-      type_filter = source_type ? " AND c.source_type = ?" : ""
-      query_params = source_type ? [source_id, @service_id, source_type] : [source_id, @service_id]
+      # Chunks are service-agnostic, so no need to join with embeddings
+      type_filter = source_type ? " AND source_type = ?" : ""
+      query_params = source_type ? [source_id, source_type] : [source_id]
 
       # Get hashes of chunks to be deleted (for orphan cleanup)
       hashes = [] of Bytes
       @db.query(
-        "SELECT DISTINCT c.hash FROM #{prefix}chunks c
-         JOIN #{prefix}embeddings e ON c.hash = e.hash
-         WHERE c.source_id = ? AND e.service_id = ?#{type_filter}",
+        "SELECT DISTINCT hash FROM #{prefix}chunks
+         WHERE source_id = ?#{type_filter}",
         args: query_params
       ) do |rs|
         rs.each do
@@ -505,7 +505,7 @@ module Memo
 
         deleted_count = hashes.size
 
-        # Clean up orphaned embeddings and projections
+        # Clean up orphaned embeddings and projections (for ALL services)
         hashes.each do |hash|
           # Check if any chunks still reference this hash
           remaining = @db.scalar(
@@ -514,7 +514,7 @@ module Memo
           ).as(Int64)
 
           if remaining == 0
-            # No more references - delete embedding and projections
+            # No more references - delete embeddings and projections for all services
             @db.exec("DELETE FROM #{prefix}projections WHERE hash = ?", hash)
             @db.exec("DELETE FROM #{prefix}embeddings WHERE hash = ?", hash)
           end
@@ -1242,6 +1242,11 @@ module Memo
     # This is the internal implementation used by both process_queue and
     # process_queue_item. It does not interact with the queue table.
     #
+    # Deletes existing chunks for the source before re-indexing to ensure
+    # clean state if chunking settings have changed.
+    #
+    # TODO: Consider storing source text hash to skip re-indexing unchanged content
+    #
     # Returns number of chunks successfully stored.
     private def embed_and_store(
       source_type : String,
@@ -1254,14 +1259,17 @@ module Memo
       chunks = Chunking.chunk_text(text, @chunking_config)
       return 0 if chunks.empty?
 
-      # Embed chunks
+      # Embed chunks (API call - outside transaction so failure is safe)
       embed_result = @provider.embed_texts(chunks)
 
-      # Store chunks
+      # Delete old and store new atomically
       success_count = 0
       current_offset = 0
 
       @db.transaction do
+        # Delete existing chunks for this source before storing new ones
+        # This ensures clean state if chunking settings have changed
+        delete(source_id, source_type)
         chunks.each_with_index do |chunk_text, idx|
           hash = Storage.compute_hash(chunk_text)
           embedding = embed_result.embeddings[idx]
@@ -1271,9 +1279,9 @@ module Memo
           # Store embedding (deduplicated by hash)
           Storage.store_embedding(@db, hash, embedding, token_count, @service_id)
 
-          # Compute and store projections for fast filtering
+          # Compute and store projections for fast filtering (per service)
           projections = Projection.compute_projections(embedding, @projection_vectors)
-          Projection.store_projections(@db, hash, projections)
+          Projection.store_projections(@db, hash, @service_id, projections)
 
           # Create chunk reference
           Storage.create_chunk(

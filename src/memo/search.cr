@@ -130,7 +130,8 @@ module Memo
       # Add projection distance filter if projections available
       projection_join = ""
       if qp = query_projections
-        projection_join = "JOIN #{prefix}projections p ON c.hash = p.hash"
+        # Join on both hash and service_id to get correct projections for this service
+        projection_join = "JOIN #{prefix}projections p ON c.hash = p.hash AND p.service_id = e.service_id"
         # Squared Euclidean distance in projection space
         distance_expr = (0...Projection::K).map { |i|
           "(p.proj_#{i} - ?) * (p.proj_#{i} - ?)"

@@ -153,7 +153,7 @@ describe Memo::Storage do
 
         Memo::Storage.store_embedding(db, hash, original_embedding, 10, service_id)
 
-        retrieved = Memo::Storage.get_embedding(db, hash)
+        retrieved = Memo::Storage.get_embedding(db, hash, service_id)
         retrieved.should_not be_nil
         retrieved.not_nil!.should eq(original_embedding)
       end
@@ -162,7 +162,7 @@ describe Memo::Storage do
     it "returns nil for non-existent hash" do
       with_test_db do |db|
         hash = Memo::Storage.compute_hash("nonexistent")
-        retrieved = Memo::Storage.get_embedding(db, hash)
+        retrieved = Memo::Storage.get_embedding(db, hash, 1_i64)
         retrieved.should be_nil
       end
     end

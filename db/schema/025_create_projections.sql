@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS projection_vectors (
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS projections (
-    hash BLOB PRIMARY KEY,           -- FK to embeddings(hash)
+    hash BLOB NOT NULL,              -- FK to embeddings(hash, service_id)
+    service_id INTEGER NOT NULL,     -- FK to services table
     proj_0 REAL NOT NULL,            -- Dot product with vec_0
     proj_1 REAL NOT NULL,            -- Dot product with vec_1
     proj_2 REAL NOT NULL,            -- Dot product with vec_2
@@ -50,5 +51,6 @@ CREATE TABLE IF NOT EXISTS projections (
     proj_6 REAL NOT NULL,            -- Dot product with vec_6
     proj_7 REAL NOT NULL,            -- Dot product with vec_7
 
-    FOREIGN KEY (hash) REFERENCES embeddings(hash)
+    PRIMARY KEY (hash, service_id),
+    FOREIGN KEY (hash, service_id) REFERENCES embeddings(hash, service_id)
 );

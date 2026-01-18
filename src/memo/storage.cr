@@ -94,9 +94,9 @@ module Memo
       end
     end
 
-    # Store embedding in database (deduplicated by hash)
+    # Store embedding in database (deduplicated by hash + service_id)
     #
-    # Returns true if inserted, false if already exists
+    # Returns true if inserted, false if already exists for this service
     def store_embedding(
       db : DB::Database,
       hash : Bytes,
@@ -109,40 +109,43 @@ module Memo
       # Serialize embedding as blob (pack floats as binary)
       embedding_blob = serialize_embedding(embedding)
 
-      # Try to insert (will fail if hash already exists due to PRIMARY KEY)
+      # Try to insert (will skip if hash+service_id already exists due to composite PRIMARY KEY)
       db.exec(
-        "INSERT OR IGNORE INTO #{prefix}embeddings (hash, embedding, token_count, service_id, created_at)
+        "INSERT OR IGNORE INTO #{prefix}embeddings (hash, service_id, embedding, token_count, created_at)
          VALUES (?, ?, ?, ?, ?)",
-        hash, embedding_blob, token_count, service_id, Time.utc.to_unix_ms
+        hash, service_id, embedding_blob, token_count, Time.utc.to_unix_ms
       )
 
-      # Check if we actually inserted
+      # Check if we actually inserted (for this specific service)
       exists = db.scalar(
-        "SELECT COUNT(*) FROM #{prefix}embeddings WHERE hash = ?",
-        hash
+        "SELECT COUNT(*) FROM #{prefix}embeddings WHERE hash = ? AND service_id = ?",
+        hash, service_id
       ).as(Int64)
 
       exists > 0
     end
 
-    # Get embedding by hash
+    # Get embedding by hash and service_id
     #
     # Returns nil if not found
-    def get_embedding(db : DB::Database, hash : Bytes) : Array(Float64)?
+    def get_embedding(db : DB::Database, hash : Bytes, service_id : Int64) : Array(Float64)?
       prefix = Memo.table_prefix
 
       db.query_one?(
-        "SELECT embedding FROM #{prefix}embeddings WHERE hash = ?",
-        hash
+        "SELECT embedding FROM #{prefix}embeddings WHERE hash = ? AND service_id = ?",
+        hash, service_id
       ) do |rs|
         blob = rs.read(Bytes)
         deserialize_embedding(blob)
       end
     end
 
-    # Create chunk reference
+    # Create chunk reference (or ignore if already exists)
     #
-    # Links a hash to a source with optional relationships
+    # Links a hash to a source with optional relationships.
+    # Uses INSERT OR IGNORE to safely handle re-indexing with different services.
+    #
+    # Returns chunk id if inserted, or 0 if chunk already existed
     def create_chunk(
       db : DB::Database,
       hash : Bytes,
@@ -156,7 +159,7 @@ module Memo
       prefix = Memo.table_prefix
 
       db.exec(
-        "INSERT INTO #{prefix}chunks
+        "INSERT OR IGNORE INTO #{prefix}chunks
          (hash, source_type, source_id, pair_id, parent_id, offset, size, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         hash, source_type, source_id, pair_id, parent_id, offset, size, Time.utc.to_unix_ms
