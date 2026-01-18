@@ -68,7 +68,7 @@ module Memo
     # Safe to call multiple times (uses IF NOT EXISTS)
     def load_schema(db : DB::Database)
       schema_dir = File.join(__DIR__, "../../db/schema")
-      sql_files = Dir.glob(File.join(schema_dir, "*.sql")).sort
+      sql_files = Dir.glob(File.join(schema_dir, "[0-9]*.sql")).sort
 
       sql_files.each do |file|
         execute_schema_file(db, file)
@@ -98,6 +98,12 @@ module Memo
       sql = sql.gsub(/REFERENCES (\w+)\(/) do |match|
         table_name = $1
         "REFERENCES #{prefix}#{table_name}("
+      end
+
+      # Replace INSERT INTO table names
+      sql = sql.gsub(/INSERT OR IGNORE INTO (\w+)/) do |match|
+        table_name = $1
+        "INSERT OR IGNORE INTO #{prefix}#{table_name}"
       end
 
       # Split into individual statements and execute separately

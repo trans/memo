@@ -6,9 +6,10 @@ describe Memo::Storage do
       with_test_db do |db|
         service_id = Memo::Storage.register_service(
           db: db,
-          provider: "openai",
+          name: nil,
+          format: "openai",
+          base_url: nil,
           model: "text-embedding-3-small",
-          version: nil,
           dimensions: 1536,
           max_tokens: 8191
         )
@@ -21,18 +22,22 @@ describe Memo::Storage do
       with_test_db do |db|
         id1 = Memo::Storage.register_service(
           db: db,
-          provider: "openai",
+          name: nil,
+          format: "openai",
+          base_url: nil,
           model: "text-embedding-3-small",
-          version: nil,
+          
           dimensions: 1536,
           max_tokens: 8191
         )
 
         id2 = Memo::Storage.register_service(
           db: db,
-          provider: "openai",
+          name: nil,
+          format: "openai",
+          base_url: nil,
           model: "text-embedding-3-small",
-          version: nil,
+          
           dimensions: 1536,
           max_tokens: 8191
         )
@@ -45,18 +50,22 @@ describe Memo::Storage do
       with_test_db do |db|
         id1 = Memo::Storage.register_service(
           db: db,
-          provider: "openai",
+          name: nil,
+          format: "openai",
+          base_url: nil,
           model: "text-embedding-3-small",
-          version: nil,
+          
           dimensions: 1536,
           max_tokens: 8191
         )
 
         id2 = Memo::Storage.register_service(
           db: db,
-          provider: "openai",
+          name: nil,
+          format: "openai",
+          base_url: nil,
           model: "text-embedding-3-large",
-          version: nil,
+          
           dimensions: 3072,
           max_tokens: 8191
         )
@@ -71,9 +80,11 @@ describe Memo::Storage do
       with_test_db do |db|
         service_id = Memo::Storage.register_service(
           db: db,
-          provider: "test",
+          name: nil,
+          format: "mock",
+          base_url: nil,
           model: "test-model",
-          version: nil,
+          
           dimensions: 8,
           max_tokens: 1000
         )
@@ -98,9 +109,11 @@ describe Memo::Storage do
       with_test_db do |db|
         service_id = Memo::Storage.register_service(
           db: db,
-          provider: "test",
+          name: nil,
+          format: "mock",
+          base_url: nil,
           model: "test-model",
-          version: nil,
+          
           dimensions: 8,
           max_tokens: 1000
         )
@@ -125,9 +138,11 @@ describe Memo::Storage do
       with_test_db do |db|
         service_id = Memo::Storage.register_service(
           db: db,
-          provider: "test",
+          name: nil,
+          format: "mock",
+          base_url: nil,
           model: "test-model",
-          version: nil,
+          
           dimensions: 8,
           max_tokens: 1000
         )
@@ -158,9 +173,11 @@ describe Memo::Storage do
       with_test_db do |db|
         service_id = Memo::Storage.register_service(
           db: db,
-          provider: "test",
+          name: nil,
+          format: "mock",
+          base_url: nil,
           model: "test-model",
-          version: nil,
+          
           dimensions: 8,
           max_tokens: 1000
         )
@@ -190,9 +207,11 @@ describe Memo::Storage do
       with_test_db do |db|
         service_id = Memo::Storage.register_service(
           db: db,
-          provider: "test",
+          name: nil,
+          format: "mock",
+          base_url: nil,
           model: "test-model",
-          version: nil,
+          
           dimensions: 8,
           max_tokens: 1000
         )

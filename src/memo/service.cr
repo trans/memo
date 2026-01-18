@@ -99,6 +99,14 @@ module Memo
     # Schema name for ATTACHed text database
     TEXT_SCHEMA = "text_store"
 
+    # Private struct for init_provider return value
+    private record ProviderConfig,
+      provider : Providers::Base,
+      service_id : Int64,
+      service_name : String,
+      dimensions : Int32,
+      max_tokens : Int32
+
     # Track whether we own the db connection (for close behavior)
     @owns_db : Bool = true
 
@@ -184,7 +192,7 @@ module Memo
       Memo.table_prefix = ""
 
       # Initialize from service name or format
-      init_provider(
+      config = init_provider(
         service: service,
         format: format,
         base_url: base_url,
@@ -193,6 +201,22 @@ module Memo
         max_tokens: max_tokens,
         api_key: api_key,
         chunking_max_tokens: chunking_max_tokens
+      )
+
+      @provider = config.provider
+      @service_id = config.service_id
+      @service_name = config.service_name
+      @dimensions = config.dimensions
+
+      # Get or create projection vectors for this service
+      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
+                            create_projection_vectors(@dimensions, @service_id)
+
+      # Create chunking config
+      @chunking_config = Config::Chunking.new(
+        min_tokens: 100,
+        max_tokens: chunking_max_tokens,
+        no_chunk_threshold: chunking_max_tokens
       )
 
       # Store batch size and queue config
@@ -226,7 +250,7 @@ module Memo
       Memo.table_prefix = ""
 
       # Initialize from service name or format
-      init_provider(
+      config = init_provider(
         service: service,
         format: format,
         base_url: base_url,
@@ -235,6 +259,22 @@ module Memo
         max_tokens: max_tokens,
         api_key: api_key,
         chunking_max_tokens: chunking_max_tokens
+      )
+
+      @provider = config.provider
+      @service_id = config.service_id
+      @service_name = config.service_name
+      @dimensions = config.dimensions
+
+      # Get or create projection vectors for this service
+      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
+                            create_projection_vectors(@dimensions, @service_id)
+
+      # Create chunking config
+      @chunking_config = Config::Chunking.new(
+        min_tokens: 100,
+        max_tokens: chunking_max_tokens,
+        no_chunk_threshold: chunking_max_tokens
       )
 
       # Store batch size and queue config
@@ -604,8 +644,8 @@ module Memo
       @dimensions = svc.dimensions
 
       # Get or create projection vectors for this service
-      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
-                            create_projection_vectors
+      @projection_vectors = Projection.get_projection_vectors(@db, svc.id) ||
+                            create_projection_vectors(svc.dimensions, svc.id)
     end
 
     # =========================================================================
@@ -1026,6 +1066,8 @@ module Memo
     # 1. If service name is provided, looks up the configuration from the database
     # 2. If format is provided, creates inline configuration
     # 3. Otherwise, uses the default service
+    #
+    # Returns ProviderConfig with provider instance and service metadata
     private def init_provider(
       service : String?,
       format : String?,
@@ -1035,7 +1077,7 @@ module Memo
       max_tokens : Int32?,
       api_key : String?,
       chunking_max_tokens : Int32
-    )
+    ) : ProviderConfig
       if service
         # Look up existing service configuration by name
         svc = Storage.get_service_by_name(@db, service)
@@ -1043,49 +1085,52 @@ module Memo
 
         svc_id, svc_format, svc_base_url, svc_model, svc_dimensions, svc_max_tokens = svc
 
-        @service_name = service
-        @service_id = svc_id
-        @dimensions = svc_dimensions
-
         # Create provider instance from stored config
         provider_instance = Providers::Registry.create(svc_format, api_key, svc_model, svc_base_url)
         raise ArgumentError.new("Unknown format: #{svc_format}") unless provider_instance
-        @provider = provider_instance
 
         # Validate chunking doesn't exceed provider limits
         if chunking_max_tokens > svc_max_tokens
           raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds service limit (#{svc_max_tokens})")
         end
 
-        final_max_tokens = svc_max_tokens
+        ProviderConfig.new(provider_instance, svc_id, service, svc_dimensions, svc_max_tokens)
       elsif format
         # Configure inline from format parameters
         final_format = format
 
-        # Validate format is supported
-        unless Providers::Registry.format?(final_format)
-          raise ArgumentError.new("Unknown format: #{final_format}")
+        # Try to find existing service by format/model
+        if model
+          existing = Storage.get_service_by_format_model(@db, final_format, model)
         end
 
-        # Auto-detect model, dimensions, and max_tokens from registry
-        final_model = model || Providers::Registry.default_model(final_format) || raise ArgumentError.new("No default model for format: #{final_format}")
-        final_dimensions = dimensions || Providers::Registry.dimensions(final_format, final_model) || raise ArgumentError.new("Unknown dimensions for #{final_format}/#{final_model}")
-        final_max_tokens = max_tokens || Providers::Registry.max_tokens(final_format, final_model) || raise ArgumentError.new("Unknown max_tokens for #{final_format}/#{final_model}")
+        if existing
+          # Use existing service configuration
+          _id, _fmt, _base_url, svc_model, svc_dimensions, svc_max_tokens = existing
+          final_model = svc_model
+          final_dimensions = dimensions || svc_dimensions
+          final_max_tokens = max_tokens || svc_max_tokens
+        else
+          # No existing service - require all parameters
+          raise ArgumentError.new("model required for format: #{final_format}") unless model
+          raise ArgumentError.new("dimensions required for #{final_format}/#{model}") unless dimensions
+          raise ArgumentError.new("max_tokens required for #{final_format}/#{model}") unless max_tokens
+          final_model = model
+          final_dimensions = dimensions
+          final_max_tokens = max_tokens
+        end
 
         # Validate chunking doesn't exceed provider limits
         if chunking_max_tokens > final_max_tokens
           raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds provider limit (#{final_max_tokens})")
         end
 
-        @dimensions = final_dimensions
-
         # Create provider instance
         provider_instance = Providers::Registry.create(final_format, api_key, final_model, base_url)
-        raise ArgumentError.new("Failed to create provider for format: #{final_format}") unless provider_instance
-        @provider = provider_instance
+        raise ArgumentError.new("Unknown format: #{final_format}") unless provider_instance
 
         # Register or get existing service in database (auto-generates name)
-        @service_id = Storage.register_service(
+        service_id = Storage.register_service(
           db: @db,
           name: nil,  # Auto-generate from format/model
           format: final_format,
@@ -1095,43 +1140,29 @@ module Memo
           max_tokens: final_max_tokens
         )
 
-        @service_name = "#{final_format}/#{final_model}"
+        ProviderConfig.new(provider_instance, service_id, "#{final_format}/#{final_model}", final_dimensions, final_max_tokens)
       else
         # Use the default service
         default_svc = ServiceProvider.get_default(@db)
         raise ArgumentError.new("No default service configured") unless default_svc
 
-        @service_name = default_svc.name
-        @service_id = default_svc.id
-        @dimensions = default_svc.dimensions
-
         # Create provider instance from default service config
         provider_instance = Providers::Registry.create(default_svc.format, api_key, default_svc.model, default_svc.base_url)
         raise ArgumentError.new("Unknown format: #{default_svc.format}") unless provider_instance
-        @provider = provider_instance
 
         # Validate chunking doesn't exceed provider limits
         if chunking_max_tokens > default_svc.max_tokens
           raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds service limit (#{default_svc.max_tokens})")
         end
+
+        ProviderConfig.new(provider_instance, default_svc.id, default_svc.name, default_svc.dimensions, default_svc.max_tokens)
       end
-
-      # Get or create projection vectors for this service
-      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
-                            create_projection_vectors
-
-      # Create chunking config
-      @chunking_config = Config::Chunking.new(
-        min_tokens: 100,
-        max_tokens: chunking_max_tokens,
-        no_chunk_threshold: chunking_max_tokens
-      )
     end
 
     # Generate and store projection vectors for this service
-    private def create_projection_vectors : Array(Array(Float64))
-      vectors = Projection.generate_orthogonal_vectors(@dimensions)
-      Projection.store_projection_vectors(@db, @service_id, vectors)
+    private def create_projection_vectors(dimensions : Int32, service_id : Int64) : Array(Array(Float64))
+      vectors = Projection.generate_orthogonal_vectors(dimensions)
+      Projection.store_projection_vectors(@db, service_id, vectors)
       vectors
     end
 

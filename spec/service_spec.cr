@@ -23,7 +23,7 @@ describe Memo::Service do
         # First initialization creates vectors
         service1 = Memo::Service.new(
           data_dir: data_dir,
-          provider: "mock",
+          service: "mock",
           chunking_max_tokens: 50
         )
         original_vectors = service1.projection_vectors.clone
@@ -33,7 +33,7 @@ describe Memo::Service do
         # Re-open same database - should get same vectors
         service2 = Memo::Service.new(
           data_dir: data_dir,
-          provider: "mock",
+          service: "mock",
           chunking_max_tokens: 50
         )
 
@@ -51,12 +51,12 @@ describe Memo::Service do
       end
     end
 
-    it "validates chunking vs provider limits" do
-      expect_raises(ArgumentError, /exceeds provider limit/) do
+    it "validates chunking vs service limits" do
+      expect_raises(ArgumentError, /exceeds service limit/) do
         with_test_data_dir do |data_dir|
           service = Memo::Service.new(
             data_dir: data_dir,
-            provider: "mock",
+            service: "mock",
             chunking_max_tokens: 10000, # > mock's 100 limit
             max_tokens: 100
           )
@@ -70,19 +70,23 @@ describe Memo::Service do
         with_test_data_dir do |data_dir|
           service = Memo::Service.new(
             data_dir: data_dir,
-            provider: "openai"
+            service: "openai"
           )
           service.close
         end
       end
     end
 
-    it "rejects unknown providers" do
-      expect_raises(ArgumentError, /Unknown provider/) do
+    it "rejects unknown format" do
+      expect_raises(ArgumentError, /Unknown format/) do
         with_test_data_dir do |data_dir|
           service = Memo::Service.new(
             data_dir: data_dir,
-            provider: "unknown"
+            format: "unknown",
+            model: "test",
+            dimensions: 8,
+            max_tokens: 100,
+            chunking_max_tokens: 50
           )
           service.close
         end
@@ -384,7 +388,7 @@ describe Memo::Service do
       with_test_data_dir do |data_dir|
         service = Memo::Service.new(
           data_dir: data_dir,
-          provider: "mock",
+          service: "mock",
           store_text: false,
           chunking_max_tokens: 50
         )

@@ -70,6 +70,30 @@ module Memo
       end
     end
 
+    # Returns service record by format and model, or nil if not found
+    def get_service_by_format_model(
+      db : DB::Database,
+      format : String,
+      model : String
+    ) : {Int64, String, String?, String, Int32, Int32}?
+      prefix = Memo.table_prefix
+
+      db.query_one?(
+        "SELECT id, format, base_url, model, dimensions, max_tokens
+         FROM #{prefix}services WHERE format = ? AND model = ?",
+        format, model
+      ) do |rs|
+        {
+          rs.read(Int64),   # id
+          rs.read(String),  # format
+          rs.read(String?), # base_url
+          rs.read(String),  # model
+          rs.read(Int32),   # dimensions
+          rs.read(Int32),   # max_tokens
+        }
+      end
+    end
+
     # Store embedding in database (deduplicated by hash)
     #
     # Returns true if inserted, false if already exists

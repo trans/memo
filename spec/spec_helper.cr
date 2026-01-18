@@ -44,7 +44,7 @@ def with_test_service(&block : Memo::Service ->)
   with_test_data_dir do |data_dir|
     service = Memo::Service.new(
       data_dir: data_dir,
-      provider: "mock",
+      service: "mock",
       chunking_max_tokens: 50  # Mock provider has max_tokens of 100
     )
 

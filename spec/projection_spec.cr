@@ -104,9 +104,11 @@ describe Memo::Projection do
         with_test_db do |db|
           service_id = Memo::Storage.register_service(
             db: db,
-            provider: "test",
+            name: nil,
+          format: "mock",
+          base_url: nil,
             model: "test-model",
-            version: nil,
+            
             dimensions: 8,
             max_tokens: 1000
           )
@@ -142,9 +144,11 @@ describe Memo::Projection do
         with_test_db do |db|
           service_id = Memo::Storage.register_service(
             db: db,
-            provider: "test",
+            name: nil,
+          format: "mock",
+          base_url: nil,
             model: "test-model",
-            version: nil,
+            
             dimensions: 8,
             max_tokens: 1000
           )
@@ -186,9 +190,11 @@ describe Memo::Projection do
       with_test_db do |db|
         service_id = Memo::Storage.register_service(
           db: db,
-          provider: "test",
+          name: nil,
+          format: "mock",
+          base_url: nil,
           model: "test-model",
-          version: nil,
+          
           dimensions: 8,
           max_tokens: 1000
         )
@@ -240,9 +246,11 @@ describe Memo::Projection do
       with_test_db do |db|
         service_id = Memo::Storage.register_service(
           db: db,
-          provider: "test",
+          name: nil,
+          format: "mock",
+          base_url: nil,
           model: "test-model",
-          version: nil,
+          
           dimensions: 8,
           max_tokens: 1000
         )
