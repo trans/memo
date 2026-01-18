@@ -190,6 +190,9 @@ module Memo
 
       # Setup ATTACH on ALL connections (current and future)
       # With initial_pool_size=0, no connections exist yet so all will go through callback
+      #
+      # NOTE: To debug connection pool/ATTACH issues, check @db.pool.stats around this
+      # call and/or log PRAGMA database_list per connection to verify attached databases.
       unless attaches.empty?
         # Copy to local variables for closure capture
         attach_list = attaches.dup
