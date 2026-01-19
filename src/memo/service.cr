@@ -1299,16 +1299,18 @@ module Memo
       pair_id : Int64? = nil,
       parent_id : Int64? = nil
     ) : Int32
-      # Chunk text
+      # Chunk text (returns tuples of {text, offset, size})
       chunks = Chunking.chunk_text(text, @chunking_config)
       return 0 if chunks.empty?
 
+      # Extract just the text for embedding
+      chunk_texts = chunks.map { |(chunk_text, _, _)| chunk_text }
+
       # Embed chunks (API call - outside transaction so failure is safe)
-      embed_result = @provider.embed_texts(chunks)
+      embed_result = @provider.embed_texts(chunk_texts)
 
       # Delete old and store new atomically
       success_count = 0
-      current_offset = 0
 
       @db.transaction do
         # Delete existing chunks for this source before storing new ones
@@ -1319,11 +1321,10 @@ module Memo
         # Chunk text is extracted using offset/size when needed
         store_source_text(source_type, source_id, text) if @text_storage
 
-        chunks.each_with_index do |chunk_text, idx|
+        chunks.each_with_index do |(chunk_text, offset, size), idx|
           hash = Storage.compute_hash(chunk_text)
           embedding = embed_result.embeddings[idx]
           token_count = embed_result.token_counts[idx]
-          chunk_size = chunk_text.size
 
           # Store embedding (deduplicated by hash)
           Storage.store_embedding(@db, hash, embedding, token_count, @service_id)
@@ -1332,20 +1333,19 @@ module Memo
           projections = Projection.compute_projections(embedding, @projection_vectors)
           Projection.store_projections(@db, hash, @service_id, projections)
 
-          # Create chunk reference
+          # Create chunk reference with offset/size from chunking
           Storage.create_chunk(
             db: @db,
             hash: hash,
             source_type: source_type,
             source_id: source_id,
-            offset: current_offset,
-            size: chunk_size,
+            offset: offset,
+            size: size,
             pair_id: pair_id,
             parent_id: parent_id
           )
 
           success_count += 1
-          current_offset += chunk_size
         end
       end
 

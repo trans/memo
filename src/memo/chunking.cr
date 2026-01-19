@@ -11,15 +11,16 @@ module Memo
 
     # Chunk text into segments based on configuration
     #
-    # Returns array of chunk text strings
-    def chunk_text(text : String, config : Config::Chunking) : Array(String)
-      return [] of String if text.strip.empty?
+    # Returns array of tuples: {chunk_text, offset, size}
+    # Offset is the position of the chunk in the original text.
+    def chunk_text(text : String, config : Config::Chunking) : Array({String, Int32, Int32})
+      return [] of {String, Int32, Int32} if text.strip.empty?
 
       token_count = estimate_tokens(text)
 
       chunks = if token_count < config.no_chunk_threshold
                  # Keep whole
-                 [text]
+                 [text.strip]
                else
                  # Split on paragraphs, then sentences if needed
                  paragraphs = split_paragraphs(text)
@@ -27,7 +28,29 @@ module Memo
                  combine_small_chunks(sentences, config)
                end
 
-      chunks
+      # Find each chunk's position in original text
+      result = [] of {String, Int32, Int32}
+      search_pos = 0
+
+      chunks.each do |chunk|
+        idx = text.index(chunk, search_pos)
+
+        if idx
+          result << {chunk, idx, chunk.size}
+          search_pos = idx + chunk.size
+        else
+          # Combined chunk with synthetic space - find first word as fallback.
+          # TODO: Could improve accuracy by normalizing whitespace in both chunk
+          # and search text, or matching first N words instead of just one.
+          first_word = chunk.split.first?
+          idx = first_word ? text.index(first_word, search_pos) : nil
+          offset = idx || search_pos
+          result << {chunk, offset, chunk.size}
+          search_pos = offset + 1
+        end
+      end
+
+      result
     end
 
     # Estimate token count (rough approximation: chars / 4)
