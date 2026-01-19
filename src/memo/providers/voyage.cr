@@ -31,14 +31,18 @@ module Memo
       def embed_texts(texts : Array(String)) : EmbedResult
         return EmbedResult.new([] of Array(Float64), [] of Int32, 0) if texts.empty?
 
-        url = "#{@base_url}/embeddings"
+        uri = URI.parse("#{@base_url}/embeddings")
         body = {
           "model" => @model,
           "input" => texts,
         }
 
-        response = HTTP::Client.post(
-          url,
+        client = HTTP::Client.new(uri)
+        client.connect_timeout = 30.seconds
+        client.read_timeout = 120.seconds
+
+        response = client.post(
+          uri.request_target,
           headers: HTTP::Headers{
             "Authorization" => "Bearer #{@api_key}",
             "Content-Type"  => "application/json",
@@ -51,7 +55,10 @@ module Memo
         end
 
         data = JSON.parse(response.body)
-        embeddings = data["data"].as_a.map do |item|
+
+        # Sort by index to ensure correct order (API may return out of order)
+        sorted_data = data["data"].as_a.sort_by { |item| item["index"].as_i }
+        embeddings = sorted_data.map do |item|
           item["embedding"].as_a.map(&.as_f)
         end
 
