@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-01-18
+
+### Added
+- Adaptive `tokens_per_byte` ratio for chunking - self-calibrates using exponential moving average instead of hardcoded chars/4
+- HTTP timeouts for embedding providers (30s connect, 120s read)
+
+### Fixed
+- Chunk offsets now track actual positions in source text (enables accurate SUBSTR extraction)
+- Embedding provider responses sorted by index to prevent input/output misalignment
+- `delete` now returns actual chunk count, not distinct hash count
+- `store_embedding` returns false when row already exists (was always true)
+- README examples use `format:` instead of non-existent `provider:` parameter
+
 ## [0.2.0] - 2025-01-18
 
 ### Added
