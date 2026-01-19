@@ -510,22 +510,21 @@ module Memo
       deleted_count = 0
 
       @db.transaction do
-        # Delete chunks
+        # Delete chunks and count actual rows deleted
         hashes.each do |hash|
-          if source_type
-            @db.exec(
-              "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ? AND source_type = ?",
-              hash, source_id, source_type
-            )
-          else
-            @db.exec(
-              "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ?",
-              hash, source_id
-            )
-          end
+          result = if source_type
+                     @db.exec(
+                       "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ? AND source_type = ?",
+                       hash, source_id, source_type
+                     )
+                   else
+                     @db.exec(
+                       "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ?",
+                       hash, source_id
+                     )
+                   end
+          deleted_count += result.rows_affected.to_i
         end
-
-        deleted_count = hashes.size
 
         # Clean up orphaned embeddings and projections (for ALL services)
         hashes.each do |hash|

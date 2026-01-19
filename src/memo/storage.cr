@@ -138,19 +138,14 @@ module Memo
       embedding_blob = serialize_embedding(embedding)
 
       # Try to insert (will skip if hash+service_id already exists due to composite PRIMARY KEY)
-      db.exec(
+      result = db.exec(
         "INSERT OR IGNORE INTO #{prefix}embeddings (hash, service_id, embedding, token_count, created_at)
          VALUES (?, ?, ?, ?, ?)",
         hash, service_id, embedding_blob, token_count, Time.utc.to_unix_ms
       )
 
-      # Check if we actually inserted (for this specific service)
-      exists = db.scalar(
-        "SELECT COUNT(*) FROM #{prefix}embeddings WHERE hash = ? AND service_id = ?",
-        hash, service_id
-      ).as(Int64)
-
-      exists > 0
+      # Return true if we actually inserted a new row
+      result.rows_affected > 0
     end
 
     # Get embedding by hash and service_id

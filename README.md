@@ -31,7 +31,7 @@ require "memo"
 # Create service with data directory
 memo = Memo::Service.new(
   data_dir: "/var/data/memo",
-  provider: "openai",
+  format: "openai",
   api_key: ENV["OPENAI_API_KEY"]
 )
 
@@ -63,7 +63,7 @@ The main API. Handles database lifecycle, chunking, and embeddings.
 ```crystal
 memo = Memo::Service.new(
   data_dir: "/var/data/memo",  # Directory for database files
-  provider: "openai",          # Embedding provider
+  format: "openai",            # API format ("openai", "voyage", "mock")
   api_key: "sk-...",           # API key for provider
   model: nil,                  # Optional: override default model
   dimensions: nil,             # Optional: embedding dimensions (provider default)
