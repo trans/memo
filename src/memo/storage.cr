@@ -51,11 +51,11 @@ module Memo
     def get_service_by_name(
       db : DB::Database,
       name : String
-    ) : {Int64, String, String?, String, Int32, Int32}?
+    ) : {Int64, String, String?, String, Int32, Int32, Float64}?
       prefix = Memo.table_prefix
 
       db.query_one?(
-        "SELECT id, format, base_url, model, dimensions, max_tokens
+        "SELECT id, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25)
          FROM #{prefix}services WHERE name = ?",
         name
       ) do |rs|
@@ -66,6 +66,7 @@ module Memo
           rs.read(String),  # model
           rs.read(Int32),   # dimensions
           rs.read(Int32),   # max_tokens
+          rs.read(Float64), # tokens_per_byte
         }
       end
     end
@@ -75,11 +76,11 @@ module Memo
       db : DB::Database,
       format : String,
       model : String
-    ) : {Int64, String, String?, String, Int32, Int32}?
+    ) : {Int64, String, String?, String, Int32, Int32, Float64}?
       prefix = Memo.table_prefix
 
       db.query_one?(
-        "SELECT id, format, base_url, model, dimensions, max_tokens
+        "SELECT id, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25)
          FROM #{prefix}services WHERE format = ? AND model = ?",
         format, model
       ) do |rs|
@@ -90,8 +91,35 @@ module Memo
           rs.read(String),  # model
           rs.read(Int32),   # dimensions
           rs.read(Int32),   # max_tokens
+          rs.read(Float64), # tokens_per_byte
         }
       end
+    end
+
+    # Update tokens_per_byte ratio for a service using exponential moving average
+    #
+    # Blends new observation with existing ratio: new = old * 0.9 + observed * 0.1
+    def update_tokens_per_byte(
+      db : DB::Database,
+      service_id : Int64,
+      observed_ratio : Float64
+    )
+      prefix = Memo.table_prefix
+
+      # Get current ratio
+      current = db.query_one?(
+        "SELECT COALESCE(tokens_per_byte, 0.25) FROM #{prefix}services WHERE id = ?",
+        service_id,
+        as: Float64
+      ) || 0.25
+
+      # Exponential moving average: 80% old, 20% new
+      updated = current * 0.8 + observed_ratio * 0.2
+
+      db.exec(
+        "UPDATE #{prefix}services SET tokens_per_byte = ? WHERE id = ?",
+        updated, service_id
+      )
     end
 
     # Store embedding in database (deduplicated by hash + service_id)

@@ -105,7 +105,8 @@ module Memo
       service_id : Int64,
       service_name : String,
       dimensions : Int32,
-      max_tokens : Int32
+      max_tokens : Int32,
+      tokens_per_byte : Float64
 
     # Track whether we own the db connection (for close behavior)
     @owns_db : Bool = true
@@ -245,11 +246,12 @@ module Memo
       @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
                             create_projection_vectors(@dimensions, @service_id)
 
-      # Create chunking config
+      # Create chunking config with service's tokens_per_byte ratio
       @chunking_config = Config::Chunking.new(
         min_tokens: 100,
         max_tokens: chunking_max_tokens,
-        no_chunk_threshold: chunking_max_tokens
+        no_chunk_threshold: chunking_max_tokens,
+        tokens_per_byte: config.tokens_per_byte
       )
 
       # Store batch size and queue config
@@ -303,11 +305,12 @@ module Memo
       @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
                             create_projection_vectors(@dimensions, @service_id)
 
-      # Create chunking config
+      # Create chunking config with service's tokens_per_byte ratio
       @chunking_config = Config::Chunking.new(
         min_tokens: 100,
         max_tokens: chunking_max_tokens,
-        no_chunk_threshold: chunking_max_tokens
+        no_chunk_threshold: chunking_max_tokens,
+        tokens_per_byte: config.tokens_per_byte
       )
 
       # Store batch size and queue config
@@ -1119,7 +1122,7 @@ module Memo
         svc = Storage.get_service_by_name(@db, service)
         raise ArgumentError.new("Service '#{service}' not found") unless svc
 
-        svc_id, svc_format, svc_base_url, svc_model, svc_dimensions, svc_max_tokens = svc
+        svc_id, svc_format, svc_base_url, svc_model, svc_dimensions, svc_max_tokens, svc_tokens_per_byte = svc
 
         # Create provider instance from stored config
         provider_instance = Providers::Registry.create(svc_format, api_key, svc_model, svc_base_url)
@@ -1130,7 +1133,7 @@ module Memo
           raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds service limit (#{svc_max_tokens})")
         end
 
-        ProviderConfig.new(provider_instance, svc_id, service, svc_dimensions, svc_max_tokens)
+        ProviderConfig.new(provider_instance, svc_id, service, svc_dimensions, svc_max_tokens, svc_tokens_per_byte)
       elsif format
         # Configure inline from format parameters
         final_format = format
@@ -1144,7 +1147,7 @@ module Memo
           # Use existing service configuration
           # Don't allow overriding dimensions - it's intrinsic to the model
           # and overriding would cause projection vector dimension mismatch
-          _id, _fmt, _base_url, svc_model, svc_dimensions, svc_max_tokens = existing
+          _id, _fmt, _base_url, svc_model, svc_dimensions, svc_max_tokens, svc_tokens_per_byte = existing
           if dimensions && dimensions != svc_dimensions
             raise ArgumentError.new("Cannot override dimensions (#{dimensions}) for existing service with dimensions=#{svc_dimensions}")
           end
@@ -1152,6 +1155,7 @@ module Memo
           final_dimensions = svc_dimensions
           # max_tokens can be overridden - it's a limit we choose, not intrinsic to model
           final_max_tokens = max_tokens || svc_max_tokens
+          final_tokens_per_byte = svc_tokens_per_byte
         else
           # No existing service - require all parameters
           raise ArgumentError.new("model required for format: #{final_format}") unless model
@@ -1160,6 +1164,7 @@ module Memo
           final_model = model
           final_dimensions = dimensions
           final_max_tokens = max_tokens
+          final_tokens_per_byte = 0.25
         end
 
         # Validate chunking doesn't exceed provider limits
@@ -1182,7 +1187,7 @@ module Memo
           max_tokens: final_max_tokens
         )
 
-        ProviderConfig.new(provider_instance, service_id, "#{final_format}/#{final_model}", final_dimensions, final_max_tokens)
+        ProviderConfig.new(provider_instance, service_id, "#{final_format}/#{final_model}", final_dimensions, final_max_tokens, final_tokens_per_byte)
       else
         # Use the default service
         default_svc = ServiceProvider.get_default(@db)
@@ -1197,7 +1202,7 @@ module Memo
           raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds service limit (#{default_svc.max_tokens})")
         end
 
-        ProviderConfig.new(provider_instance, default_svc.id, default_svc.name, default_svc.dimensions, default_svc.max_tokens)
+        ProviderConfig.new(provider_instance, default_svc.id, default_svc.name, default_svc.dimensions, default_svc.max_tokens, default_svc.tokens_per_byte)
       end
     end
 
@@ -1308,6 +1313,13 @@ module Memo
 
       # Embed chunks (API call - outside transaction so failure is safe)
       embed_result = @provider.embed_texts(chunk_texts)
+
+      # Update tokens_per_byte ratio based on actual API results
+      total_bytes = chunk_texts.sum(&.bytesize)
+      if total_bytes > 0 && embed_result.total_tokens > 0
+        observed_ratio = embed_result.total_tokens.to_f / total_bytes
+        Storage.update_tokens_per_byte(@db, @service_id, observed_ratio)
+      end
 
       # Delete old and store new atomically
       success_count = 0

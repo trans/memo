@@ -16,7 +16,8 @@ module Memo
     def chunk_text(text : String, config : Config::Chunking) : Array({String, Int32, Int32})
       return [] of {String, Int32, Int32} if text.strip.empty?
 
-      token_count = estimate_tokens(text)
+      ratio = config.tokens_per_byte
+      token_count = estimate_tokens(text, ratio)
 
       chunks = if token_count < config.no_chunk_threshold
                  # Keep whole
@@ -24,8 +25,8 @@ module Memo
                else
                  # Split on paragraphs, then sentences if needed
                  paragraphs = split_paragraphs(text)
-                 sentences = paragraphs.flat_map { |para| maybe_split_paragraph(para, config) }
-                 combine_small_chunks(sentences, config)
+                 sentences = paragraphs.flat_map { |para| maybe_split_paragraph(para, config, ratio) }
+                 combine_small_chunks(sentences, config, ratio)
                end
 
       # Find each chunk's position in original text
@@ -53,9 +54,9 @@ module Memo
       result
     end
 
-    # Estimate token count (rough approximation: chars / 4)
-    def estimate_tokens(text : String) : Int32
-      text.size // 4
+    # Estimate token count using tokens_per_byte ratio
+    def estimate_tokens(text : String, tokens_per_byte : Float64 = 0.25) : Int32
+      (text.bytesize * tokens_per_byte).round.to_i
     end
 
     # Split text on paragraph breaks (\n\n or more)
@@ -67,8 +68,8 @@ module Memo
     end
 
     # Split paragraph on sentences if it's too large
-    private def maybe_split_paragraph(paragraph : String, config : Config::Chunking) : Array(String)
-      token_count = estimate_tokens(paragraph)
+    private def maybe_split_paragraph(paragraph : String, config : Config::Chunking, ratio : Float64) : Array(String)
+      token_count = estimate_tokens(paragraph, ratio)
 
       if token_count > config.max_tokens
         split_sentences(paragraph)
@@ -86,7 +87,7 @@ module Memo
     end
 
     # Combine chunks that are too small
-    private def combine_small_chunks(chunks : Array(String), config : Config::Chunking) : Array(String)
+    private def combine_small_chunks(chunks : Array(String), config : Config::Chunking, ratio : Float64) : Array(String)
       return chunks if chunks.empty?
 
       result = [] of String
@@ -101,7 +102,7 @@ module Memo
           break
         end
 
-        tokens = estimate_tokens(chunk)
+        tokens = estimate_tokens(chunk, ratio)
 
         if tokens < config.min_tokens
           # Combine with next chunk

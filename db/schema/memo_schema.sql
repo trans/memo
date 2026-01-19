@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS services (
     model TEXT NOT NULL,              -- Model name (e.g., "text-embedding-3-small")
     dimensions INTEGER NOT NULL,      -- Vector dimensions (e.g., 1536)
     max_tokens INTEGER NOT NULL,      -- Model's maximum tokens per chunk
+    tokens_per_byte REAL DEFAULT 0.25, -- Running estimate of tokens/byte ratio
     is_default INTEGER DEFAULT 0,     -- 1 if this is the default service
     created_at INTEGER NOT NULL
 );

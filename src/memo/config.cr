@@ -7,11 +7,13 @@ module Memo
       getter min_tokens : Int32              # Minimum chunk size before combining
       getter max_tokens : Int32              # Desired maximum chunk size
       getter no_chunk_threshold : Int32      # Don't chunk unless text exceeds this
+      getter tokens_per_byte : Float64       # Ratio for estimating tokens from byte size
 
       def initialize(
         @min_tokens : Int32 = 200,
         @max_tokens : Int32 = 2000,
-        @no_chunk_threshold : Int32 = 1500
+        @no_chunk_threshold : Int32 = 1500,
+        @tokens_per_byte : Float64 = 0.25
       )
       end
     end

@@ -22,6 +22,7 @@ module Memo
       getter model : String
       getter dimensions : Int32
       getter max_tokens : Int32
+      getter tokens_per_byte : Float64
       getter? is_default : Bool
       getter created_at : Time
 
@@ -33,6 +34,7 @@ module Memo
         @model : String,
         @dimensions : Int32,
         @max_tokens : Int32,
+        @tokens_per_byte : Float64,
         @is_default : Bool,
         @created_at : Time
       )
@@ -100,6 +102,7 @@ module Memo
         model: model,
         dimensions: dimensions,
         max_tokens: max_tokens,
+        tokens_per_byte: 0.25,
         is_default: is_default,
         created_at: now
       )
@@ -112,7 +115,7 @@ module Memo
       prefix = Memo.table_prefix
 
       db.query_one?(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, is_default, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
          FROM #{prefix}services WHERE id = ?",
         id
       ) do |rs|
@@ -127,7 +130,7 @@ module Memo
       prefix = Memo.table_prefix
 
       db.query_one?(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, is_default, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
          FROM #{prefix}services WHERE name = ?",
         name
       ) do |rs|
@@ -142,7 +145,7 @@ module Memo
       prefix = Memo.table_prefix
 
       db.query_one?(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, is_default, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
          FROM #{prefix}services WHERE is_default = 1 LIMIT 1"
       ) do |rs|
         read_info(rs)
@@ -175,7 +178,7 @@ module Memo
       services = [] of Info
 
       db.query(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, is_default, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
          FROM #{prefix}services
          ORDER BY created_at DESC"
       ) do |rs|
@@ -195,7 +198,7 @@ module Memo
       services = [] of Info
 
       db.query(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, is_default, created_at
+        "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
          FROM #{prefix}services
          WHERE format = ?
          ORDER BY created_at DESC",
@@ -352,6 +355,7 @@ module Memo
         model: rs.read(String),
         dimensions: rs.read(Int32),
         max_tokens: rs.read(Int32),
+        tokens_per_byte: rs.read(Float64),
         is_default: rs.read(Int32) == 1,
         created_at: Time.unix_ms(rs.read(Int64))
       )
