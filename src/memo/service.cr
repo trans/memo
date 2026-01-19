@@ -762,6 +762,11 @@ module Memo
     #
     # Failed items have their status set to the error code and can be retried
     # up to max_retries times.
+    #
+    # NOTE: Queue items are not atomically claimed. This is intentional -
+    # single-worker processing is the expected use case since we're hitting
+    # one API endpoint with batched requests. Parallel workers would hit
+    # rate limits and add complexity without benefit.
     def process_queue : Int32
       prefix = Memo.table_prefix
       max_retries = @queue_config.max_retries
