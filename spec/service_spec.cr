@@ -19,10 +19,10 @@ describe Memo::Service do
     end
 
     it "retrieves existing projection vectors on re-initialization" do
-      with_test_data_dir do |data_dir|
+      with_test_db_path do |db_path|
         # First initialization creates vectors
         service1 = Memo::Service.new(
-          data_dir: data_dir,
+          db_path: db_path,
           service: "mock",
           chunking_max_tokens: 50
         )
@@ -32,7 +32,7 @@ describe Memo::Service do
 
         # Re-open same database - should get same vectors
         service2 = Memo::Service.new(
-          data_dir: data_dir,
+          db_path: db_path,
           service: "mock",
           chunking_max_tokens: 50
         )
@@ -53,9 +53,9 @@ describe Memo::Service do
 
     it "validates chunking vs service limits" do
       expect_raises(ArgumentError, /exceeds service limit/) do
-        with_test_data_dir do |data_dir|
+        with_test_db_path do |db_path|
           service = Memo::Service.new(
-            data_dir: data_dir,
+            db_path: db_path,
             service: "mock",
             chunking_max_tokens: 10000, # > mock's 100 limit
             max_tokens: 100
@@ -67,9 +67,9 @@ describe Memo::Service do
 
     it "requires api_key for openai provider" do
       expect_raises(ArgumentError, /api_key required/) do
-        with_test_data_dir do |data_dir|
+        with_test_db_path do |db_path|
           service = Memo::Service.new(
-            data_dir: data_dir,
+            db_path: db_path,
             service: "openai"
           )
           service.close
@@ -79,9 +79,9 @@ describe Memo::Service do
 
     it "rejects unknown format" do
       expect_raises(ArgumentError, /Unknown format/) do
-        with_test_data_dir do |data_dir|
+        with_test_db_path do |db_path|
           service = Memo::Service.new(
-            data_dir: data_dir,
+            db_path: db_path,
             format: "unknown",
             model: "test",
             dimensions: 8,
@@ -385,9 +385,9 @@ describe Memo::Service do
     end
 
     it "can be disabled with store_text: false" do
-      with_test_data_dir do |data_dir|
+      with_test_db_path do |db_path|
         service = Memo::Service.new(
-          data_dir: data_dir,
+          db_path: db_path,
           service: "mock",
           store_text: false,
           chunking_max_tokens: 50
@@ -399,20 +399,17 @@ describe Memo::Service do
         count = service.index(source_type: "event", source_id: 1_i64, text: "Test doc")
         count.should be > 0
 
-        # text.db should not exist
-        File.exists?(File.join(data_dir, "text.db")).should be_false
-
         service.close
       end
     end
 
-    it "stores text in text.db" do
+    it "stores text in texts table" do
       with_test_service do |service|
         service.index(source_type: "event", source_id: 1_i64, text: "Stored text content")
 
-        # Verify text was stored in text_store schema (keyed by source, not hash)
+        # Verify text was stored (keyed by source, not hash)
         content = service.db.query_one?(
-          "SELECT content FROM text_store.texts WHERE source_type = ? AND source_id = ?",
+          "SELECT content FROM texts WHERE source_type = ? AND source_id = ?",
           "event", 1_i64,
           as: String
         )
@@ -427,7 +424,7 @@ describe Memo::Service do
         service.index(source_type: "event", source_id: 2_i64, text: "Same text")
 
         # Should have two text entries (one per source)
-        count = service.db.scalar("SELECT COUNT(*) FROM text_store.texts").as(Int64)
+        count = service.db.scalar("SELECT COUNT(*) FROM texts").as(Int64)
         count.should eq(2)
       end
     end
@@ -439,11 +436,11 @@ describe Memo::Service do
         service.index(source_type: "event", source_id: 1_i64, text: "Updated text")
 
         # Should still have one entry with updated content
-        count = service.db.scalar("SELECT COUNT(*) FROM text_store.texts").as(Int64)
+        count = service.db.scalar("SELECT COUNT(*) FROM texts").as(Int64)
         count.should eq(1)
 
         content = service.db.query_one?(
-          "SELECT content FROM text_store.texts WHERE source_type = ? AND source_id = ?",
+          "SELECT content FROM texts WHERE source_type = ? AND source_id = ?",
           "event", 1_i64,
           as: String
         )

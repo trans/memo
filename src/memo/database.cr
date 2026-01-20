@@ -2,8 +2,8 @@ module Memo
   # Database initialization and schema management
   #
   # Memo can operate in two modes:
-  # 1. Shared database: Uses table_prefix (default "memo_") to avoid conflicts
-  # 2. Standalone database: No prefix needed, tables named: services, embeddings, chunks, embed_queue
+  # 1. Standalone: Memo has its own memo.db file, no table prefix needed
+  # 2. Embedded: Tables in app's database with prefix (default "memo_")
   module Database
     extend self
 
@@ -37,43 +37,9 @@ module Memo
       db
     end
 
-    # Initialize text storage database schema
+    # Load memo schema into the provided database (embedded mode)
     #
-    # Creates the texts table for storing original document content.
-    # Text is keyed by (source_type, source_id) - the same source identifier
-    # used by the application.
-    #
-    # This database is persistent and survives embedding regeneration.
-    # Chunk text is extracted using offset/size from the chunks table.
-    #
-    # Also creates FTS5 virtual table for full-text search.
-    #
-    # TODO: Consider whether FTS5 should match on source text or chunk text.
-    #       Current implementation indexes source text, so a match means
-    #       the source document contains the term. This may return chunks
-    #       that don't themselves contain the search term.
-    def init_text_db(db : DB::Database, schema_name : String = "text_store")
-      # Main text storage table - keyed by source, not chunk hash
-      db.exec(<<-SQL)
-        CREATE TABLE IF NOT EXISTS #{schema_name}.texts (
-          source_type TEXT NOT NULL,
-          source_id INTEGER NOT NULL,
-          content TEXT NOT NULL,
-          created_at INTEGER NOT NULL,
-          PRIMARY KEY (source_type, source_id)
-        )
-      SQL
-
-      # FTS5 virtual table for full-text search on source content
-      db.exec(<<-SQL)
-        CREATE VIRTUAL TABLE IF NOT EXISTS #{schema_name}.texts_fts
-        USING fts5(source_type, source_id UNINDEXED, content)
-      SQL
-    end
-
-    # Load memo schema into the provided database (shared mode)
-    #
-    # Creates tables with configured prefix: memo_embeddings, memo_chunks, memo_embed_queue
+    # Creates tables with configured prefix (e.g., memo_embeddings, memo_chunks)
     # Use when Memo shares database with application tables.
     # Safe to call multiple times (uses IF NOT EXISTS)
     def load_schema(db : DB::Database)
@@ -88,13 +54,18 @@ module Memo
     # Execute a schema file with table prefix substitution
     private def execute_schema_file(db : DB::Database, path : String)
       sql = File.read(path)
+      prefix = Memo.table_prefix
 
       # Replace table names with prefixed versions
-      # Assumes tables are created as: CREATE TABLE IF NOT EXISTS table_name
-      prefix = Memo.table_prefix
       sql = sql.gsub(/CREATE TABLE IF NOT EXISTS (\w+)/) do |match|
         table_name = $1
         "CREATE TABLE IF NOT EXISTS #{prefix}#{table_name}"
+      end
+
+      # Replace FTS5 virtual table names
+      sql = sql.gsub(/CREATE VIRTUAL TABLE IF NOT EXISTS (\w+)/) do |match|
+        table_name = $1
+        "CREATE VIRTUAL TABLE IF NOT EXISTS #{prefix}#{table_name}"
       end
 
       # Replace index names with prefixed versions

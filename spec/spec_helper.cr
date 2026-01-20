@@ -22,22 +22,15 @@ def with_test_db(&block : DB::Database ->)
   end
 end
 
-# Helper to create a test data directory
-def with_test_data_dir(&block : String ->)
-  # Create temp directory for test databases
-  temp_dir = File.tempname("memo_test", "")
-  Dir.mkdir_p(temp_dir)
+# Helper to create a test database path
+def with_test_db_path(&block : String ->)
+  # Create temp file path for test database
+  db_path = File.tempname("memo_test", ".db")
 
   begin
-    yield temp_dir
+    yield db_path
   ensure
-    # Clean up all files in directory
-    if Dir.exists?(temp_dir)
-      Dir.each_child(temp_dir) do |file|
-        File.delete(File.join(temp_dir, file))
-      end
-      Dir.delete(temp_dir)
-    end
+    File.delete(db_path) if File.exists?(db_path)
   end
 end
 
@@ -46,9 +39,9 @@ def with_test_service(&block : Memo::Service ->)
   # Reset table prefix to ensure clean state (other specs may have changed it)
   Memo.table_prefix = ""
 
-  with_test_data_dir do |data_dir|
+  with_test_db_path do |db_path|
     service = Memo::Service.new(
-      data_dir: data_dir,
+      db_path: db_path,
       service: "mock",
       chunking_max_tokens: 50  # Mock provider has max_tokens of 100
     )

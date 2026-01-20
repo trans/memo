@@ -48,20 +48,17 @@ module Memo
     #
     # IMPORTANT: Must provide service_id to ensure embeddings are from same vector space
     #
-    # sql_where: Raw SQL fragment to filter chunks (e.g., for ATTACH queries).
-    #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')"
+    # sql_where: Raw SQL fragment to filter chunks.
+    #   Example: "c.source_id IN (SELECT id FROM artifact WHERE kind = 'goal')"
     #
     # like: Array of LIKE patterns for AND filtering by text content.
-    #   Requires text_schema to be set.
+    #   Requires text storage to be enabled.
     #
     # match: FTS5 full-text search query (e.g., "cats OR dogs").
-    #   Requires text_schema to be set.
-    #
-    # text_schema: Schema name for ATTACHed text database (e.g., "text_store").
-    #   Required for like, match, and include_text.
+    #   Requires text storage to be enabled.
     #
     # include_text: If true, includes text content in search results.
-    #   Requires text_schema to be set.
+    #   Requires text storage to be enabled.
     #
     # projection_vectors: Random orthogonal vectors for fast pre-filtering.
     #   If provided, candidates are filtered by projection distance before
@@ -83,7 +80,6 @@ module Memo
       projection_threshold : Float64 = 2.0,
       like : Array(String)? = nil,
       match : String? = nil,
-      text_schema : String? = nil,
       include_text : Bool = false
     ) : Array(Result)
       prefix = Memo.table_prefix
@@ -150,11 +146,11 @@ module Memo
       text_join = ""
       fts_join = ""
       text_select = ""
-      needs_text_join = text_schema && (like || include_text)
-      needs_fts_join = text_schema && match
+      needs_text_join = like || include_text
+      needs_fts_join = match
 
       if needs_text_join
-        text_join = "JOIN #{text_schema}.texts st ON c.source_type = st.source_type AND c.source_id = st.source_id"
+        text_join = "JOIN #{prefix}texts st ON c.source_type = st.source_type AND c.source_id = st.source_id"
         # Extract chunk text using offset and size (SQLite SUBSTR is 1-indexed)
         text_select = ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text" if include_text
       end
@@ -163,16 +159,16 @@ module Memo
       # FTS5 searches source text - a match means the source document contains the term
       # Note: FTS5 MATCH doesn't work with table aliases, so we use the full table name
       if needs_fts_join
-        fts_join = "JOIN #{text_schema}.texts_fts ON c.source_type = #{text_schema}.texts_fts.source_type AND c.source_id = #{text_schema}.texts_fts.source_id"
+        fts_join = "JOIN #{prefix}texts_fts ON c.source_type = #{prefix}texts_fts.source_type AND c.source_id = #{prefix}texts_fts.source_id"
         # Also need text join for include_text if not already added
         if include_text && !needs_text_join
-          text_join = "JOIN #{text_schema}.texts st ON c.source_type = st.source_type AND c.source_id = st.source_id"
+          text_join = "JOIN #{prefix}texts st ON c.source_type = st.source_type AND c.source_id = st.source_id"
           text_select = ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text"
         end
       end
 
       # Add LIKE filters (AND logic) - searches source text
-      if like && text_schema && !like.empty?
+      if like && !like.empty?
         like.each do |pattern|
           where_clauses << "st.content LIKE ?"
           params << pattern
@@ -181,8 +177,8 @@ module Memo
 
       # Add FTS5 match filter - searches source text
       # Use unqualified table name since FTS5 MATCH requires it
-      if match && text_schema && !match.empty?
-        where_clauses << "texts_fts MATCH ?"
+      if match && !match.empty?
+        where_clauses << "#{prefix}texts_fts MATCH ?"
         params << match
       end
 

@@ -7,7 +7,6 @@ Memo is a semantic search library for Crystal that provides:
 - Vector embedding storage with deduplication
 - Similarity search with projection-based pre-filtering
 - Text storage with LIKE and FTS5 full-text search
-- External database integration via ATTACH
 
 ## Core Concepts
 
@@ -21,24 +20,17 @@ Memo is a semantic search library for Crystal that provides:
 
 ## Storage Architecture
 
-Memo uses directory-based storage with two SQLite databases:
+Memo stores all data in a single SQLite file at the provided `db_path`:
 
 ```
-/var/data/memo/
-├── embeddings.db    # Embeddings, chunks, projections (regenerable)
-└── text.db          # Text content and FTS5 index (persistent)
+/var/data/memo.db    # Services, embeddings, chunks, projections, texts, queue
 ```
 
-**Why two databases?**
-- `embeddings.db` can be deleted and regenerated from source text
-- `text.db` persists independently, preserving text even during re-indexing
-- Both are managed as a single logical unit via SQLite ATTACH
+The database contains all tables needed for semantic search and text storage.
 
 ## Database Schema
 
-### embeddings.db
-
-#### `services` - Provider Registry
+### `services` - Provider Registry
 
 Tracks which provider/model created embeddings to ensure compatible vector spaces.
 
@@ -55,7 +47,7 @@ CREATE TABLE services (
 );
 ```
 
-#### `embeddings` - Vector Storage
+### `embeddings` - Vector Storage
 
 Stores embedding vectors, deduplicated by content hash.
 
@@ -70,7 +62,7 @@ CREATE TABLE embeddings (
 );
 ```
 
-#### `chunks` - Source References
+### `chunks` - Source References
 
 Links embeddings back to application sources.
 
@@ -91,7 +83,7 @@ CREATE TABLE chunks (
 );
 ```
 
-#### `projections` - Fast Filtering
+### `projections` - Fast Filtering
 
 Stores random projection values for pre-filtering candidates.
 
@@ -104,7 +96,7 @@ CREATE TABLE projections (
 );
 ```
 
-#### `projection_vectors` - Projection Configuration
+### `projection_vectors` - Projection Configuration
 
 Stores the random vectors used for projection (per service).
 
@@ -116,26 +108,28 @@ CREATE TABLE projection_vectors (
 );
 ```
 
-### text.db (ATTACHed as `text_store`)
+### `texts` - Text Content
 
-#### `texts` - Text Content
-
-Stores chunk text, deduplicated by hash.
+Stores source text content for retrieval and filtering.
 
 ```sql
 CREATE TABLE texts (
-    hash BLOB PRIMARY KEY,
-    content TEXT NOT NULL
+    source_type TEXT NOT NULL,
+    source_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (source_type, source_id)
 );
 ```
 
-#### `texts_fts` - Full-Text Search Index
+### `texts_fts` - Full-Text Search Index
 
 FTS5 virtual table for full-text search.
 
 ```sql
 CREATE VIRTUAL TABLE texts_fts USING fts5(
-    hash UNINDEXED,
+    source_type,
+    source_id UNINDEXED,
     content
 );
 ```
@@ -147,15 +141,15 @@ CREATE VIRTUAL TABLE texts_fts USING fts5(
 ```crystal
 # Standard initialization with text storage
 memo = Memo::Service.new(
-  data_dir: "/var/data/memo",
-  provider: "openai",
+  db_path: "/var/data/memo.db",
+  format: "openai",
   api_key: ENV["OPENAI_API_KEY"]
 )
 
 # With explicit model and dimensions
 memo = Memo::Service.new(
-  data_dir: "/var/data/memo",
-  provider: "openai",
+  db_path: "/var/data/memo.db",
+  format: "openai",
   api_key: api_key,
   model: "text-embedding-3-large",  # Default: text-embedding-3-small
   dimensions: 3072                   # Auto-detected from model if not specified
@@ -163,24 +157,16 @@ memo = Memo::Service.new(
 
 # Without text storage (manage text separately)
 memo = Memo::Service.new(
-  data_dir: "/var/data/memo",
-  provider: "openai",
+  db_path: "/var/data/memo.db",
+  format: "openai",
   api_key: api_key,
   store_text: false
 )
 
-# With external database for filtering
-memo = Memo::Service.new(
-  data_dir: "/var/data/memo",
-  attach: {"app" => "/var/data/app.db"},
-  provider: "openai",
-  api_key: api_key
-)
-
 # With queue configuration
 memo = Memo::Service.new(
-  data_dir: "/var/data/memo",
-  provider: "openai",
+  db_path: "/var/data/memo.db",
+  format: "openai",
   api_key: api_key,
   batch_size: 100,    # Max texts per embedding API call (default: 100)
   max_retries: 3      # Queue retry limit (default: 3)
@@ -188,15 +174,14 @@ memo = Memo::Service.new(
 ```
 
 **Initialization parameters:**
-- `data_dir`: Directory for database files (required)
-- `provider`: "openai" or "mock" (required)
-- `api_key`: Provider API key (required for openai)
+- `db_path`: Path to database file (required)
+- `format`: "openai", "voyage", or "mock" (required)
+- `api_key`: Provider API key (required for openai/voyage)
 - `model`: Embedding model (default: text-embedding-3-small)
 - `dimensions`: Vector dimensions (auto-detected from model)
 - `max_tokens`: Provider token limit (auto-detected from model)
 - `chunking_max_tokens`: Max tokens per chunk (default: 2000)
-- `store_text`: Enable text storage in text.db (default: true)
-- `attach`: Hash of alias => path for databases to ATTACH
+- `store_text`: Enable text storage (default: true)
 - `batch_size`: Max texts per embedding API call (default: 100)
 - `max_retries`: Queue retry limit before marking failed (default: 3)
 
@@ -238,7 +223,7 @@ memo.index_batch(docs)
 4. Compute projection values for fast filtering
 5. Store embeddings (deduplicated by content hash)
 6. Create chunk references linking to source
-7. Store text content in text.db (if enabled)
+7. Store text content in texts table (if enabled)
 8. Mark queue item as completed
 
 ### Search
@@ -263,12 +248,6 @@ results = memo.search(query: "animals", match: "cats OR dogs")  # FTS5
 
 # Include text in results
 results = memo.search(query: "cats", include_text: true)
-
-# With external database filtering
-results = memo.search(
-  query: "updates",
-  sql_where: "c.source_id IN (SELECT id FROM app.articles WHERE status = 'published')"
-)
 ```
 
 **Search process:**
@@ -404,37 +383,14 @@ memo.search(query: "animals", match: '"exact phrase"')  # Phrase
 memo.search(query: "animals", match: "cats NOT dogs")   # Negation
 ```
 
-## External Database Integration
-
-Use ATTACH to filter against your application's database:
-
-```crystal
-memo = Memo::Service.new(
-  data_dir: "/var/data/memo",
-  attach: {"app" => "/var/data/app.db"},
-  provider: "openai",
-  api_key: key
-)
-
-# Filter by external table
-results = memo.search(
-  query: "project updates",
-  sql_where: "c.source_id IN (SELECT id FROM app.articles WHERE user_id = 42)"
-)
-```
-
-The `sql_where` parameter accepts raw SQL that's inserted into the WHERE clause. The chunk table is aliased as `c`, so use `c.source_id`, `c.source_type`, etc.
-
 ## Design Decisions
 
-1. **Directory-based storage**: Single path configures all database files
-2. **Two-database architecture**: Embeddings regenerable, text persistent
-3. **Projection pre-filtering**: Fast candidate reduction before cosine similarity
-4. **Content-hash deduplication**: Same text stored once regardless of source
-5. **Service isolation**: Embeddings from different models never mixed
-6. **Optional text storage**: Disable with `store_text: false` if managing text separately
-7. **FTS5 integration**: Full-text search alongside semantic search
-8. **ATTACH support**: Filter against external databases without copying data
+1. **Single-file storage**: One SQLite database for all data
+2. **Projection pre-filtering**: Fast candidate reduction before cosine similarity
+3. **Content-hash deduplication**: Same text stored once regardless of source
+4. **Service isolation**: Embeddings from different models never mixed
+5. **Optional text storage**: Disable with `store_text: false` if managing text separately
+6. **FTS5 integration**: Full-text search alongside semantic search
 
 ## Providers
 

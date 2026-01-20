@@ -35,7 +35,7 @@ module Memo
   #
   # ```
   # # Initialize with default service (mock, preloaded)
-  # memo = Memo::Service.new(data_dir: "/var/data/memo")
+  # memo = Memo::Service.new(db_path: "/var/data/memo.db")
   #
   # # Configure a real service
   # memo.create_service(
@@ -78,11 +78,10 @@ module Memo
   # memo.use_service("azure-prod", api_key: ENV["AZURE_API_KEY"])
   # ```
   #
-  # ## Database Files
+  # ## Database
   #
-  # Memo stores data in the specified directory:
-  # - embeddings.db: Embeddings, chunks, projections (regenerable)
-  # - text.db: Text content (persistent)
+  # Memo stores all data in a single SQLite file at the provided `db_path`.
+  # Contains: services, embeddings, chunks, projections, texts, queue
   #
   class Service
     getter db : DB::Database
@@ -94,10 +93,7 @@ module Memo
     getter dimensions : Int32
     getter batch_size : Int32
     getter projection_vectors : Array(Array(Float64))
-    getter data_dir : String?
-
-    # Schema name for ATTACHed text database
-    TEXT_SCHEMA = "text_store"
+    getter db_path : String?
 
     # Private struct for init_provider return value
     private record ProviderConfig,
@@ -114,14 +110,14 @@ module Memo
     # Track whether text storage is enabled
     getter? text_storage : Bool = false
 
-    # Initialize service with data directory
+    # Initialize service with database path
     #
     # Use EITHER:
     # - service: Name of pre-configured service (from ServiceProvider.create)
     # - format: API format ("openai", "mock") to configure inline
     #
     # Required:
-    # - data_dir: Directory path for database files
+    # - db_path: Full path to database file (e.g., "/var/data/memo.db")
     # - api_key: API key (not needed for mock format)
     #
     # Optional:
@@ -131,26 +127,19 @@ module Memo
     # - model: Embedding model (default depends on format)
     # - dimensions: Vector dimensions (auto-detected from model)
     # - max_tokens: Token limit (auto-detected from model)
-    # - store_text: Enable text storage in text.db (default true)
-    # - attach: Hash of alias => path for databases to ATTACH
+    # - store_text: Enable text storage in texts table (default true)
     # - chunking_max_tokens: Max tokens per chunk (default 2000)
     #
-    # Example with pre-configured service:
+    # Example:
     # ```
-    # # First, create a service configuration
-    # ServiceProvider.create(db, name: "azure", format: "openai",
-    #   base_url: "https://mycompany.openai.azure.com/",
-    #   model: "text-embedding-ada-002", dimensions: 1536, max_tokens: 8191)
-    #
-    # # Then use it by name
     # memo = Memo::Service.new(
-    #   data_dir: "/var/data/memo",
-    #   service: "azure",
-    #   api_key: ENV["AZURE_API_KEY"]
+    #   db_path: "/var/data/memo.db",
+    #   format: "openai",
+    #   api_key: ENV["OPENAI_API_KEY"]
     # )
     # ```
     def initialize(
-      data_dir : String,
+      db_path : String,
       api_key : String? = nil,
       service : String? = nil,
       format : String? = nil,
@@ -160,67 +149,21 @@ module Memo
       max_tokens : Int32? = nil,
       chunking_max_tokens : Int32 = 2000,
       store_text : Bool = true,
-      attach : Hash(String, String)? = nil,
       batch_size : Int32 = 100,
       max_retries : Int32 = 3
     )
-      # Store data directory
-      @data_dir = data_dir
+      # Create parent directory if it doesn't exist
+      dir = File.dirname(db_path)
+      Dir.mkdir_p(dir) unless dir.empty? || Dir.exists?(dir)
 
-      # Create directory if it doesn't exist
-      Dir.mkdir_p(data_dir) unless Dir.exists?(data_dir)
-
-      # Open embeddings database
-      # Use DELETE journal mode (not WAL) for cross-database transaction atomicity
-      # Use initial_pool_size=0 to ensure no connections exist before setup_connection callback
-      embeddings_path = File.join(data_dir, "embeddings.db")
-      @db = DB.open("sqlite3://#{embeddings_path}?journal_mode=DELETE&initial_pool_size=0")
+      # Open memo database
+      @db_path = db_path
+      @db = DB.open("sqlite3://#{db_path}")
       @owns_db = true
+      @text_storage = store_text
 
-      # Build list of databases to ATTACH
-      attaches = [] of {String, String}  # {path, alias}
-      text_path : String? = nil
-      if store_text
-        text_path = File.join(data_dir, "text.db")
-        attaches << {text_path, TEXT_SCHEMA}
-        @text_storage = true
-      end
-      attach.try &.each do |db_alias, path|
-        attaches << {path, db_alias}
-      end
-
-      # Setup ATTACH on ALL connections (current and future)
-      # With initial_pool_size=0, no connections exist yet so all will go through callback
-      #
-      # NOTE: To debug connection pool/ATTACH issues, check @db.pool.stats around this
-      # call and/or log PRAGMA database_list per connection to verify attached databases.
-      unless attaches.empty?
-        # Copy to local variables for closure capture
-        attach_list = attaches.dup
-
-        @db.setup_connection do |conn|
-          attach_list.each do |path, db_alias|
-            conn.exec("ATTACH DATABASE '#{path}' AS #{db_alias}")
-          end
-        end
-
-        # Verify ATTACH worked by querying the attached database
-        # This also forces connection creation through the callback
-        # Use COUNT(*) which returns 0 for empty tables (not "no results")
-        attach_list.each do |_, db_alias|
-          begin
-            @db.scalar("SELECT COUNT(*) FROM #{db_alias}.sqlite_master")
-          rescue ex
-            raise "Failed to ATTACH database #{db_alias}: #{ex.message}"
-          end
-        end
-      end
-
-      # Initialize schemas
+      # Initialize schema
       Database.init(@db)
-      if @text_storage && text_path
-        Database.init_text_db(@db, TEXT_SCHEMA)
-      end
 
       # Standalone mode - no table prefix
       Memo.table_prefix = ""
@@ -263,6 +206,9 @@ module Memo
     #
     # Use this when caller manages the connection lifecycle.
     # Caller is responsible for closing the connection.
+    #
+    # The db_path is queried from the database for CLI use. Pass db_path
+    # explicitly if the pragma query doesn't work for your setup.
     def initialize(
       db : DB::Database,
       api_key : String? = nil,
@@ -273,12 +219,21 @@ module Memo
       dimensions : Int32? = nil,
       max_tokens : Int32? = nil,
       chunking_max_tokens : Int32 = 2000,
+      store_text : Bool = true,
       batch_size : Int32 = 100,
-      max_retries : Int32 = 3
+      max_retries : Int32 = 3,
+      db_path : String? = nil
     )
       @db = db
-      @data_dir = nil  # No data directory when using external connection
       @owns_db = false  # Caller owns the connection
+      @text_storage = store_text
+
+      # Get db path from pragma if not provided
+      @db_path = db_path || db.query_one?(
+        "SELECT file FROM pragma_database_list WHERE name = 'main'",
+        as: String
+      )
+
       Database.init(@db)
 
       # Standalone mode - no table prefix
@@ -434,7 +389,6 @@ module Memo
         projection_vectors: @projection_vectors,
         like: @text_storage ? like_patterns : nil,
         match: @text_storage ? match : nil,
-        text_schema: @text_storage ? TEXT_SCHEMA : nil,
         include_text: @text_storage && include_text
       )
     end
@@ -997,7 +951,7 @@ module Memo
 
       @db.query(
         "SELECT st.source_id, c.pair_id, c.parent_id, st.content
-         FROM #{TEXT_SCHEMA}.texts st
+         FROM #{prefix}texts st
          LEFT JOIN #{prefix}chunks c ON st.source_type = c.source_type AND st.source_id = c.source_id
          WHERE st.source_type = ?
          GROUP BY st.source_id",
@@ -1212,17 +1166,18 @@ module Memo
       vectors
     end
 
-    # Store source text in text.db (keyed by source_type/source_id)
+    # Store source text (keyed by source_type/source_id)
     # Also populates FTS5 index for full-text search
     #
     # Stores the original un-chunked text. Chunk text is extracted
     # using offset/size from the chunks table.
     private def store_source_text(source_type : String, source_id : Int64, content : String)
+      prefix = Memo.table_prefix
       now = Time.utc.to_unix_ms
 
       # Insert or replace source text
       @db.exec(
-        "INSERT OR REPLACE INTO #{TEXT_SCHEMA}.texts (source_type, source_id, content, created_at)
+        "INSERT OR REPLACE INTO #{prefix}texts (source_type, source_id, content, created_at)
          VALUES (?, ?, ?, ?)",
         source_type, source_id, content, now
       )
@@ -1230,32 +1185,34 @@ module Memo
       # Update FTS5 index
       # Delete any existing entry first (FTS5 doesn't support INSERT OR REPLACE)
       @db.exec(
-        "DELETE FROM #{TEXT_SCHEMA}.texts_fts WHERE source_type = ? AND source_id = ?",
+        "DELETE FROM #{prefix}texts_fts WHERE source_type = ? AND source_id = ?",
         source_type, source_id
       )
       @db.exec(
-        "INSERT INTO #{TEXT_SCHEMA}.texts_fts (source_type, source_id, content)
+        "INSERT INTO #{prefix}texts_fts (source_type, source_id, content)
          VALUES (?, ?, ?)",
         source_type, source_id, content
       )
     end
 
-    # Delete source text from text.db
+    # Delete source text
     private def delete_source_text(source_type : String, source_id : Int64)
+      prefix = Memo.table_prefix
       @db.exec(
-        "DELETE FROM #{TEXT_SCHEMA}.texts WHERE source_type = ? AND source_id = ?",
+        "DELETE FROM #{prefix}texts WHERE source_type = ? AND source_id = ?",
         source_type, source_id
       )
       @db.exec(
-        "DELETE FROM #{TEXT_SCHEMA}.texts_fts WHERE source_type = ? AND source_id = ?",
+        "DELETE FROM #{prefix}texts_fts WHERE source_type = ? AND source_id = ?",
         source_type, source_id
       )
     end
 
     # Get source text by source_type and source_id
     private def get_source_text(source_type : String, source_id : Int64) : String?
+      prefix = Memo.table_prefix
       @db.query_one?(
-        "SELECT content FROM #{TEXT_SCHEMA}.texts WHERE source_type = ? AND source_id = ?",
+        "SELECT content FROM #{prefix}texts WHERE source_type = ? AND source_id = ?",
         source_type, source_id,
         as: String
       )

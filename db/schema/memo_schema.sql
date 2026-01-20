@@ -1,8 +1,11 @@
 -- Consolidated Memo Schema
 --
 -- This file contains all Memo tables for deployment in a standalone database.
--- When Memo operates in its own embeddings.db file, these tables don't need
+-- When Memo operates in its own memo.db file, these tables don't need
 -- a "memo_" prefix since they're isolated from other application tables.
+--
+-- Alternatively, when embedded in an application's database, tables use
+-- a configurable prefix (default "memo_") to avoid conflicts.
 
 -- =============================================================================
 -- AI embedding service registry
@@ -231,3 +234,27 @@ CREATE INDEX IF NOT EXISTS idx_queue_pending ON embed_queue(status) WHERE status
 
 -- Index for finding failed items to retry
 CREATE INDEX IF NOT EXISTS idx_queue_retries ON embed_queue(status, attempts) WHERE status > 0;
+
+-- =============================================================================
+-- Text storage: Original document content
+--
+-- Stores the original un-chunked text for each source. Chunk text can be
+-- extracted using offset/size from the chunks table via SUBSTR.
+--
+-- This enables:
+-- - Text retrieval in search results without external lookups
+-- - Full-text search via FTS5
+-- - Reindexing without requiring the original source
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS texts (
+    source_type TEXT NOT NULL,
+    source_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (source_type, source_id)
+);
+
+-- FTS5 virtual table for full-text search on source content
+CREATE VIRTUAL TABLE IF NOT EXISTS texts_fts
+USING fts5(source_type, source_id UNINDEXED, content);

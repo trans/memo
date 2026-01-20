@@ -9,7 +9,6 @@ Semantic search and vector storage library for Crystal.
 - **Similarity search** - Cosine similarity with filtering
 - **Text storage** - Optional persistent text with LIKE and FTS5 full-text search
 - **Projection filtering** - Fast candidate pre-filtering via random projections
-- **External DB support** - ATTACH databases for custom filtering
 
 ## Installation
 
@@ -28,9 +27,9 @@ Then run `shards install`.
 ```crystal
 require "memo"
 
-# Create service with data directory
+# Create service with database path
 memo = Memo::Service.new(
-  data_dir: "/var/data/memo",
+  db_path: "/var/data/memo.db",
   format: "openai",
   api_key: ENV["OPENAI_API_KEY"]
 )
@@ -62,14 +61,13 @@ The main API. Handles database lifecycle, chunking, and embeddings.
 
 ```crystal
 memo = Memo::Service.new(
-  data_dir: "/var/data/memo",  # Directory for database files
-  format: "openai",            # API format ("openai", "voyage", "mock")
-  api_key: "sk-...",           # API key for provider
-  model: nil,                  # Optional: override default model
-  dimensions: nil,             # Optional: embedding dimensions (provider default)
-  store_text: true,            # Optional: enable text storage (default true)
-  chunking_max_tokens: 2000,   # Optional: max tokens per chunk
-  attach: nil                  # Optional: external databases to ATTACH
+  db_path: "/var/data/memo.db",  # Path to database file
+  format: "openai",              # API format ("openai", "voyage", "mock")
+  api_key: "sk-...",             # API key for provider
+  model: nil,                    # Optional: override default model
+  dimensions: nil,               # Optional: embedding dimensions (provider default)
+  store_text: true,              # Optional: enable text storage (default true)
+  chunking_max_tokens: 2000      # Optional: max tokens per chunk
 )
 ```
 
@@ -77,8 +75,8 @@ For smaller embeddings (faster search, less storage):
 
 ```crystal
 memo = Memo::Service.new(
-  data_dir: "/var/data/memo",
-  provider: "openai",
+  db_path: "/var/data/memo.db",
+  format: "openai",
   api_key: key,
   model: "text-embedding-3-large",
   dimensions: 1024  # Reduced from 3072 default
@@ -152,25 +150,6 @@ results = memo.search(query: "cats", include_text: true)
 results.each { |r| puts r.text }
 ```
 
-#### External Database Filtering
-
-Use ATTACH to filter against your application's database:
-
-```crystal
-memo = Memo::Service.new(
-  data_dir: "/var/data/memo",
-  attach: {"app" => "/var/data/app.db"},
-  provider: "openai",
-  api_key: key
-)
-
-# Filter chunks by external table
-results = memo.search(
-  query: "project updates",
-  sql_where: "c.source_id IN (SELECT id FROM app.articles WHERE status = 'published')"
-)
-```
-
 #### Queue Operations
 
 All indexing goes through an embed queue with automatic retry support:
@@ -235,10 +214,9 @@ end
 
 ## Storage
 
-Memo stores data in the specified directory:
+Memo stores all data in a single SQLite file at the specified `db_path`:
 
-- `embeddings.db` - Embeddings, chunks, projections (can be regenerated)
-- `text.db` - Text content and FTS5 index (persistent)
+- Services, embeddings, chunks, projections, texts, and queue
 
 Text storage can be disabled with `store_text: false` if you prefer to manage text separately.
 
