@@ -4,6 +4,7 @@ Semantic search and vector storage library for Crystal.
 
 ## Features
 
+- **CLI tool** - Index, search, and manage from the command line
 - **Text chunking** - Smart segmentation into optimal-sized pieces
 - **Embedding storage** - Deduplication by content hash
 - **Similarity search** - Cosine similarity with filtering
@@ -22,7 +23,68 @@ dependencies:
 
 Then run `shards install`.
 
-## Quick Start
+## CLI
+
+Build the CLI:
+
+```bash
+shards build
+```
+
+### Global Options
+
+```
+-d, --db=PATH       Database path (default: memo.db)
+-s, --service=NAME  Service name (openai, voyage, mock)
+-f, --format=FMT    Provider format when creating new service
+-k, --api-key=KEY   API key for embedding provider
+-h, --help          Show help
+-v, --version       Show version
+```
+
+### Commands
+
+**Index a document:**
+
+```bash
+memo -s openai -k $OPENAI_API_KEY index source-type=article source-id=1 text="Your document text"
+```
+
+**Search:**
+
+```bash
+memo -s openai -k $OPENAI_API_KEY search query="semantic search" limit=5
+```
+
+**Delete:**
+
+```bash
+memo -s openai delete source-id=1
+```
+
+**Stats:**
+
+```bash
+memo -s openai stats
+```
+
+### JSON Input
+
+Commands accept JSON via stdin with `--stdin`:
+
+```bash
+echo '{"query":"semantic search","limit":5}' | memo -s openai -k $KEY search --stdin
+```
+
+### JSON Output
+
+All commands output JSON for easy piping:
+
+```bash
+memo -s openai -k $KEY search query="test" | jq '.[] | select(.score > 0.8)'
+```
+
+## Quick Start (Library)
 
 ```crystal
 require "memo"
