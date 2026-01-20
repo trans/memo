@@ -8,7 +8,19 @@ shards:
     git: https://github.com/crystal-lang/crystal-db.git
     version: 0.14.0
 
+  jsonschema:
+    git: https://github.com/aarongodin/jsonschema.git
+    version: 0.1.0+git.commit.018dc50f4a3ba6e6c2783f19a46284043d1815ed
+
+  prop:
+    git: https://github.com/nicolab/crystal-prop.git
+    version: 0.7.1
+
   sqlite3:
     git: https://github.com/crystal-lang/crystal-sqlite3.git
     version: 0.22.0
+
+  validator:
+    git: https://github.com/nicolab/crystal-validator.git
+    version: 1.11.0
 

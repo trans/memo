@@ -1,0 +1,13 @@
+# Dependencies
+/lib/
+
+# Build artifacts
+/bin/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store

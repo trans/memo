@@ -60,7 +60,7 @@ require "./memo/service"
 # Internal modules (Storage, Search, Chunking, RRF) remain accessible
 # for advanced use cases but Service is the recommended entry point.
 module Memo
-  VERSION = "0.2.0"
+  VERSION = "0.3.0"
 
   # Global configuration
   class_property table_prefix : String = "memo_"
