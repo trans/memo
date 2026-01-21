@@ -40,6 +40,7 @@ module Memo::CLI::Commands::ServiceCreate
     model = input["model"].as_s
     dimensions = input["dimensions"].as_i
     max_tokens = input["max-tokens"].as_i
+    endpoint = input["endpoint"]?.try(&.as_s)
     is_default = input["default"]?.try(&.as_bool) || false
 
     begin
@@ -50,6 +51,7 @@ module Memo::CLI::Commands::ServiceCreate
         model: model,
         dimensions: dimensions,
         max_tokens: max_tokens,
+        base_url: endpoint,
         is_default: is_default
       )
 

@@ -124,6 +124,10 @@ module Memo::CLI
           "type": "integer",
           "description": "Max tokens per chunk (e.g., 8191)"
         },
+        "endpoint": {
+          "type": "string",
+          "description": "Custom API endpoint URL"
+        },
         "default": {
           "type": "boolean",
           "default": false,
