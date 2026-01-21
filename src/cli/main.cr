@@ -41,9 +41,16 @@ module Memo::CLI
       subcommands = CLI.subcommands(command)
       if !subcommands.empty? && !command_args.empty?
         potential_sub = command_args.first
-        if !potential_sub.starts_with?("-") && subcommands.includes?(potential_sub)
-          subcommand = potential_sub
-          command_args = command_args[1..]
+        if !potential_sub.starts_with?("-")
+          if subcommands.includes?(potential_sub)
+            subcommand = potential_sub
+            command_args = command_args[1..]
+          elsif !potential_sub.includes?("=")
+            # Unknown subcommand (not a key=value arg)
+            STDERR.puts "Unknown subcommand: #{command} #{potential_sub}"
+            STDERR.puts "\nAvailable subcommands: #{subcommands.join(", ")}"
+            exit 1
+          end
         end
       end
     end
