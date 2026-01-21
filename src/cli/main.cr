@@ -13,7 +13,6 @@ module Memo::CLI
   def self.run(args = ARGV)
     db_path : String? = nil
     service : String? = nil
-    format : String? = nil
     api_key : String? = nil
     json_output = false
     show_help = false
@@ -57,7 +56,6 @@ module Memo::CLI
 
       p.on("-d PATH", "--db=PATH", "Database path") { |v| db_path = v }
       p.on("-s NAME", "--service=NAME", "Service name") { |v| service = v }
-      p.on("-f FORMAT", "--format=FORMAT", "Provider format (openai, voyage, mock)") { |v| format = v }
       p.on("-k KEY", "--api-key=KEY", "API key") { |v| api_key = v }
       p.on("-j", "--json", "Output as JSON") { json_output = true }
       p.on("-h", "--help", "Show help") { show_help = true }
@@ -191,9 +189,7 @@ module Memo::CLI
       memo = Memo::Service.new(
         db_path: final_db_path.as(String),
         service: service,
-        format: format,
-        api_key: api_key,
-        chunking_max_tokens: 50  # Use small default for mock compatibility
+        api_key: api_key
       )
     rescue ex
       STDERR.puts "Error initializing service: #{ex.message}"

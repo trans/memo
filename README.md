@@ -46,7 +46,6 @@ export VOYAGE_API_KEY=pa-...    # Fallback
 ```
 -d, --db=PATH       Database path (default: memo.db)
 -s, --service=NAME  Service name (default: openai)
--f, --format=FMT    Provider format when creating new service
 -k, --api-key=KEY   API key (overrides environment variables)
 -j, --json          Output as JSON (default: human-readable)
 -h, --help          Show help
