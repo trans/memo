@@ -18,7 +18,7 @@
 
 CREATE TABLE IF NOT EXISTS chunks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    hash BLOB NOT NULL,              -- FK to embeddings(hash)
+    hash BLOB NOT NULL,              -- Content hash (references embeddings via join)
 
     -- Source identification
     source_type TEXT NOT NULL,       -- Application-defined type

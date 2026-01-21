@@ -1,6 +1,7 @@
 require "db"
 require "sqlite3"
 require "digest/sha256"
+require "set"
 
 require "./memo/config"
 require "./memo/database"
