@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.0] - 2026-01-20
+## [0.4.0] - 2026-01-21
 
 ### Added
 - **CLI tool** with JSON Schema validation
@@ -17,6 +17,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Auto-generated help from schema
   - Environment variable support (`MEMO_API_KEY`, `OPENAI_API_KEY`, `VOYAGE_API_KEY`)
   - Custom API endpoint support via `endpoint` parameter
+  - Positional argument support for single-arg commands (`memo service use voyage`)
+
+### Changed
+- Service commands now use subcommand pattern (`memo service create` instead of `memo service-create`)
+- Chunking rewritten with range-based offset tracking for exact SUBSTR compatibility
+- `tokens_per_byte` now updates in-memory config immediately (no restart needed)
+
+### Fixed
+- Remove invalid FK constraint from chunks table (embeddings has composite PK)
+- `delete()` now removes texts/texts_fts entries (prevents resurrection on reindex)
+- Whitespace-only input now returns empty chunks (was incorrectly producing 1 chunk)
+- `create_chunk` returns 0 when insert is ignored (accurate insert counts)
+- Error on unknown subcommand instead of silently running default
+- Schema comments updated to reflect soft reference design
 
 ## [0.3.0] - 2026-01-20
 
