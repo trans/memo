@@ -48,6 +48,7 @@ export VOYAGE_API_KEY=pa-...    # Fallback
 -s, --service=NAME  Service name (default: openai)
 -f, --format=FMT    Provider format when creating new service
 -k, --api-key=KEY   API key (overrides environment variables)
+-j, --json          Output as JSON (default: human-readable)
 -h, --help          Show help
 -v, --version       Show version
 ```
@@ -114,10 +115,10 @@ echo '{"query":"semantic search","limit":5}' | memo search --stdin
 
 ### JSON Output
 
-All commands output JSON for easy piping:
+Use `--json` for machine-readable output:
 
 ```bash
-memo search query="test" | jq '.[] | select(.score > 0.8)'
+memo --json search query="test" | jq '.[] | select(.score > 0.8)'
 ```
 
 ## Quick Start (Library)

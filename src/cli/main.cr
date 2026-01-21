@@ -15,6 +15,7 @@ module Memo::CLI
     service : String? = nil
     format : String? = nil
     api_key : String? = nil
+    json_output = false
     show_help = false
     show_version = false
     command_help = false
@@ -47,6 +48,7 @@ module Memo::CLI
       p.on("-s NAME", "--service=NAME", "Service name") { |v| service = v }
       p.on("-f FORMAT", "--format=FORMAT", "Provider format (openai, voyage, mock)") { |v| format = v }
       p.on("-k KEY", "--api-key=KEY", "API key") { |v| api_key = v }
+      p.on("-j", "--json", "Output as JSON") { json_output = true }
       p.on("-h", "--help", "Show help") { show_help = true }
       p.on("-v", "--version", "Show version") { show_version = true }
 
@@ -118,10 +120,10 @@ module Memo::CLI
       db = Memo::Database.create(final_db_path.as(String))
       begin
         case command
-        when "services"       then Commands::Services.run(db, input)
-        when "service-use"    then Commands::ServiceUse.run(db, input)
-        when "service-create" then Commands::ServiceCreate.run(db, input)
-        when "service-delete" then Commands::ServiceDelete.run(db, input)
+        when "services"       then Commands::Services.run(db, input, json_output)
+        when "service-use"    then Commands::ServiceUse.run(db, input, json_output)
+        when "service-create" then Commands::ServiceCreate.run(db, input, json_output)
+        when "service-delete" then Commands::ServiceDelete.run(db, input, json_output)
         end
       rescue ex
         STDERR.puts "Error: #{ex.message}"
@@ -149,10 +151,10 @@ module Memo::CLI
     # Dispatch to command handler
     begin
       case command
-      when "index"  then Commands::Index.run(memo, input)
-      when "search" then Commands::Search.run(memo, input)
-      when "delete" then Commands::Delete.run(memo, input)
-      when "stats"  then Commands::Stats.run(memo, input)
+      when "index"  then Commands::Index.run(memo, input, json_output)
+      when "search" then Commands::Search.run(memo, input, json_output)
+      when "delete" then Commands::Delete.run(memo, input, json_output)
+      when "stats"  then Commands::Stats.run(memo, input, json_output)
       else
         STDERR.puts "Command '#{command}' not implemented yet"
         exit 1

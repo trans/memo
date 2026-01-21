@@ -50,6 +50,7 @@ module Memo::CLI::Help
       s << "  -s, --service=NAME  Service name to use\n"
       s << "  -f, --format=FMT    Provider format (openai, voyage, mock)\n"
       s << "  -k, --api-key=KEY   API key for embedding provider\n"
+      s << "  -j, --json          Output as JSON (default: human-readable)\n"
       s << "  -h, --help          Show this help\n"
       s << "  -v, --version       Show version\n\n"
       s << "Commands:\n"
