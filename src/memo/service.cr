@@ -449,7 +449,7 @@ module Memo
 
       # Get hashes and source_types of chunks to be deleted
       hashes = [] of Bytes
-      source_types = Set(String).new
+      source_types_from_chunks = Set(String).new
       @db.query(
         "SELECT DISTINCT hash, source_type FROM #{prefix}chunks
          WHERE source_id = ?#{type_filter}",
@@ -457,11 +457,9 @@ module Memo
       ) do |rs|
         rs.each do
           hashes << rs.read(Bytes)
-          source_types << rs.read(String)
+          source_types_from_chunks << rs.read(String)
         end
       end
-
-      return 0 if hashes.empty?
 
       deleted_count = 0
 
@@ -498,9 +496,26 @@ module Memo
         end
 
         # Clean up texts and texts_fts entries
-        # (always clean up regardless of @text_storage - data may exist from earlier)
-        source_types.each do |st|
-          delete_source_text(st, source_id)
+        # Always delete texts for the source, even if no chunks existed
+        # (handles edge cases where texts exist but chunks don't)
+        if source_type
+          delete_source_text(source_type, source_id)
+        else
+          # No source_type filter - delete texts for all types found in chunks,
+          # plus query texts table directly for any orphaned entries
+          source_types_from_chunks.each do |st|
+            delete_source_text(st, source_id)
+          end
+          # Also delete any texts not associated with chunks
+          @db.query(
+            "SELECT DISTINCT source_type FROM #{prefix}texts WHERE source_id = ?",
+            source_id
+          ) do |rs|
+            rs.each do
+              st = rs.read(String)
+              delete_source_text(st, source_id) unless source_types_from_chunks.includes?(st)
+            end
+          end
         end
       end
 

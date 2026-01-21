@@ -36,26 +36,19 @@ module Memo
     # SQLite usage: SUBSTR(content, offset + 1, size) returns chunk_text exactly
     def chunk_text(text : String, config : Config::Chunking) : Array({String, Int32, Int32})
       # Find content boundaries (skip leading/trailing whitespace)
-      content_start = 0
-      content_end = text.size
+      content_start : Int32? = nil
+      content_end : Int32 = 0
 
-      # Skip leading whitespace
+      # Find first and last non-whitespace characters
       text.each_char_with_index do |char, idx|
         if !char.whitespace?
-          content_start = idx
-          break
-        end
-      end
-
-      # Skip trailing whitespace
-      (text.size - 1).downto(0) do |idx|
-        if !text[idx].whitespace?
+          content_start ||= idx
           content_end = idx + 1
-          break
         end
       end
 
-      return [] of {String, Int32, Int32} if content_start >= content_end
+      # Return empty if no non-whitespace content
+      return [] of {String, Int32, Int32} if content_start.nil?
 
       content_range = Range.new(content_start, content_end)
       ratio = config.tokens_per_byte
