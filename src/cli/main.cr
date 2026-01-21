@@ -88,9 +88,14 @@ module Memo::CLI
       return
     end
 
+    # Check for --json in command args (allow it after command too)
+    if command_args.includes?("--json") || command_args.includes?("-j")
+      json_output = true
+    end
+
     # Get input: key=value args, or stdin JSON if --stdin flag is present
     use_stdin = command_args.includes?("--stdin")
-    filtered_args = command_args.reject { |a| a == "--stdin" }
+    filtered_args = command_args.reject { |a| a.in?("--stdin", "--json", "-j") }
 
     input = if use_stdin
               Parser.read_stdin
