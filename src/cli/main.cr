@@ -108,8 +108,31 @@ module Memo::CLI
       exit 1
     end
 
-    # Initialize service
     final_db_path = db_path || "memo.db"
+
+    # CLI uses standalone database mode (no table prefix)
+    Memo.table_prefix = ""
+
+    # Service management commands only need database access
+    if command.in?("services", "service-use", "service-create", "service-delete")
+      db = Memo::Database.create(final_db_path.as(String))
+      begin
+        case command
+        when "services"       then Commands::Services.run(db, input)
+        when "service-use"    then Commands::ServiceUse.run(db, input)
+        when "service-create" then Commands::ServiceCreate.run(db, input)
+        when "service-delete" then Commands::ServiceDelete.run(db, input)
+        end
+      rescue ex
+        STDERR.puts "Error: #{ex.message}"
+        exit 1
+      ensure
+        db.close
+      end
+      return
+    end
+
+    # Other commands need full service initialization
     begin
       memo = Memo::Service.new(
         db_path: final_db_path.as(String),
@@ -126,14 +149,10 @@ module Memo::CLI
     # Dispatch to command handler
     begin
       case command
-      when "index"          then Commands::Index.run(memo, input)
-      when "search"         then Commands::Search.run(memo, input)
-      when "delete"         then Commands::Delete.run(memo, input)
-      when "stats"          then Commands::Stats.run(memo, input)
-      when "services"       then Commands::Services.run(memo, input)
-      when "service-use"    then Commands::ServiceUse.run(memo, input)
-      when "service-create" then Commands::ServiceCreate.run(memo, input)
-      when "service-delete" then Commands::ServiceDelete.run(memo, input)
+      when "index"  then Commands::Index.run(memo, input)
+      when "search" then Commands::Search.run(memo, input)
+      when "delete" then Commands::Delete.run(memo, input)
+      when "stats"  then Commands::Stats.run(memo, input)
       else
         STDERR.puts "Command '#{command}' not implemented yet"
         exit 1
