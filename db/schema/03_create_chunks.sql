@@ -38,7 +38,9 @@ CREATE TABLE IF NOT EXISTS chunks (
 
     created_at INTEGER NOT NULL,
 
-    FOREIGN KEY (hash) REFERENCES embeddings(hash),
+    -- Note: hash is a soft reference to embeddings. No FK constraint because
+    -- embeddings has composite PK (hash, service_id). Integrity is enforced
+    -- at query time by joining on hash with service_id filter.
     UNIQUE(source_type, source_id, offset)
 );
 

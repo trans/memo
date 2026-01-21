@@ -168,7 +168,7 @@ module Memo
     # Links a hash to a source with optional relationships.
     # Uses INSERT OR IGNORE to safely handle re-indexing with different services.
     #
-    # Returns chunk id if inserted, or 0 if chunk already existed
+    # Returns chunk id if inserted, or 0 if chunk already existed (was ignored)
     def create_chunk(
       db : DB::Database,
       hash : Bytes,
@@ -181,12 +181,15 @@ module Memo
     ) : Int64
       prefix = Memo.table_prefix
 
-      db.exec(
+      result = db.exec(
         "INSERT OR IGNORE INTO #{prefix}chunks
          (hash, source_type, source_id, pair_id, parent_id, offset, size, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         hash, source_type, source_id, pair_id, parent_id, offset, size, Time.utc.to_unix_ms
       )
+
+      # Return 0 if insert was ignored (chunk already exists)
+      return 0_i64 if result.rows_affected == 0
 
       db.scalar("SELECT last_insert_rowid()").as(Int64)
     end

@@ -142,7 +142,11 @@ module Memo
 
       # Add text join if text filtering or text inclusion requested
       # Text is stored per-source, so join on (source_type, source_id)
-      # Chunk text is extracted via SUBSTR using offset/size
+      # Chunk text is extracted via SUBSTR using offset/size from the original source.
+      #
+      # Note: The extracted text is the original source span, which may have slightly
+      # different whitespace than what was embedded (e.g., \n\n vs single space for
+      # merged paragraphs). This is intentional - users see their original content.
       text_join = ""
       fts_join = ""
       text_select = ""
@@ -152,6 +156,7 @@ module Memo
       if needs_text_join
         text_join = "JOIN #{prefix}texts st ON c.source_type = st.source_type AND c.source_id = st.source_id"
         # Extract chunk text using offset and size (SQLite SUBSTR is 1-indexed)
+        # Returns original source span, preserving original whitespace/formatting
         text_select = ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text" if include_text
       end
 

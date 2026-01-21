@@ -49,27 +49,30 @@ CREATE TABLE services (
 
 ### `embeddings` - Vector Storage
 
-Stores embedding vectors, deduplicated by content hash.
+Stores embedding vectors. Same content can have different embeddings per service,
+enabling multi-model support. Deduplicated by (hash, service_id) pair.
 
 ```sql
 CREATE TABLE embeddings (
-    hash BLOB PRIMARY KEY,           -- SHA256 of text
+    hash BLOB NOT NULL,              -- SHA256 of text
+    service_id INTEGER NOT NULL,     -- FK to services
     embedding BLOB NOT NULL,         -- Float32 array
     token_count INTEGER NOT NULL,
-    service_id INTEGER NOT NULL,
     created_at INTEGER NOT NULL,
+    PRIMARY KEY (hash, service_id),
     FOREIGN KEY (service_id) REFERENCES services(id)
 );
 ```
 
 ### `chunks` - Source References
 
-Links embeddings back to application sources.
+Links content hashes back to application sources. Chunks are service-agnostic;
+the same content can be searched via any service that has embedded it.
 
 ```sql
 CREATE TABLE chunks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    hash BLOB NOT NULL,              -- FK to embeddings
+    hash BLOB NOT NULL,              -- Content hash (soft ref to embeddings)
     source_type TEXT NOT NULL,       -- "article", "note", etc.
     source_id INTEGER NOT NULL,      -- External ID
     pair_id INTEGER,                 -- Related source
@@ -78,21 +81,25 @@ CREATE TABLE chunks (
     size INTEGER NOT NULL,           -- Chunk size in chars
     match_count INTEGER DEFAULT 0,   -- Times in search results
     read_count INTEGER DEFAULT 0,    -- Times marked as read
-    created_at INTEGER NOT NULL,
-    FOREIGN KEY (hash) REFERENCES embeddings(hash)
+    created_at INTEGER NOT NULL
+    -- Note: hash is a soft reference. Integrity enforced at query time
+    -- by joining on hash with service_id filter.
 );
 ```
 
 ### `projections` - Fast Filtering
 
-Stores random projection values for pre-filtering candidates.
+Stores random projection values for pre-filtering candidates. One row per
+(hash, service_id) pair, matching the embeddings table.
 
 ```sql
 CREATE TABLE projections (
-    hash BLOB PRIMARY KEY,
-    p0 REAL, p1 REAL, p2 REAL, p3 REAL,
-    p4 REAL, p5 REAL, p6 REAL, p7 REAL,
-    FOREIGN KEY (hash) REFERENCES embeddings(hash)
+    hash BLOB NOT NULL,
+    service_id INTEGER NOT NULL,
+    proj_0 REAL, proj_1 REAL, proj_2 REAL, proj_3 REAL,
+    proj_4 REAL, proj_5 REAL, proj_6 REAL, proj_7 REAL,
+    PRIMARY KEY (hash, service_id),
+    FOREIGN KEY (hash, service_id) REFERENCES embeddings(hash, service_id)
 );
 ```
 

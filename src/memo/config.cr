@@ -16,6 +16,16 @@ module Memo
         @tokens_per_byte : Float64 = 0.25
       )
       end
+
+      # Return a copy with updated tokens_per_byte ratio
+      def with_tokens_per_byte(ratio : Float64) : Chunking
+        Chunking.new(
+          min_tokens: @min_tokens,
+          max_tokens: @max_tokens,
+          no_chunk_threshold: @no_chunk_threshold,
+          tokens_per_byte: ratio
+        )
+      end
     end
 
     # AI embedding service configuration

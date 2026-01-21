@@ -447,15 +447,17 @@ module Memo
       type_filter = source_type ? " AND source_type = ?" : ""
       query_params = source_type ? [source_id, source_type] : [source_id]
 
-      # Get hashes of chunks to be deleted (for orphan cleanup)
+      # Get hashes and source_types of chunks to be deleted
       hashes = [] of Bytes
+      source_types = Set(String).new
       @db.query(
-        "SELECT DISTINCT hash FROM #{prefix}chunks
+        "SELECT DISTINCT hash, source_type FROM #{prefix}chunks
          WHERE source_id = ?#{type_filter}",
         args: query_params
       ) do |rs|
         rs.each do
           hashes << rs.read(Bytes)
+          source_types << rs.read(String)
         end
       end
 
@@ -493,6 +495,12 @@ module Memo
             @db.exec("DELETE FROM #{prefix}projections WHERE hash = ?", hash)
             @db.exec("DELETE FROM #{prefix}embeddings WHERE hash = ?", hash)
           end
+        end
+
+        # Clean up texts and texts_fts entries
+        # (always clean up regardless of @text_storage - data may exist from earlier)
+        source_types.each do |st|
+          delete_source_text(st, source_id)
         end
       end
 
@@ -1275,6 +1283,14 @@ module Memo
       if total_bytes > 0 && embed_result.total_tokens > 0
         observed_ratio = embed_result.total_tokens.to_f / total_bytes
         Storage.update_tokens_per_byte(@db, @service_id, observed_ratio)
+
+        # Also update in-memory config so future chunking uses the new ratio
+        # (Storage.update_tokens_per_byte uses EMA, so fetch the actual updated value)
+        updated_ratio = @db.query_one?(
+          "SELECT tokens_per_byte FROM #{Memo.table_prefix}services WHERE id = ?",
+          @service_id, as: Float64
+        )
+        @chunking_config = @chunking_config.with_tokens_per_byte(updated_ratio) if updated_ratio
       end
 
       # Delete old and store new atomically
@@ -1302,7 +1318,7 @@ module Memo
           Projection.store_projections(@db, hash, @service_id, projections)
 
           # Create chunk reference with offset/size from chunking
-          Storage.create_chunk(
+          chunk_id = Storage.create_chunk(
             db: @db,
             hash: hash,
             source_type: source_type,
@@ -1313,7 +1329,8 @@ module Memo
             parent_id: parent_id
           )
 
-          success_count += 1
+          # Only count if chunk was actually inserted (not ignored as duplicate)
+          success_count += 1 if chunk_id > 0
         end
       end
 
