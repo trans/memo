@@ -141,6 +141,15 @@ module Memo::CLI
               Parser.parse_args(filtered_args)
             end
 
+    # Support positional argument for 'name' in service subcommands
+    if command == "service" && subcommand.in?("use", "delete") && !input.has_key?("name")
+      # Find first positional arg (not key=value)
+      positional = filtered_args.find { |a| !a.includes?("=") }
+      if positional
+        input["name"] = JSON::Any.new(positional)
+      end
+    end
+
     # Validate against schema
     validator = JSONSchema.from_json(schema)
     result = validator.validate(JSON.parse(input.to_json))

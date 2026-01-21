@@ -91,7 +91,7 @@ memo service           # 'list' is the default
 Set default service:
 
 ```bash
-memo service use name=voyage
+memo service use voyage
 ```
 
 Create custom service:
@@ -103,7 +103,8 @@ memo service create name=my-openai format=openai model=text-embedding-3-large di
 Delete service:
 
 ```bash
-memo service delete name=my-openai
+memo service delete my-openai
+memo service delete my-openai force=true  # if service has embeddings
 ```
 
 ### JSON Input

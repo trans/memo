@@ -100,7 +100,7 @@ module Memo::CLI
           "properties": {
             "name": {
               "type": "string",
-              "description": "Service name to set as default"
+              "description": "Service name to set as default (positional arg allowed)"
             }
           },
           "required": ["name"]
@@ -145,7 +145,7 @@ module Memo::CLI
           "properties": {
             "name": {
               "type": "string",
-              "description": "Service name to delete"
+              "description": "Service name to delete (positional arg allowed)"
             },
             "force": {
               "type": "boolean",
