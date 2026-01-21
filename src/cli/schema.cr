@@ -86,6 +86,66 @@ module Memo::CLI
     "stats": {
       "type": "object",
       "properties": {}
+    },
+    "services": {
+      "type": "object",
+      "properties": {}
+    },
+    "service-use": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Service name to set as default"
+        }
+      },
+      "required": ["name"]
+    },
+    "service-create": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique service name"
+        },
+        "format": {
+          "type": "string",
+          "description": "Provider format (openai, voyage)"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model name (e.g., text-embedding-3-small)"
+        },
+        "dimensions": {
+          "type": "integer",
+          "description": "Embedding dimensions (e.g., 1536)"
+        },
+        "max-tokens": {
+          "type": "integer",
+          "description": "Max tokens per chunk (e.g., 8191)"
+        },
+        "default": {
+          "type": "boolean",
+          "default": false,
+          "description": "Set as default service"
+        }
+      },
+      "required": ["name", "format", "model", "dimensions", "max-tokens"]
+    },
+    "service-delete": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Service name to delete"
+        },
+        "force": {
+          "type": "boolean",
+          "default": false,
+          "description": "Delete even if service has embeddings"
+        }
+      },
+      "required": ["name"]
     }
   }
   JSON

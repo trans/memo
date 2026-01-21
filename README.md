@@ -31,13 +31,23 @@ Build the CLI:
 shards build
 ```
 
+### Environment Variables
+
+The CLI reads API keys from environment variables:
+
+```bash
+export MEMO_API_KEY=sk-...      # Primary
+export OPENAI_API_KEY=sk-...    # Fallback
+export VOYAGE_API_KEY=pa-...    # Fallback
+```
+
 ### Global Options
 
 ```
 -d, --db=PATH       Database path (default: memo.db)
--s, --service=NAME  Service name (openai, voyage, mock)
+-s, --service=NAME  Service name (default: openai)
 -f, --format=FMT    Provider format when creating new service
--k, --api-key=KEY   API key for embedding provider
+-k, --api-key=KEY   API key (overrides environment variables)
 -h, --help          Show help
 -v, --version       Show version
 ```
@@ -47,25 +57,51 @@ shards build
 **Index a document:**
 
 ```bash
-memo -s openai -k $OPENAI_API_KEY index source-type=article source-id=1 text="Your document text"
+memo index source-type=article source-id=1 text="Your document text"
 ```
 
 **Search:**
 
 ```bash
-memo -s openai -k $OPENAI_API_KEY search query="semantic search" limit=5
+memo search query="semantic search" limit=5
 ```
 
 **Delete:**
 
 ```bash
-memo -s openai delete source-id=1
+memo delete source-id=1
 ```
 
 **Stats:**
 
 ```bash
-memo -s openai stats
+memo stats
+```
+
+### Service Management
+
+List available services:
+
+```bash
+memo services
+```
+
+Set default service:
+
+```bash
+memo service-use name=voyage
+```
+
+Create custom service:
+
+```bash
+memo service-create name=my-openai format=openai model=text-embedding-3-large dimensions=1024 max-tokens=8191
+```
+
+Delete service:
+
+```bash
+memo service-delete name=my-openai
 ```
 
 ### JSON Input
@@ -73,7 +109,7 @@ memo -s openai stats
 Commands accept JSON via stdin with `--stdin`:
 
 ```bash
-echo '{"query":"semantic search","limit":5}' | memo -s openai -k $KEY search --stdin
+echo '{"query":"semantic search","limit":5}' | memo search --stdin
 ```
 
 ### JSON Output
@@ -81,7 +117,7 @@ echo '{"query":"semantic search","limit":5}' | memo -s openai -k $KEY search --s
 All commands output JSON for easy piping:
 
 ```bash
-memo -s openai -k $KEY search query="test" | jq '.[] | select(.score > 0.8)'
+memo search query="test" | jq '.[] | select(.score > 0.8)'
 ```
 
 ## Quick Start (Library)

@@ -63,6 +63,9 @@ module Memo::CLI
       return
     end
 
+    # Environment variable fallbacks
+    api_key ||= ENV["MEMO_API_KEY"]? || ENV["OPENAI_API_KEY"]? || ENV["VOYAGE_API_KEY"]?
+
     # Handle global help or no command
     if show_help || command.nil?
       puts Help.global(CLI.commands)
@@ -123,10 +126,14 @@ module Memo::CLI
     # Dispatch to command handler
     begin
       case command
-      when "index"  then Commands::Index.run(memo, input)
-      when "search" then Commands::Search.run(memo, input)
-      when "delete" then Commands::Delete.run(memo, input)
-      when "stats"  then Commands::Stats.run(memo, input)
+      when "index"          then Commands::Index.run(memo, input)
+      when "search"         then Commands::Search.run(memo, input)
+      when "delete"         then Commands::Delete.run(memo, input)
+      when "stats"          then Commands::Stats.run(memo, input)
+      when "services"       then Commands::Services.run(memo, input)
+      when "service-use"    then Commands::ServiceUse.run(memo, input)
+      when "service-create" then Commands::ServiceCreate.run(memo, input)
+      when "service-delete" then Commands::ServiceDelete.run(memo, input)
       else
         STDERR.puts "Command '#{command}' not implemented yet"
         exit 1
