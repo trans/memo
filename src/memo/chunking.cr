@@ -7,45 +7,76 @@ module Memo
   # - Paragraphs > max_tokens: Further split on sentences
   # - Sentences < min_tokens: Combine with next sentence
   #
-  # Offset/size tracking:
-  # - Offset is the character position in the original text where the chunk content starts
-  # - Size is the character length of the span in the original text
-  # - For combined chunks, the span covers from the first chunk's start to the last chunk's end
-  # - This allows SUBSTR(content, offset + 1, size) to extract the original text span
+  # Range-based approach:
+  # - All operations track exact character positions in the original text
+  # - No string searching or reconstruction - positions are computed during splitting
+  # - Returned offset/size are exact character ranges for SQLite SUBSTR compatibility
+  # - chunk_text is the exact slice: text[offset, size]
   module Chunking
     extend self
 
-    # Internal representation: chunk text with its span in original text
-    private record Span, text : String, offset : Int32, size : Int32
+    # Internal: character range in original text
+    private record Range, start_pos : Int32, end_pos : Int32 do
+      def size : Int32
+        end_pos - start_pos
+      end
+
+      def slice(text : String) : String
+        text[start_pos, size]
+      end
+    end
 
     # Chunk text into segments based on configuration
     #
     # Returns array of tuples: {chunk_text, offset, size}
-    # - chunk_text: The processed text (may be trimmed/normalized)
+    # - chunk_text: Exact slice from original text (text[offset, size])
     # - offset: Character position in original text (0-indexed)
-    # - size: Character length of span in original text
+    # - size: Character length of chunk
     #
-    # Note: SUBSTR(original, offset + 1, size) returns the original span,
-    # which may differ slightly from chunk_text due to whitespace normalization.
+    # SQLite usage: SUBSTR(content, offset + 1, size) returns chunk_text exactly
     def chunk_text(text : String, config : Config::Chunking) : Array({String, Int32, Int32})
-      return [] of {String, Int32, Int32} if text.strip.empty?
+      # Find content boundaries (skip leading/trailing whitespace)
+      content_start = 0
+      content_end = text.size
 
+      # Skip leading whitespace
+      text.each_char_with_index do |char, idx|
+        if !char.whitespace?
+          content_start = idx
+          break
+        end
+      end
+
+      # Skip trailing whitespace
+      (text.size - 1).downto(0) do |idx|
+        if !text[idx].whitespace?
+          content_end = idx + 1
+          break
+        end
+      end
+
+      return [] of {String, Int32, Int32} if content_start >= content_end
+
+      content_range = Range.new(content_start, content_end)
       ratio = config.tokens_per_byte
-      token_count = estimate_tokens(text, ratio)
+      content_text = content_range.slice(text)
+      token_count = estimate_tokens(content_text, ratio)
 
-      spans = if token_count < config.no_chunk_threshold
-                # Keep whole - find the trimmed content's position
-                trimmed = text.strip
-                offset = text.index(trimmed) || 0
-                [Span.new(trimmed, offset, trimmed.size)]
-              else
-                # Split on paragraphs, then sentences if needed
-                para_spans = split_paragraphs_with_positions(text)
-                sentence_spans = para_spans.flat_map { |span| maybe_split_paragraph_with_positions(span, config, ratio) }
-                combine_small_spans(sentence_spans, config, ratio)
-              end
+      ranges = if token_count < config.no_chunk_threshold
+                 # Keep whole content as single chunk
+                 [content_range]
+               else
+                 # Split on paragraphs, then sentences if needed
+                 para_ranges = split_paragraphs(text, content_range)
+                 sentence_ranges = para_ranges.flat_map { |r| maybe_split_sentences(text, r, config, ratio) }
+                 combine_small_ranges(text, sentence_ranges, config, ratio)
+               end
 
-      spans.map { |s| {s.text, s.offset, s.size} }
+      # Convert ranges to output tuples
+      ranges.map do |range|
+        chunk = range.slice(text)
+        {chunk, range.start_pos, range.size}
+      end
     end
 
     # Estimate token count using tokens_per_byte ratio
@@ -53,103 +84,153 @@ module Memo
       (text.bytesize * tokens_per_byte).round.to_i
     end
 
-    # Split text on paragraph breaks (\n\n or more), tracking positions
-    private def split_paragraphs_with_positions(text : String) : Array(Span)
-      result = [] of Span
-      pos = 0
+    # Split on paragraph breaks (\n\n+), returning ranges of trimmed content
+    private def split_paragraphs(text : String, content_range : Range) : Array(Range)
+      ranges = [] of Range
+      pos = content_range.start_pos
+      end_pos = content_range.end_pos
 
-      # Split on double+ newlines
-      text.split(/\n\n+/).each do |part|
-        next if part.strip.empty?
+      while pos < end_pos
+        # Skip any leading whitespace/newlines at current position
+        while pos < end_pos && text[pos].whitespace?
+          pos += 1
+        end
+        break if pos >= end_pos
 
-        # Find where this part starts in original text
-        part_start = text.index(part, pos)
-        next unless part_start
+        # Find end of this paragraph (next \n\n or end of content)
+        para_start = pos
+        para_end = pos
+        newline_count = 0
 
-        # Trim the part and find trimmed content position
-        trimmed = part.strip
-        trim_offset = part.index(trimmed) || 0
+        while pos < end_pos
+          char = text[pos]
+          if char == '\n'
+            newline_count += 1
+            if newline_count >= 2
+              # Found paragraph break - para_end is before the newlines
+              break
+            end
+          elsif !char.whitespace?
+            # Reset newline count on non-whitespace
+            newline_count = 0
+            para_end = pos + 1  # Include this character
+          end
+          pos += 1
+        end
 
-        result << Span.new(trimmed, part_start + trim_offset, trimmed.size)
-        pos = part_start + part.size
+        # Add paragraph if non-empty
+        if para_end > para_start
+          ranges << Range.new(para_start, para_end)
+        end
+
+        # Skip past the paragraph break
+        while pos < end_pos && text[pos] == '\n'
+          pos += 1
+        end
       end
 
-      result
+      ranges
     end
 
-    # Split paragraph on sentences if it's too large, preserving positions
-    private def maybe_split_paragraph_with_positions(span : Span, config : Config::Chunking, ratio : Float64) : Array(Span)
-      token_count = estimate_tokens(span.text, ratio)
+    # Split paragraph on sentences if it's too large
+    private def maybe_split_sentences(text : String, range : Range, config : Config::Chunking, ratio : Float64) : Array(Range)
+      chunk_text = range.slice(text)
+      token_count = estimate_tokens(chunk_text, ratio)
 
       if token_count > config.max_tokens
-        split_sentences_with_positions(span)
+        split_sentences(text, range)
       else
-        [span]
+        [range]
       end
     end
 
-    # Split on sentence boundaries, tracking positions relative to original text
-    private def split_sentences_with_positions(span : Span) : Array(Span)
-      result = [] of Span
-      text = span.text
-      base_offset = span.offset
-      pos = 0
+    # Split on sentence boundaries: . ! ? ; followed by whitespace
+    private def split_sentences(text : String, range : Range) : Array(Range)
+      ranges = [] of Range
+      pos = range.start_pos
+      end_pos = range.end_pos
 
-      # Split on sentence boundaries: . ! ? ; or --
-      text.split(/(?<=[.!?;])\s+|--/).each do |part|
-        next if part.strip.empty?
+      while pos < end_pos
+        # Skip leading whitespace
+        while pos < end_pos && text[pos].whitespace?
+          pos += 1
+        end
+        break if pos >= end_pos
 
-        # Find where this part starts in the span's text
-        part_start = text.index(part, pos)
-        next unless part_start
+        # Find end of sentence
+        sentence_start = pos
+        sentence_end = pos
 
-        # Trim and find trimmed content position
-        trimmed = part.strip
-        trim_offset = part.index(trimmed) || 0
+        while pos < end_pos
+          char = text[pos]
 
-        result << Span.new(trimmed, base_offset + part_start + trim_offset, trimmed.size)
-        pos = part_start + part.size
+          if char.in?('.', '!', '?', ';')
+            # Potential sentence end - check if followed by whitespace or end
+            next_pos = pos + 1
+            if next_pos >= end_pos || text[next_pos].whitespace?
+              sentence_end = next_pos
+              pos = next_pos
+              break
+            end
+          end
+
+          if !char.whitespace?
+            sentence_end = pos + 1
+          end
+          pos += 1
+        end
+
+        # If we hit end without finding sentence boundary, take rest
+        if pos >= end_pos && sentence_end < end_pos
+          # Find actual end (last non-whitespace)
+          temp = end_pos - 1
+          while temp > sentence_start && text[temp].whitespace?
+            temp -= 1
+          end
+          sentence_end = temp + 1
+        end
+
+        # Add sentence if non-empty
+        if sentence_end > sentence_start
+          ranges << Range.new(sentence_start, sentence_end)
+        end
+
+        # Skip whitespace after sentence
+        while pos < end_pos && text[pos].whitespace?
+          pos += 1
+        end
       end
 
-      result
+      ranges.empty? ? [range] : ranges
     end
 
-    # Combine spans that are too small
-    # When combining, the span extends from first chunk's start to last chunk's end
-    private def combine_small_spans(spans : Array(Span), config : Config::Chunking, ratio : Float64) : Array(Span)
-      return spans if spans.empty?
+    # Combine ranges that are too small
+    # Combined range spans from first chunk's start to last chunk's end
+    private def combine_small_ranges(text : String, ranges : Array(Range), config : Config::Chunking, ratio : Float64) : Array(Range)
+      return ranges if ranges.empty?
 
-      result = [] of Span
+      result = [] of Range
       i = 0
 
-      while i < spans.size
-        span = spans[i]
+      while i < ranges.size
+        range = ranges[i]
 
-        if i == spans.size - 1
-          # Last span, keep it even if small
-          result << span
+        if i == ranges.size - 1
+          # Last range, keep it even if small
+          result << range
           break
         end
 
-        tokens = estimate_tokens(span.text, ratio)
+        tokens = estimate_tokens(range.slice(text), ratio)
 
         if tokens < config.min_tokens
-          # Combine with next span
-          next_span = spans[i + 1]
-
-          # Combined text uses space separator (for embedding)
-          combined_text = "#{span.text} #{next_span.text}"
-
-          # Combined span covers from this span's start to next span's end
-          combined_offset = span.offset
-          combined_end = next_span.offset + next_span.size
-          combined_size = combined_end - combined_offset
-
-          spans[i + 1] = Span.new(combined_text, combined_offset, combined_size)
-          # Don't add current span, continue with combined
+          # Combine with next range - span from this start to next end
+          next_range = ranges[i + 1]
+          combined = Range.new(range.start_pos, next_range.end_pos)
+          ranges[i + 1] = combined
+          # Don't add current range, continue with combined
         else
-          # Keep span, move to next
-          result << span
+          result << range
         end
 
         i += 1

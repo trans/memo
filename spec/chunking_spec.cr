@@ -123,15 +123,14 @@ describe Memo::Chunking do
       chunks.size.should eq(1)
       chunk_text, offset, size = chunks[0]
 
-      # The chunk text has a synthetic space between paragraphs (for embedding)
-      chunk_text.should eq("Hello. World.")
+      # Range-based chunking: chunk_text is the exact slice from original
+      # This includes the \n\n separator, which is what SUBSTR will return
+      chunk_text.should eq("Hello.\n\nWorld.")
 
-      # The span covers the original text including separators.
-      # This is intentional: SUBSTR returns original content, not normalized chunk.
-      # So text[offset, size] returns "Hello.\n\nWorld.", not "Hello. World."
+      # The span covers the original text exactly
       offset.should eq(0)
-      size.should eq(text.size)  # Covers entire original including \n\n
-      text[offset, size].should eq(text)
+      size.should eq(text.size)
+      text[offset, size].should eq(chunk_text)  # Exact match guaranteed
     end
   end
 end
