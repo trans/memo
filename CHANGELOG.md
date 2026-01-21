@@ -10,10 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **CLI tool** with JSON Schema validation
   - Commands: `index`, `search`, `delete`, `stats`
+  - Service management: `services`, `service-use`, `service-create`, `service-delete`
   - `key=value` argument syntax (`memo search query="test"`)
   - JSON via stdin with `--stdin` flag
+  - Human-readable output by default, `--json` for machine output
   - Auto-generated help from schema
-  - JSON output for piping with jq
+  - Environment variable support (`MEMO_API_KEY`, `OPENAI_API_KEY`, `VOYAGE_API_KEY`)
+  - Custom API endpoint support via `endpoint` parameter
 
 ### Changed
 - Consolidated two database files (embeddings.db + text.db) into single database file
