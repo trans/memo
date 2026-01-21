@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **CLI tool** with JSON Schema validation
   - Commands: `index`, `search`, `delete`, `stats`
-  - Service management: `services`, `service-use`, `service-create`, `service-delete`
+  - Service management: `service list`, `service use`, `service create`, `service delete`
   - `key=value` argument syntax (`memo search query="test"`)
   - JSON via stdin with `--stdin` flag
   - Human-readable output by default, `--json` for machine output

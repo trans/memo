@@ -84,25 +84,26 @@ memo stats
 List available services:
 
 ```bash
-memo services
+memo service list
+memo service           # 'list' is the default
 ```
 
 Set default service:
 
 ```bash
-memo service-use name=voyage
+memo service use name=voyage
 ```
 
 Create custom service:
 
 ```bash
-memo service-create name=my-openai format=openai model=text-embedding-3-large dimensions=1024 max-tokens=8191
+memo service create name=my-openai format=openai model=text-embedding-3-large dimensions=1024 max-tokens=8191
 ```
 
 Delete service:
 
 ```bash
-memo service-delete name=my-openai
+memo service delete name=my-openai
 ```
 
 ### JSON Input

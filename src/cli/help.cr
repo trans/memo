@@ -6,37 +6,59 @@ module Memo::CLI::Help
   # Generate help text for a command from its JSON Schema
   def for_command(name : String, schema : JSON::Any) : String
     String.build do |s|
-      s << "Usage: memo #{name} [key=value ...]\n\n"
-
-      props = schema["properties"]?
-      if props.nil? || props.as_h.empty?
-        s << "This command takes no arguments.\n"
-      else
-        properties = props.as_h
-        required_arr = schema["required"]?
-        required = required_arr ? required_arr.as_a.map(&.as_s) : [] of String
-
-        s << "Arguments:\n"
-        properties.each do |key, prop|
-          type = prop["type"]?.try(&.as_s) || "string"
-          desc = prop["description"]?.try(&.as_s) || ""
-          default = prop["default"]?
-          is_required = required.includes?(key)
-
-          # Format: key=<type> (required)
-          req_marker = is_required ? " (required)" : ""
-          s << "  #{key}=<#{type}>#{req_marker}\n"
-
-          # Description indented
-          s << "      #{desc}\n" unless desc.empty?
-
-          # Default value
-          s << "      Default: #{default}\n" if default
+      # Check if command has subcommands
+      if subs = schema["subcommands"]?
+        s << "Usage: memo #{name} <subcommand> [key=value ...]\n\n"
+        s << "Subcommands:\n"
+        subs.as_h.keys.each do |sub|
+          s << "  #{sub}\n"
         end
+        s << "\nRun 'memo #{name} <subcommand> --help' for subcommand help.\n"
+      else
+        s << "Usage: memo #{name} [key=value ...]\n\n"
+        format_schema_args(s, schema)
+        s << "\nAlternatively, pipe JSON to stdin:\n"
+        s << "  echo '{\"key\": \"value\"}' | memo #{name} --stdin\n"
       end
+    end
+  end
 
+  # Generate help text for a subcommand
+  def for_subcommand(command : String, subcommand : String, schema : JSON::Any) : String
+    String.build do |s|
+      s << "Usage: memo #{command} #{subcommand} [key=value ...]\n\n"
+      format_schema_args(s, schema)
       s << "\nAlternatively, pipe JSON to stdin:\n"
-      s << "  echo '{\"key\": \"value\"}' | memo #{name}\n"
+      s << "  echo '{\"key\": \"value\"}' | memo #{command} #{subcommand} --stdin\n"
+    end
+  end
+
+  private def format_schema_args(s : String::Builder, schema : JSON::Any)
+    props = schema["properties"]?
+    if props.nil? || props.as_h.empty?
+      s << "This command takes no arguments.\n"
+    else
+      properties = props.as_h
+      required_arr = schema["required"]?
+      required = required_arr ? required_arr.as_a.map(&.as_s) : [] of String
+
+      s << "Arguments:\n"
+      properties.each do |key, prop|
+        type = prop["type"]?.try(&.as_s) || "string"
+        desc = prop["description"]?.try(&.as_s) || ""
+        default = prop["default"]?
+        is_required = required.includes?(key)
+
+        # Format: key=<type> (required)
+        req_marker = is_required ? " (required)" : ""
+        s << "  #{key}=<#{type}>#{req_marker}\n"
+
+        # Description indented
+        s << "      #{desc}\n" unless desc.empty?
+
+        # Default value
+        s << "      Default: #{default}\n" if default
+      end
     end
   end
 

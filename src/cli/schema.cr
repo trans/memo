@@ -87,69 +87,75 @@ module Memo::CLI
       "type": "object",
       "properties": {}
     },
-    "services": {
+    "service": {
       "type": "object",
-      "properties": {}
-    },
-    "service-use": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Service name to set as default"
+      "properties": {},
+      "subcommands": {
+        "list": {
+          "type": "object",
+          "properties": {}
+        },
+        "use": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Service name to set as default"
+            }
+          },
+          "required": ["name"]
+        },
+        "create": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Unique service name"
+            },
+            "format": {
+              "type": "string",
+              "description": "Provider format (openai, voyage)"
+            },
+            "model": {
+              "type": "string",
+              "description": "Model name (e.g., text-embedding-3-small)"
+            },
+            "dimensions": {
+              "type": "integer",
+              "description": "Embedding dimensions (e.g., 1536)"
+            },
+            "max-tokens": {
+              "type": "integer",
+              "description": "Max tokens per chunk (e.g., 8191)"
+            },
+            "endpoint": {
+              "type": "string",
+              "description": "Custom API endpoint URL"
+            },
+            "default": {
+              "type": "boolean",
+              "default": false,
+              "description": "Set as default service"
+            }
+          },
+          "required": ["name", "format", "model", "dimensions", "max-tokens"]
+        },
+        "delete": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Service name to delete"
+            },
+            "force": {
+              "type": "boolean",
+              "default": false,
+              "description": "Delete even if service has embeddings"
+            }
+          },
+          "required": ["name"]
         }
-      },
-      "required": ["name"]
-    },
-    "service-create": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Unique service name"
-        },
-        "format": {
-          "type": "string",
-          "description": "Provider format (openai, voyage)"
-        },
-        "model": {
-          "type": "string",
-          "description": "Model name (e.g., text-embedding-3-small)"
-        },
-        "dimensions": {
-          "type": "integer",
-          "description": "Embedding dimensions (e.g., 1536)"
-        },
-        "max-tokens": {
-          "type": "integer",
-          "description": "Max tokens per chunk (e.g., 8191)"
-        },
-        "endpoint": {
-          "type": "string",
-          "description": "Custom API endpoint URL"
-        },
-        "default": {
-          "type": "boolean",
-          "default": false,
-          "description": "Set as default service"
-        }
-      },
-      "required": ["name", "format", "model", "dimensions", "max-tokens"]
-    },
-    "service-delete": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Service name to delete"
-        },
-        "force": {
-          "type": "boolean",
-          "default": false,
-          "description": "Delete even if service has embeddings"
-        }
-      },
-      "required": ["name"]
+      }
     }
   }
   JSON
@@ -164,5 +170,25 @@ module Memo::CLI
   # Get schema for a command
   def self.schema(command : String) : JSON::Any?
     SCHEMAS[command]?
+  end
+
+  # Get subcommands for a command
+  def self.subcommands(command : String) : Array(String)
+    if schema = SCHEMAS[command]?
+      if subs = schema["subcommands"]?
+        return subs.as_h.keys
+      end
+    end
+    [] of String
+  end
+
+  # Get schema for a subcommand
+  def self.subcommand_schema(command : String, subcommand : String) : JSON::Any?
+    if schema = SCHEMAS[command]?
+      if subs = schema["subcommands"]?
+        return subs[subcommand]?
+      end
+    end
+    nil
   end
 end

@@ -25,16 +25,27 @@ module Memo::CLI
 
     # Extract command and its args before parsing global options
     command : String? = nil
+    subcommand : String? = nil
     command_args = [] of String
 
     if command_idx
       command = args[command_idx]
       command_args = args[(command_idx + 1)..]
 
-      # Check for --help in command args
+      # Check for --help in command args BEFORE checking subcommand
       if command_args.includes?("--help") || command_args.includes?("-h")
         command_help = true
         command_args = command_args.reject { |a| a == "--help" || a == "-h" }
+      end
+
+      # Check for subcommand (for commands like "service list")
+      subcommands = CLI.subcommands(command)
+      if !subcommands.empty? && !command_args.empty?
+        potential_sub = command_args.first
+        if !potential_sub.starts_with?("-") && subcommands.includes?(potential_sub)
+          subcommand = potential_sub
+          command_args = command_args[1..]
+        end
       end
     end
 
@@ -82,10 +93,37 @@ module Memo::CLI
       exit 1
     end
 
-    # Handle command-specific help
+    # Handle command-specific help BEFORE applying default subcommand
     if command_help
-      puts Help.for_command(command, schema)
+      if subcommand
+        sub_schema = CLI.subcommand_schema(command, subcommand)
+        if sub_schema
+          puts Help.for_subcommand(command, subcommand, sub_schema)
+        end
+      else
+        puts Help.for_command(command, schema)
+      end
       return
+    end
+
+    # Check if command has subcommands
+    subcommands = CLI.subcommands(command)
+    if !subcommands.empty?
+      # Default subcommand is "list" if none provided
+      subcommand ||= "list"
+
+      unless subcommands.includes?(subcommand)
+        STDERR.puts "Unknown subcommand: #{command} #{subcommand}"
+        STDERR.puts "\nAvailable subcommands: #{subcommands.join(", ")}"
+        exit 1
+      end
+
+      # Use subcommand schema
+      schema = CLI.subcommand_schema(command, subcommand)
+      unless schema
+        STDERR.puts "No schema for: #{command} #{subcommand}"
+        exit 1
+      end
     end
 
     # Check for --json in command args (allow it after command too)
@@ -121,14 +159,14 @@ module Memo::CLI
     Memo.table_prefix = ""
 
     # Service management commands only need database access
-    if command.in?("services", "service-use", "service-create", "service-delete")
+    if command == "service"
       db = Memo::Database.create(final_db_path.as(String))
       begin
-        case command
-        when "services"       then Commands::Services.run(db, input, json_output)
-        when "service-use"    then Commands::ServiceUse.run(db, input, json_output)
-        when "service-create" then Commands::ServiceCreate.run(db, input, json_output)
-        when "service-delete" then Commands::ServiceDelete.run(db, input, json_output)
+        case subcommand
+        when "list"   then Commands::Services.run(db, input, json_output)
+        when "use"    then Commands::ServiceUse.run(db, input, json_output)
+        when "create" then Commands::ServiceCreate.run(db, input, json_output)
+        when "delete" then Commands::ServiceDelete.run(db, input, json_output)
         end
       rescue ex
         STDERR.puts "Error: #{ex.message}"
