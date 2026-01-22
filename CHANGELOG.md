@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-01-22
+
+### Changed
+- **CLI refactored to use CLJ library** for argument parsing
+  - Replaced custom parser with schema-driven CLJ
+  - Added `key:value` and `--key value` syntax (in addition to `key=value`)
+  - Nested subcommand support via CLJ's hierarchical CLI feature
+  - Reduced CLI code by ~330 lines
+
+### Removed
+- Custom `parser.cr` and `help.cr` (functionality now provided by CLJ)
+
 ## [0.4.0] - 2026-01-21
 
 ### Added
