@@ -80,7 +80,7 @@ module Memo
       projection_threshold : Float64 = 2.0,
       like : Array(String)? = nil,
       match : String? = nil,
-      include_text : Bool = false
+      include_text : Bool = true
     ) : Array(Result)
       prefix = Memo.table_prefix
 
@@ -154,7 +154,10 @@ module Memo
       needs_fts_join = match
 
       if needs_text_join
-        text_join = "JOIN #{prefix}texts st ON c.source_type = st.source_type AND c.source_id = st.source_id"
+        # Use LEFT JOIN for include_text alone (results without text still returned)
+        # Use regular JOIN if like filter requires text (no text = no match)
+        join_type = like ? "JOIN" : "LEFT JOIN"
+        text_join = "#{join_type} #{prefix}texts st ON c.source_type = st.source_type AND c.source_id = st.source_id"
         # Extract chunk text using offset and size (SQLite SUBSTR is 1-indexed)
         # Returns exactly the text that was embedded (range-based chunking guarantees this)
         text_select = ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text" if include_text
@@ -165,11 +168,6 @@ module Memo
       # Note: FTS5 MATCH doesn't work with table aliases, so we use the full table name
       if needs_fts_join
         fts_join = "JOIN #{prefix}texts_fts ON c.source_type = #{prefix}texts_fts.source_type AND c.source_id = #{prefix}texts_fts.source_id"
-        # Also need text join for include_text if not already added
-        if include_text && !needs_text_join
-          text_join = "JOIN #{prefix}texts st ON c.source_type = st.source_type AND c.source_id = st.source_id"
-          text_select = ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text"
-        end
       end
 
       # Add LIKE filters (AND logic) - searches source text

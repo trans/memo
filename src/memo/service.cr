@@ -353,7 +353,7 @@ module Memo
       like : String | Array(String) | Nil = nil,
       match : String? = nil,
       sql_where : String? = nil,
-      include_text : Bool = false
+      include_text : Bool = true
     ) : Array(Search::Result)
       # Generate query embedding
       query_embedding, _tokens = @provider.embed_text(query)

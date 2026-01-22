@@ -4,7 +4,7 @@ module Memo::CLI::Commands::Search
   extend self
 
   def run(memo : Memo::Service, input : Hash(String, JSON::Any), json : Bool)
-    include_text = input["include-text"]?.try(&.as_bool?) || false
+    include_text = input["include-text"]?.try(&.as_bool?) || true
 
     results = memo.search(
       query: input["query"].as_s,

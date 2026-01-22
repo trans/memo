@@ -31,7 +31,7 @@ module Memo::CLI
       "min-score":    {"type": "number",  "default": 0.7, "description": "Minimum similarity score (0.0-1.0)"},
       "source-type":  {"type": "string",  "description": "Filter by source type"},
       "source-id":    {"type": "integer", "description": "Filter by source ID"},
-      "include-text": {"type": "boolean", "default": false, "description": "Include chunk text in results"}
+      "include-text": {"type": "boolean", "default": true, "description": "Include chunk text in results"}
     },
     "required": ["query"]
   })
