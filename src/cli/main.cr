@@ -1,6 +1,7 @@
 require "jargon"
 require "../memo"
 require "./schema"
+require "./input"
 require "./commands/*"
 
 module Memo::CLI

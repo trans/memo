@@ -1,5 +1,3 @@
-require "json"
-
 module Memo::CLI::Commands::Index
   extend self
 
@@ -11,8 +9,8 @@ module Memo::CLI::Commands::Index
       source_type: source_type,
       source_id: source_id,
       text: input["text"].as_s,
-      pair_id: input["pair-id"]?.try(&.as_i64),
-      parent_id: input["parent-id"]?.try(&.as_i64)
+      pair_id: Input.int64(input, "pair-id"),
+      parent_id: Input.int64(input, "parent-id")
     )
 
     if json

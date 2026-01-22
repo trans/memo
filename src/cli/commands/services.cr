@@ -53,8 +53,8 @@ module Memo::CLI::Commands::ServiceCreate
     model = input["model"].as_s
     dimensions = input["dimensions"].as_i
     max_tokens = input["max-tokens"].as_i
-    endpoint = input["endpoint"]?.try(&.as_s)
-    is_default = input["default"]?.try(&.as_bool) || false
+    endpoint = Input.string(input, "endpoint")
+    is_default = Input.bool(input, "default")
 
     begin
       info = Memo::ServiceProvider.create(
@@ -93,7 +93,7 @@ end
 module Memo::CLI::Commands::ServiceDelete
   def self.run(db : DB::Database, input : Hash(String, JSON::Any), json : Bool)
     name = input["name"].as_s
-    force = input["force"]?.try(&.as_bool) || false
+    force = Input.bool(input, "force")
 
     begin
       svc = Memo::ServiceProvider.get_by_name(db, name)

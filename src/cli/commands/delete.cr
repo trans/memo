@@ -1,11 +1,9 @@
-require "json"
-
 module Memo::CLI::Commands::Delete
   extend self
 
   def run(memo : Memo::Service, input : Hash(String, JSON::Any), json : Bool)
     source_id = input["source-id"].as_i64
-    source_type = input["source-type"]?.try(&.as_s)
+    source_type = Input.string(input, "source-type")
 
     count = memo.delete(
       source_id: source_id,

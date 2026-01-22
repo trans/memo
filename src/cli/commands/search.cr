@@ -1,18 +1,14 @@
-require "json"
-
 module Memo::CLI::Commands::Search
   extend self
 
   def run(memo : Memo::Service, input : Hash(String, JSON::Any), json : Bool)
-    include_text = input["include-text"]?.try(&.as_bool?) || true
-
     results = memo.search(
       query: input["query"].as_s,
-      limit: input["limit"]?.try(&.as_i) || 10,
-      min_score: input["min-score"]?.try(&.as_f) || 0.7,
-      source_type: input["source-type"]?.try(&.as_s),
-      source_id: input["source-id"]?.try(&.as_i64),
-      include_text: include_text
+      limit: Input.int(input, "limit") || 10,
+      min_score: Input.float(input, "min-score") || 0.7,
+      source_type: Input.string(input, "source-type"),
+      source_id: Input.int64(input, "source-id"),
+      include_text: Input.bool(input, "include-text", true)
     )
 
     if json
