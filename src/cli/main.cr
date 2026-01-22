@@ -1,4 +1,4 @@
-require "clj"
+require "jargon"
 require "../memo"
 require "./schema"
 require "./commands/*"
@@ -8,19 +8,19 @@ module Memo::CLI
 
   def self.run(args = ARGV)
     # Nested CLI for service subcommands
-    service_cli = CLJ.new("service")
-    service_cli.subcommand("list", CLJ.merge(SERVICE_LIST_SCHEMA, GLOBAL_SCHEMA))
-    service_cli.subcommand("use", CLJ.merge(SERVICE_USE_SCHEMA, GLOBAL_SCHEMA))
-    service_cli.subcommand("create", CLJ.merge(SERVICE_CREATE_SCHEMA, GLOBAL_SCHEMA))
-    service_cli.subcommand("delete", CLJ.merge(SERVICE_DELETE_SCHEMA, GLOBAL_SCHEMA))
+    service_cli = Jargon.new("service")
+    service_cli.subcommand("list", Jargon.merge(SERVICE_LIST_SCHEMA, GLOBAL_SCHEMA))
+    service_cli.subcommand("use", Jargon.merge(SERVICE_USE_SCHEMA, GLOBAL_SCHEMA))
+    service_cli.subcommand("create", Jargon.merge(SERVICE_CREATE_SCHEMA, GLOBAL_SCHEMA))
+    service_cli.subcommand("delete", Jargon.merge(SERVICE_DELETE_SCHEMA, GLOBAL_SCHEMA))
     service_cli.default_subcommand("list")
 
     # Main CLI
-    cli = CLJ.new("memo")
-    cli.subcommand("index", CLJ.merge(INDEX_SCHEMA, GLOBAL_SCHEMA))
-    cli.subcommand("search", CLJ.merge(SEARCH_SCHEMA, GLOBAL_SCHEMA))
-    cli.subcommand("delete", CLJ.merge(DELETE_SCHEMA, GLOBAL_SCHEMA))
-    cli.subcommand("stats", CLJ.merge(STATS_SCHEMA, GLOBAL_SCHEMA))
+    cli = Jargon.new("memo")
+    cli.subcommand("index", Jargon.merge(INDEX_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("search", Jargon.merge(SEARCH_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("delete", Jargon.merge(DELETE_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("stats", Jargon.merge(STATS_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("service", service_cli)
 
     # Handle --help and --version before parsing

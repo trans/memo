@@ -22,3 +22,6 @@ shards:
   clj:
     git: https://github.com/trans/clj.git
     version: 0.2.1+git.commit.8a2a1f9659e371a413b8ad7e0e2dab64022cce41
+  jargon:
+    git: https://github.com/trans/jargon.git
+    version: 0.2.1+git.commit.29afe014e27c6a5479c2758ab54fb79ae2778496
