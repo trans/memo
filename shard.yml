@@ -17,8 +17,9 @@ dependencies:
     github: crystal-lang/crystal-db
   sqlite3:
     github: crystal-lang/crystal-sqlite3
-  jsonschema:
-    github: aarongodin/jsonschema
+  clj:
+    github: trans/clj
+    branch: main
 
 targets:
   memo:

@@ -4,23 +4,15 @@ shards:
     git: https://github.com/crystal-ameba/ameba.git
     version: 1.6.4
 
+  clj:
+    git: https://github.com/trans/clj.git
+    version: 0.2.1+git.commit.8a2a1f9659e371a413b8ad7e0e2dab64022cce41
+
   db:
     git: https://github.com/crystal-lang/crystal-db.git
     version: 0.14.0
 
-  jsonschema:
-    git: https://github.com/aarongodin/jsonschema.git
-    version: 0.1.0+git.commit.018dc50f4a3ba6e6c2783f19a46284043d1815ed
-
-  prop:
-    git: https://github.com/nicolab/crystal-prop.git
-    version: 0.7.1
-
   sqlite3:
     git: https://github.com/crystal-lang/crystal-sqlite3.git
     version: 0.22.0
-
-  validator:
-    git: https://github.com/nicolab/crystal-validator.git
-    version: 1.11.0
 
