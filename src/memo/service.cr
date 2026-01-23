@@ -1154,6 +1154,103 @@ module Memo
       queued
     end
 
+    # =========================================================================
+    # Vocabulary Operations
+    # =========================================================================
+
+    # Build vocabulary from indexed content
+    #
+    # Extracts unique words from all stored texts, embeds them in batches,
+    # and stores in the vocab table for word-level similarity search.
+    #
+    # Requires text storage to be enabled.
+    #
+    # Options:
+    # - batch_size: Number of words to embed per API call (default 2000)
+    # - clear_existing: Whether to clear existing vocab first (default true)
+    #
+    # Returns number of words stored
+    #
+    # Example:
+    # ```
+    # memo.build_vocab()
+    # results = memo.like("database")
+    # ```
+    def build_vocab(batch_size : Int32 = 2000, clear_existing : Bool = true) : Int32
+      raise "Text storage required for build_vocab" unless @text_storage
+
+      prefix = @table_prefix
+
+      # Collect all text content
+      texts = [] of String
+      @db.query("SELECT content FROM #{prefix}texts") do |rs|
+        rs.each do
+          texts << rs.read(String)
+        end
+      end
+
+      return 0 if texts.empty?
+
+      # Extract terms with frequencies
+      terms = Vocab.extract_terms_batch(texts)
+      return 0 if terms.empty?
+
+      # Clear existing vocab if requested
+      Vocab.clear(@db, @service_id) if clear_existing
+
+      # Embed and store in batches
+      stored = 0
+      terms.each_slice(batch_size) do |batch|
+        words = batch.map(&.word)
+        frequencies = batch.map(&.count)
+
+        # Embed the batch
+        result = @provider.embed_texts(words)
+
+        # Store embeddings
+        Vocab.store_batch(@db, words, result.embeddings, frequencies, @service_id)
+        stored += words.size
+      end
+
+      stored
+    end
+
+    # Find words semantically similar to the query
+    #
+    # Searches the vocabulary table for words with similar embeddings.
+    # Requires vocabulary to be built first with build_vocab().
+    #
+    # Returns array of VocabResult with word, score, and frequency.
+    #
+    # Example:
+    # ```
+    # results = memo.like("database")
+    # results.each do |r|
+    #   puts "#{r.word}: #{r.score}"
+    # end
+    # ```
+    def like(
+      query : String,
+      limit : Int32 = 10,
+      min_score : Float64 = 0.5
+    ) : Array(Vocab::Result)
+      # Generate query embedding
+      query_embedding, _tokens = @provider.embed_text(query)
+
+      # Search vocab
+      Vocab.search(@db, query_embedding, @service_id, limit, min_score)
+    end
+
+    # Get vocabulary statistics
+    def vocab_stats : Int64
+      Vocab.count(@db, @service_id)
+    end
+
+    # Clear vocabulary for current service
+    def clear_vocab
+      Vocab.clear(@db, @service_id)
+    end
+
     # Initialize provider from service name, format parameters, or default
     #
     # Priority:

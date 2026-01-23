@@ -21,6 +21,7 @@ module Memo::CLI
     cli.subcommand("index", Jargon.merge(INDEX_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("search", Jargon.merge(SEARCH_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("like", Jargon.merge(LIKE_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("build-vocab", Jargon.merge(BUILD_VOCAB_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("delete", Jargon.merge(DELETE_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("stats", Jargon.merge(STATS_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("service", service_cli)
@@ -89,7 +90,7 @@ module Memo::CLI
       ensure
         db.close
       end
-    when "index", "search", "like", "delete", "stats"
+    when "index", "search", "like", "build-vocab", "delete", "stats"
       memo = Memo::Service.new(
         db_path: db_path,
         service: service_name,
@@ -97,11 +98,12 @@ module Memo::CLI
       )
       begin
         case result.subcommand
-        when "index"  then Commands::Index.run(memo, input, json_output)
-        when "search" then Commands::Search.run(memo, input, json_output)
-        when "like"   then Commands::Like.run(memo, input, json_output)
-        when "delete" then Commands::Delete.run(memo, input, json_output)
-        when "stats"  then Commands::Stats.run(memo, input, json_output)
+        when "index"       then Commands::Index.run(memo, input, json_output)
+        when "search"      then Commands::Search.run(memo, input, json_output)
+        when "like"        then Commands::Like.run(memo, input, json_output)
+        when "build-vocab" then Commands::BuildVocab.run(memo, input, json_output)
+        when "delete"      then Commands::Delete.run(memo, input, json_output)
+        when "stats"       then Commands::Stats.run(memo, input, json_output)
         end
       ensure
         memo.close
@@ -125,7 +127,8 @@ module Memo::CLI
     Commands:
       index         Index text content
       search        Search indexed content
-      like          Find similar concepts
+      like          Find similar words
+      build-vocab   Build vocabulary from indexed content
       delete        Delete indexed content
       stats         Show statistics
       service       Manage embedding services

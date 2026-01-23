@@ -25,7 +25,9 @@ module Memo::CLI::Input
 
   def bool(data : Hash(String, JSON::Any), key : String, default : Bool = false) : Bool
     return default unless value = data[key]?
-    value.as_bool? || raise ArgumentError.new("Expected boolean for '#{key}', got #{type_name(value)}")
+    result = value.as_bool?
+    return result unless result.nil?
+    raise ArgumentError.new("Expected boolean for '#{key}', got #{type_name(value)}")
   end
 
   # Parse external ID (Int64 or String)

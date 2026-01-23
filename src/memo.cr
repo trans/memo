@@ -23,6 +23,7 @@ require "./memo/storage"
 require "./memo/projection"
 require "./memo/rrf"
 require "./memo/search"
+require "./memo/vocab"
 require "./memo/service_provider"
 require "./memo/service"
 

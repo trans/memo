@@ -61,6 +61,14 @@ module Memo::CLI
     "required": ["query"]
   })
 
+  BUILD_VOCAB_SCHEMA = %({
+    "type": "object",
+    "properties": {
+      "batch-size": {"type": "integer", "default": 2000, "description": "Words per API batch"},
+      "no-clear":   {"type": "boolean", "default": false, "description": "Don't clear existing vocab"}
+    }
+  })
+
   # Service subcommand schemas
   SERVICE_LIST_SCHEMA = %({
     "type": "object",
