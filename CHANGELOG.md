@@ -7,12 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2026-01-22
 
+### Added
+- **Vocabulary table for word-level semantic similarity**
+  - `build-vocab` CLI command extracts unique words from indexed content
+  - `like` CLI command finds semantically similar words
+  - `build_vocab()`, `like()`, `vocab_stats()`, `clear_vocab()` API methods
+  - Stopword filtering, word normalization, frequency tracking
+  - Batch embedding for efficient vocabulary building
+
 ### Changed
 - **CLI refactored to use CLJ library** for argument parsing
   - Replaced custom parser with schema-driven CLJ
   - Added `key:value` and `--key value` syntax (in addition to `key=value`)
   - Nested subcommand support via CLJ's hierarchical CLI feature
   - Reduced CLI code by ~330 lines
+
+### Fixed
+- `Input.bool` now correctly handles `false` values (was raising error)
 
 ### Removed
 - Custom `parser.cr` and `help.cr` (functionality now provided by CLJ)

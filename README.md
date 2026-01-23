@@ -78,6 +78,21 @@ memo delete source-id=1
 memo stats
 ```
 
+**Build vocabulary (for word-level similarity):**
+
+```bash
+memo build-vocab
+```
+
+**Find similar words:**
+
+```bash
+memo like "database"
+# 0.70  data
+# 0.70  databases
+# 0.57  sqlite
+```
+
 ### Service Management
 
 List available services:
@@ -278,6 +293,30 @@ memo.clear_completed_queue
 
 # Clear entire queue (pending, failed, completed)
 memo.clear_queue
+```
+
+#### Vocabulary (Word-Level Similarity)
+
+Build a vocabulary from indexed content for word-level semantic search:
+
+```crystal
+# Build vocabulary from all indexed texts
+memo.build_vocab  # => 1523 (words stored)
+
+# Find words similar to a query
+results = memo.like("database")
+results.each do |r|
+  puts "#{r.word}: #{r.score} (freq: #{r.frequency})"
+end
+# data: 0.70 (freq: 5)
+# databases: 0.70 (freq: 2)
+# sqlite: 0.57 (freq: 1)
+
+# Get vocabulary size
+memo.vocab_stats  # => 1523
+
+# Clear vocabulary
+memo.clear_vocab
 ```
 
 #### Other Operations
