@@ -7,14 +7,45 @@ module Memo
   module Database
     extend self
 
-    # Initialize Memo schema in provided database (standalone mode)
+    # Initialize Memo schema in provided database
     #
-    # Loads consolidated schema without table prefixes.
-    # Use when Memo has its own dedicated database file.
+    # Loads consolidated schema with table prefix applied.
     # Safe to call multiple times (uses IF NOT EXISTS)
     def init(db : DB::Database)
       schema_path = File.join(__DIR__, "../../db/schema/memo_schema.sql")
       sql = File.read(schema_path)
+      prefix = Memo.table_prefix
+
+      # Replace table names with prefixed versions
+      sql = sql.gsub(/CREATE TABLE IF NOT EXISTS (\w+)/) do |match|
+        table_name = $1
+        "CREATE TABLE IF NOT EXISTS #{prefix}#{table_name}"
+      end
+
+      # Replace FTS5 virtual table names
+      sql = sql.gsub(/CREATE VIRTUAL TABLE IF NOT EXISTS (\w+)/) do |match|
+        table_name = $1
+        "CREATE VIRTUAL TABLE IF NOT EXISTS #{prefix}#{table_name}"
+      end
+
+      # Replace index names with prefixed versions
+      sql = sql.gsub(/CREATE INDEX IF NOT EXISTS (\w+) ON (\w+)/) do |match|
+        index_name = $1
+        table_name = $2
+        "CREATE INDEX IF NOT EXISTS #{prefix}#{index_name} ON #{prefix}#{table_name}"
+      end
+
+      # Replace FOREIGN KEY references
+      sql = sql.gsub(/REFERENCES (\w+)\(/) do |match|
+        table_name = $1
+        "REFERENCES #{prefix}#{table_name}("
+      end
+
+      # Replace INSERT INTO table names
+      sql = sql.gsub(/INSERT OR IGNORE INTO (\w+)/) do |match|
+        table_name = $1
+        "INSERT OR IGNORE INTO #{prefix}#{table_name}"
+      end
 
       # Split into individual statements and execute separately
       # SQLite driver may not handle multiple statements in one exec()

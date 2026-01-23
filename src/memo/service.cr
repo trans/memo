@@ -169,9 +169,6 @@ module Memo
       # Initialize schema
       Database.init(@db)
 
-      # Standalone mode - no table prefix
-      Memo.table_prefix = ""
-
       # Initialize from service name or format
       config = init_provider(
         service: service,
@@ -239,9 +236,6 @@ module Memo
       )
 
       Database.init(@db)
-
-      # Standalone mode - no table prefix
-      Memo.table_prefix = ""
 
       # Initialize from service name or format
       config = init_provider(
