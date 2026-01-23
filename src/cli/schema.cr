@@ -50,6 +50,17 @@ module Memo::CLI
     "properties": {}
   })
 
+  LIKE_SCHEMA = %({
+    "type": "object",
+    "positional": ["query"],
+    "properties": {
+      "query":     {"type": "string",  "description": "Word or phrase to find similar concepts"},
+      "limit":     {"type": "integer", "default": 10, "description": "Maximum number of results"},
+      "min-score": {"type": "number",  "default": 0.5, "description": "Minimum similarity score (0.0-1.0)"}
+    },
+    "required": ["query"]
+  })
+
   # Service subcommand schemas
   SERVICE_LIST_SCHEMA = %({
     "type": "object",

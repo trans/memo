@@ -12,3 +12,4 @@
 # macOS
 .DS_Store
 memo.db
+memo_cli
