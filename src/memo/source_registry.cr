@@ -18,7 +18,7 @@ module Memo
       source_type : String,
       external_id : ExternalId
     ) : Int64
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       case external_id
       when Int64
@@ -60,7 +60,7 @@ module Memo
     #
     # Returns tuple of (source_type, external_id) or nil if not found.
     def get_external(db : DB::Database, internal_id : Int64) : {String, ExternalId}?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       db.query_one?(
         "SELECT source_type, external_int, external_text FROM #{prefix}sources WHERE id = ?",
@@ -83,7 +83,7 @@ module Memo
       source_type : String,
       external_id : ExternalId
     ) : Int64?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       case external_id
       when Int64
@@ -109,7 +109,7 @@ module Memo
       db : DB::Database,
       external_id : ExternalId
     ) : Int64?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       case external_id
       when Int64
@@ -136,7 +136,7 @@ module Memo
       source_type : String,
       external_id : ExternalId
     ) : Bool
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       result = case external_id
                when Int64
@@ -156,7 +156,7 @@ module Memo
 
     # Delete source by internal ID
     def delete_by_id(db : DB::Database, internal_id : Int64) : Bool
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
       result = db.exec("DELETE FROM #{prefix}sources WHERE id = ?", internal_id)
       result.rows_affected > 0
     end
@@ -171,7 +171,7 @@ module Memo
       limit : Int32 = 100,
       offset : Int32 = 0
     ) : Array({Int64, ExternalId})
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
       results = [] of {Int64, ExternalId}
 
       db.query(

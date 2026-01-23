@@ -58,9 +58,6 @@ module Memo::CLI
     api_key = input["api-key"]?.try(&.as_s) || ENV["MEMO_API_KEY"]? || ENV["OPENAI_API_KEY"]? || ENV["VOYAGE_API_KEY"]?
     json_output = input["json"]?.try(&.as_bool) || false
 
-    # CLI uses standalone database mode (no table prefix)
-    Memo.table_prefix = ""
-
     # Route to command handler
     case result.subcommand
     when "service list"

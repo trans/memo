@@ -71,7 +71,7 @@ module Memo
       base_url : String? = nil,
       is_default : Bool = false
     ) : Info
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       # Check if name already exists
       existing = get_by_name(db, name)
@@ -112,7 +112,7 @@ module Memo
     #
     # Returns nil if not found.
     def get(db : DB::Database, id : Int64) : Info?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       db.query_one?(
         "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
@@ -127,7 +127,7 @@ module Memo
     #
     # Returns nil if not found.
     def get_by_name(db : DB::Database, name : String) : Info?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       db.query_one?(
         "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
@@ -142,7 +142,7 @@ module Memo
     #
     # Returns nil if no default is set.
     def get_default(db : DB::Database) : Info?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       db.query_one?(
         "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
@@ -157,7 +157,7 @@ module Memo
     # Clears any existing default and sets the specified service.
     # Returns true if successful, false if service not found.
     def set_default(db : DB::Database, name : String) : Bool
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       svc = get_by_name(db, name)
       return false unless svc
@@ -174,7 +174,7 @@ module Memo
     #
     # Returns array of service info, ordered by creation time (newest first).
     def list(db : DB::Database) : Array(Info)
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
       services = [] of Info
 
       db.query(
@@ -194,7 +194,7 @@ module Memo
     #
     # Returns array of service info for the specified API format.
     def list_by_format(db : DB::Database, format : String) : Array(Info)
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
       services = [] of Info
 
       db.query(
@@ -222,7 +222,7 @@ module Memo
       base_url : String? = nil,
       max_tokens : Int32? = nil
     ) : Info?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       # Build update query dynamically
       updates = [] of String
@@ -260,7 +260,7 @@ module Memo
     # Returns true if deleted, false if not found.
     # Raises if embeddings exist and force is false.
     def delete(db : DB::Database, id : Int64, force : Bool = false) : Bool
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       # Check if service exists
       return false unless get(db, id)
@@ -311,7 +311,7 @@ module Memo
 
     # Get usage statistics for a service
     def stats(db : DB::Database, id : Int64) : Stats
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       embeddings = db.scalar(
         "SELECT COUNT(*) FROM #{prefix}embeddings WHERE service_id = ?",
@@ -330,7 +330,7 @@ module Memo
 
     # Check if a service exists
     def exists?(db : DB::Database, id : Int64) : Bool
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       count = db.scalar(
         "SELECT COUNT(*) FROM #{prefix}services WHERE id = ?",
@@ -342,7 +342,7 @@ module Memo
 
     # Get total count of services
     def count(db : DB::Database) : Int64
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
       db.scalar("SELECT COUNT(*) FROM #{prefix}services").as(Int64)
     end
 

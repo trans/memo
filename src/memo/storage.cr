@@ -21,7 +21,7 @@ module Memo
       dimensions : Int32,
       max_tokens : Int32
     ) : Int64
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       # Auto-generate name if not provided
       service_name = name || "#{format}/#{model}"
@@ -52,7 +52,7 @@ module Memo
       db : DB::Database,
       name : String
     ) : {Int64, String, String?, String, Int32, Int32, Float64}?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       db.query_one?(
         "SELECT id, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25)
@@ -77,7 +77,7 @@ module Memo
       format : String,
       model : String
     ) : {Int64, String, String?, String, Int32, Int32, Float64}?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       db.query_one?(
         "SELECT id, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25)
@@ -104,7 +104,7 @@ module Memo
       service_id : Int64,
       observed_ratio : Float64
     )
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       # Get current ratio
       current = db.query_one?(
@@ -132,7 +132,7 @@ module Memo
       token_count : Int32,
       service_id : Int64
     ) : Bool
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       # Serialize embedding as blob (pack floats as binary)
       embedding_blob = serialize_embedding(embedding)
@@ -152,7 +152,7 @@ module Memo
     #
     # Returns nil if not found
     def get_embedding(db : DB::Database, hash : Bytes, service_id : Int64) : Array(Float64)?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       db.query_one?(
         "SELECT embedding FROM #{prefix}embeddings WHERE hash = ? AND service_id = ?",
@@ -182,7 +182,7 @@ module Memo
       pair_id : Int64? = nil,
       parent_id : Int64? = nil
     ) : Int64
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       result = db.exec(
         "INSERT OR IGNORE INTO #{prefix}chunks
@@ -201,7 +201,7 @@ module Memo
     def increment_match_count(db : DB::Database, chunk_ids : Array(Int64))
       return if chunk_ids.empty?
 
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
       placeholders = chunk_ids.map { "?" }.join(", ")
 
       db.exec(
@@ -216,7 +216,7 @@ module Memo
     def increment_read_count(db : DB::Database, chunk_ids : Array(Int64))
       return if chunk_ids.empty?
 
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
       placeholders = chunk_ids.map { "?" }.join(", ")
 
       db.exec(

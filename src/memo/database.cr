@@ -14,7 +14,7 @@ module Memo
     def init(db : DB::Database)
       schema_path = File.join(__DIR__, "../../db/schema/memo_schema.sql")
       sql = File.read(schema_path)
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       # Replace table names with prefixed versions
       sql = sql.gsub(/CREATE TABLE IF NOT EXISTS (\w+)/) do |match|
@@ -85,7 +85,7 @@ module Memo
     # Execute a schema file with table prefix substitution
     private def execute_schema_file(db : DB::Database, path : String)
       sql = File.read(path)
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       # Replace table names with prefixed versions
       sql = sql.gsub(/CREATE TABLE IF NOT EXISTS (\w+)/) do |match|

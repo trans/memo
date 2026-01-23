@@ -67,7 +67,7 @@ module Memo
       service_id : Int64,
       vectors : Array(Array(Float64))
     )
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       blobs = vectors.map { |vec| Storage.serialize_embedding(vec) }
 
@@ -86,7 +86,7 @@ module Memo
     #
     # Returns nil if not found
     def get_projection_vectors(db : DB::Database, service_id : Int64) : Array(Array(Float64))?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       db.query_one?(
         "SELECT vec_0, vec_1, vec_2, vec_3, vec_4, vec_5, vec_6, vec_7
@@ -110,7 +110,7 @@ module Memo
       service_id : Int64,
       projections : Array(Float64)
     )
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       db.exec(
         "INSERT OR REPLACE INTO #{prefix}projections
@@ -126,7 +126,7 @@ module Memo
     #
     # Returns nil if not found
     def get_projections(db : DB::Database, hash : Bytes, service_id : Int64) : Array(Float64)?
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       db.query_one?(
         "SELECT proj_0, proj_1, proj_2, proj_3, proj_4, proj_5, proj_6, proj_7

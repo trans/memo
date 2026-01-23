@@ -3,6 +3,12 @@ require "sqlite3"
 require "digest/sha256"
 require "set"
 
+# Extend DB::Database to carry table prefix
+# This avoids global state - each db connection knows its prefix
+class DB::Database
+  property memo_table_prefix : String = "memo_"
+end
+
 require "./memo/types"
 require "./memo/config"
 require "./memo/database"
@@ -64,12 +70,4 @@ require "./memo/service"
 # for advanced use cases but Service is the recommended entry point.
 module Memo
   VERSION = "0.5.0"
-
-  # Global configuration
-  class_property table_prefix : String = "memo_"
-
-  # Configure memo (optional - has sensible defaults)
-  def self.configure
-    yield self
-  end
 end

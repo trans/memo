@@ -127,7 +127,7 @@ describe Memo::Service do
 
         # Verify chunk was stored with correct source
         # Join with sources table to get external ID
-        prefix = Memo.table_prefix
+        prefix = service.table_prefix
         result = service.db.query_one(
           "SELECT c.source_type, s.external_int
            FROM #{prefix}chunks c
@@ -151,7 +151,7 @@ describe Memo::Service do
 
         # Verify relationships stored
         # Join with sources table to get external IDs for pair and parent
-        prefix = Memo.table_prefix
+        prefix = service.table_prefix
         result = service.db.query_one(
           "SELECT ps.external_int, prs.external_int
            FROM #{prefix}chunks c
@@ -174,7 +174,7 @@ describe Memo::Service do
 
         # Verify projections were stored
         hash = service.db.query_one(
-          "SELECT hash FROM #{Memo.table_prefix}embeddings LIMIT 1",
+          "SELECT hash FROM #{service.table_prefix}embeddings LIMIT 1",
           as: Bytes
         )
 
@@ -257,7 +257,7 @@ describe Memo::Service do
         service.index_batch(docs)
 
         # Join with sources table to get external IDs for pair and parent
-        prefix = Memo.table_prefix
+        prefix = service.table_prefix
         result = service.db.query_one(
           "SELECT ps.external_int, prs.external_int
            FROM #{prefix}chunks c
@@ -426,7 +426,7 @@ describe Memo::Service do
 
         # Verify text was stored (keyed by internal source_id)
         # Join with sources to find by external ID
-        prefix = Memo.table_prefix
+        prefix = service.table_prefix
         content = service.db.query_one?(
           "SELECT t.content FROM #{prefix}texts t
            JOIN #{prefix}sources s ON t.source_id = s.id
@@ -445,7 +445,7 @@ describe Memo::Service do
         service.index(source_type: "event", source_id: 2_i64, text: "Same text")
 
         # Should have two text entries (one per source)
-        prefix = Memo.table_prefix
+        prefix = service.table_prefix
         count = service.db.scalar("SELECT COUNT(*) FROM #{prefix}texts").as(Int64)
         count.should eq(2)
       end
@@ -458,7 +458,7 @@ describe Memo::Service do
         service.index(source_type: "event", source_id: 1_i64, text: "Updated text")
 
         # Should still have one entry with updated content
-        prefix = Memo.table_prefix
+        prefix = service.table_prefix
         count = service.db.scalar("SELECT COUNT(*) FROM #{prefix}texts").as(Int64)
         count.should eq(1)
 
@@ -480,14 +480,14 @@ describe Memo::Service do
         service.index(source_type: "event", source_id: 1_i64, text: "Test document")
 
         # Get chunk ID
-        chunk_id = service.db.scalar("SELECT id FROM #{Memo.table_prefix}chunks LIMIT 1").as(Int64)
+        chunk_id = service.db.scalar("SELECT id FROM #{service.table_prefix}chunks LIMIT 1").as(Int64)
 
         # Mark as read
         service.mark_as_read([chunk_id])
 
         # Verify read_count incremented
         read_count = service.db.scalar(
-          "SELECT read_count FROM #{Memo.table_prefix}chunks WHERE id = ?",
+          "SELECT read_count FROM #{service.table_prefix}chunks WHERE id = ?",
           chunk_id
         ).as(Int64)
         read_count.should eq(1)

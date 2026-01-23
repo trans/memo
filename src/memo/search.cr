@@ -88,7 +88,7 @@ module Memo
       match : String? = nil,
       include_text : Bool = true
     ) : Array(Result)
-      prefix = Memo.table_prefix
+      prefix = db.memo_table_prefix
 
       # Compute query projections if projection vectors provided
       query_projections = if proj_vecs = projection_vectors
