@@ -15,10 +15,10 @@ module Memo::CLI
     "type": "object",
     "properties": {
       "source-type": {"type": "string",  "description": "Source type identifier (e.g., article, note)"},
-      "source-id":   {"type": "integer", "description": "Unique source ID"},
+      "source-id":   {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Unique source ID (integer or string/UUID)"},
       "text":        {"type": "string",  "description": "Text content to index"},
-      "pair-id":     {"type": "integer", "description": "Related source ID"},
-      "parent-id":   {"type": "integer", "description": "Parent source ID for hierarchies"}
+      "pair-id":     {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Related source ID"},
+      "parent-id":   {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Parent source ID for hierarchies"}
     },
     "required": ["source-type", "source-id", "text"]
   })
@@ -30,7 +30,7 @@ module Memo::CLI
       "limit":        {"type": "integer", "default": 10, "description": "Maximum number of results"},
       "min-score":    {"type": "number",  "default": 0.7, "description": "Minimum similarity score (0.0-1.0)"},
       "source-type":  {"type": "string",  "description": "Filter by source type"},
-      "source-id":    {"type": "integer", "description": "Filter by source ID"},
+      "source-id":    {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Filter by source ID (integer or string/UUID)"},
       "include-text": {"type": "boolean", "default": true, "description": "Include chunk text in results"}
     },
     "required": ["query"]
@@ -39,7 +39,7 @@ module Memo::CLI
   DELETE_SCHEMA = %({
     "type": "object",
     "properties": {
-      "source-id":   {"type": "integer", "description": "Source ID to delete"},
+      "source-id":   {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Source ID to delete (integer or string/UUID)"},
       "source-type": {"type": "string",  "description": "Filter deletion by source type"}
     },
     "required": ["source-id"]

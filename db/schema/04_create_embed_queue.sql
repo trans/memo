@@ -13,8 +13,7 @@
 
 CREATE TABLE IF NOT EXISTS embed_queue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source_type TEXT NOT NULL,       -- What kind of thing to embed
-    source_id INTEGER NOT NULL,      -- ID of thing to embed
+    source_id INTEGER NOT NULL REFERENCES sources(id),  -- FK to sources table
     text TEXT,                       -- Pre-extracted text (optional, for efficiency)
     status INTEGER NOT NULL DEFAULT -1,  -- -1=pending, 0=success, >0=error
     error_message TEXT,              -- Error details if status > 0
@@ -22,7 +21,7 @@ CREATE TABLE IF NOT EXISTS embed_queue (
     created_at INTEGER NOT NULL,     -- Unix timestamp (ms) when enqueued
     processed_at INTEGER,            -- Unix timestamp (ms) when processed
 
-    UNIQUE(source_type, source_id)
+    UNIQUE(source_id)
 );
 
 -- Index for finding pending items

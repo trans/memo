@@ -1,16 +1,16 @@
--- Chunks table: Links content hashes to external sources
+-- Chunks table: Links content hashes to sources
 --
 -- Maps embeddings back to their original sources. A single embedding (hash)
 -- can be referenced by multiple chunks if the same content appears in different
 -- locations or contexts.
 --
 -- Source identification:
---   - source_type: Application-defined type (e.g., "event", "document", "artifact")
---   - source_id: Integer ID in external system
+--   - source_id: FK to sources.id (internal identifier)
+--   - source_type: Denormalized for fast filtering (matches sources.source_type)
 --
 -- Relationships (optional):
---   - pair_id: Related source (e.g., question paired with answer)
---   - parent_id: Hierarchical parent (e.g., agent execution context)
+--   - pair_id: Related source (FK to sources.id)
+--   - parent_id: Hierarchical parent (FK to sources.id)
 --
 -- Usage tracking:
 --   - match_count: How many times this chunk appeared in search results
@@ -20,13 +20,13 @@ CREATE TABLE IF NOT EXISTS chunks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     hash BLOB NOT NULL,              -- Content hash (references embeddings via join)
 
-    -- Source identification
-    source_type TEXT NOT NULL,       -- Application-defined type
-    source_id INTEGER NOT NULL,      -- External ID (integer)
+    -- Source identification (FK to sources table)
+    source_id INTEGER NOT NULL REFERENCES sources(id),
+    source_type TEXT NOT NULL,       -- Denormalized for fast filtering
 
-    -- Relationships (nullable - not all sources are paired/nested)
-    pair_id INTEGER,                 -- Related source (e.g., question for answer)
-    parent_id INTEGER,               -- Hierarchical parent
+    -- Relationships (FK to sources.id, nullable)
+    pair_id INTEGER REFERENCES sources(id),
+    parent_id INTEGER REFERENCES sources(id),
 
     -- Chunk location within source
     offset INTEGER,                  -- Character position in source
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS chunks (
     -- Note: hash is a soft reference to embeddings. No FK constraint because
     -- embeddings has composite PK (hash, service_id). Integrity is enforced
     -- at query time by joining on hash with service_id filter.
-    UNIQUE(source_type, source_id, offset)
+    UNIQUE(source_id, offset)
 );
 
 CREATE INDEX IF NOT EXISTS idx_chunks_hash ON chunks(hash);

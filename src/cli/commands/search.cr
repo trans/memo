@@ -7,20 +7,24 @@ module Memo::CLI::Commands::Search
       limit: Input.int(input, "limit") || 10,
       min_score: Input.float(input, "min-score") || 0.7,
       source_type: Input.string(input, "source-type"),
-      source_id: Input.int64(input, "source-id"),
+      source_id: Input.external_id(input, "source-id"),
       include_text: Input.bool(input, "include-text", true)
     )
 
     if json
       output = results.map do |r|
-        result = {
-          "chunk-id"    => JSON::Any.new(r.chunk_id),
-          "source-type" => JSON::Any.new(r.source_type),
-          "source-id"   => JSON::Any.new(r.source_id),
-          "score"       => JSON::Any.new(r.score),
-          "offset"      => r.offset ? JSON::Any.new(r.offset.not_nil!.to_i64) : JSON::Any.new(nil),
-          "size"        => JSON::Any.new(r.size.to_i64),
-        }
+        result = Hash(String, JSON::Any).new
+        result["chunk-id"] = JSON::Any.new(r.chunk_id)
+        result["source-type"] = JSON::Any.new(r.source_type)
+        case sid = r.source_id
+        when Int64
+          result["source-id"] = JSON::Any.new(sid)
+        when String
+          result["source-id"] = JSON::Any.new(sid)
+        end
+        result["score"] = JSON::Any.new(r.score)
+        result["offset"] = r.offset ? JSON::Any.new(r.offset.not_nil!.to_i64) : JSON::Any.new(nil)
+        result["size"] = JSON::Any.new(r.size.to_i64)
         if text = r.text
           result["text"] = JSON::Any.new(text)
         end

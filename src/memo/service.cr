@@ -10,19 +10,23 @@ module Memo
   end
 
   # Document to be indexed
+  #
+  # Supports both integer and string source IDs:
+  # - Int64: Time-based, sortable IDs (e.g., Unix timestamps)
+  # - String: UUIDs and other text identifiers
   struct Document
     property source_type : String
-    property source_id : Int64
+    property source_id : ExternalId
     property text : String
-    property pair_id : Int64?
-    property parent_id : Int64?
+    property pair_id : ExternalId?
+    property parent_id : ExternalId?
 
     def initialize(
       @source_type : String,
-      @source_id : Int64,
+      @source_id : ExternalId,
       @text : String,
-      @pair_id : Int64? = nil,
-      @parent_id : Int64? = nil
+      @pair_id : ExternalId? = nil,
+      @parent_id : ExternalId? = nil
     )
     end
   end
@@ -277,21 +281,38 @@ module Memo
     #
     # Enqueues the document and processes it immediately with retry support.
     # Returns number of chunks successfully stored.
+    #
+    # Supports both integer and string source IDs:
+    # - Int64: Time-based, sortable IDs (e.g., Unix timestamps)
+    # - String: UUIDs and other text identifiers
     def index(
       source_type : String,
-      source_id : Int64,
+      source_id : ExternalId,
       text : String,
-      pair_id : Int64? = nil,
-      parent_id : Int64? = nil
+      pair_id : ExternalId? = nil,
+      parent_id : ExternalId? = nil
     ) : Int32
-      enqueue(
+      # Resolve external IDs to internal IDs
+      internal_source_id = SourceRegistry.resolve(@db, source_type, source_id)
+      internal_pair_id = if pid = pair_id
+                           SourceRegistry.resolve(@db, source_type, pid)
+                         else
+                           nil
+                         end
+      internal_parent_id = if pid = parent_id
+                             SourceRegistry.resolve(@db, source_type, pid)
+                           else
+                             nil
+                           end
+
+      enqueue_internal(
         source_type: source_type,
-        source_id: source_id,
+        internal_source_id: internal_source_id,
         text: text,
-        pair_id: pair_id,
-        parent_id: parent_id
+        internal_pair_id: internal_pair_id,
+        internal_parent_id: internal_parent_id
       )
-      process_queue_item(source_type, source_id)
+      process_queue_item_internal(internal_source_id)
     end
 
     # Index a document (Document overload)
@@ -326,6 +347,8 @@ module Memo
     #
     # Returns array of search results ranked by similarity.
     #
+    # source_id: Filter by external source ID (Int64 or String).
+    #
     # like: LIKE pattern(s) to filter by text content.
     #   Single string or array of strings for AND filtering.
     #   Example: like: "%cats%" or like: ["%cats%", "%dogs%"]
@@ -339,6 +362,7 @@ module Memo
     # sql_where: Raw SQL fragment for filtering chunks. Used with ATTACH
     #   to filter by external database tables.
     #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')"
+    #   Note: c.source_id here is the internal ID, not external.
     #
     # include_text: If true, includes text content in search results.
     #   Only works when text storage is enabled.
@@ -347,9 +371,9 @@ module Memo
       limit : Int32 = 10,
       min_score : Float64 = 0.7,
       source_type : String? = nil,
-      source_id : Int64? = nil,
-      pair_id : Int64? = nil,
-      parent_id : Int64? = nil,
+      source_id : ExternalId? = nil,
+      pair_id : ExternalId? = nil,
+      parent_id : ExternalId? = nil,
       like : String | Array(String) | Nil = nil,
       match : String? = nil,
       sql_where : String? = nil,
@@ -358,13 +382,18 @@ module Memo
       # Generate query embedding
       query_embedding, _tokens = @provider.embed_text(query)
 
-      # Build filters
-      filters = if source_type || source_id || pair_id || parent_id
+      # Resolve external IDs to internal IDs for filtering
+      internal_source_id = source_id && source_type ? SourceRegistry.get_internal(@db, source_type, source_id) : nil
+      internal_pair_id = pair_id && source_type ? SourceRegistry.get_internal(@db, source_type, pair_id) : nil
+      internal_parent_id = parent_id && source_type ? SourceRegistry.get_internal(@db, source_type, parent_id) : nil
+
+      # Build filters with internal IDs
+      filters = if source_type || internal_source_id || internal_pair_id || internal_parent_id
                   Search::Filters.new(
                     source_type: source_type,
-                    source_id: source_id,
-                    pair_id: pair_id,
-                    parent_id: parent_id
+                    internal_source_id: internal_source_id,
+                    internal_pair_id: internal_pair_id,
+                    internal_parent_id: internal_parent_id
                   )
                 else
                   nil
@@ -433,31 +462,44 @@ module Memo
     #
     # Returns number of chunks deleted.
     #
+    # source_id: External source ID (Int64 or String).
     # source_type: Optional filter to only delete chunks with matching source_type.
-    #   If nil, deletes all chunks with the given source_id regardless of type.
+    #   If nil and source_id is Int64, searches integer IDs across all types.
+    #   If nil and source_id is String, searches string IDs across all types.
+    def delete(source_id : ExternalId, source_type : String? = nil) : Int32
+      prefix = Memo.table_prefix
+
+      # Resolve external ID to internal ID
+      internal_id = if source_type
+                      SourceRegistry.get_internal(@db, source_type, source_id)
+                    else
+                      SourceRegistry.get_internal_any_type(@db, source_id)
+                    end
+
+      return 0 unless internal_id
+
+      delete_internal(internal_id, source_type)
+    end
+
+    # Delete chunks by internal source ID
     #
-    # TODO: Consider adding delete_batch(source_ids : Array(Int64)) if bulk deletion
-    #       becomes a common use case. Unlike index_batch, there's no API call savings,
-    #       but it could reduce transaction overhead for large deletions.
-    def delete(source_id : Int64, source_type : String? = nil) : Int32
+    # Internal method used by delete() and embed_and_store().
+    private def delete_internal(internal_source_id : Int64, source_type : String? = nil) : Int32
       prefix = Memo.table_prefix
 
       # Build query based on whether source_type is provided
-      # Chunks are service-agnostic, so no need to join with embeddings
       type_filter = source_type ? " AND source_type = ?" : ""
-      query_params = source_type ? [source_id, source_type] : [source_id]
+      query_params = source_type ? [internal_source_id, source_type] : [internal_source_id]
 
-      # Get hashes and source_types of chunks to be deleted
+      # Get hashes of chunks to be deleted
       hashes = [] of Bytes
-      source_types_from_chunks = Set(String).new
       @db.query(
-        "SELECT DISTINCT hash, source_type FROM #{prefix}chunks
+        "SELECT DISTINCT hash FROM #{prefix}chunks
          WHERE source_id = ?#{type_filter}",
         args: query_params
       ) do |rs|
         rs.each do
           hashes << rs.read(Bytes)
-          source_types_from_chunks << rs.read(String)
         end
       end
 
@@ -469,12 +511,12 @@ module Memo
           result = if source_type
                      @db.exec(
                        "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ? AND source_type = ?",
-                       hash, source_id, source_type
+                       hash, internal_source_id, source_type
                      )
                    else
                      @db.exec(
                        "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ?",
-                       hash, source_id
+                       hash, internal_source_id
                      )
                    end
           deleted_count += result.rows_affected.to_i
@@ -496,27 +538,7 @@ module Memo
         end
 
         # Clean up texts and texts_fts entries
-        # Always delete texts for the source, even if no chunks existed
-        # (handles edge cases where texts exist but chunks don't)
-        if source_type
-          delete_source_text(source_type, source_id)
-        else
-          # No source_type filter - delete texts for all types found in chunks,
-          # plus query texts table directly for any orphaned entries
-          source_types_from_chunks.each do |st|
-            delete_source_text(st, source_id)
-          end
-          # Also delete any texts not associated with chunks
-          @db.query(
-            "SELECT DISTINCT source_type FROM #{prefix}texts WHERE source_id = ?",
-            source_id
-          ) do |rs|
-            rs.each do
-              st = rs.read(String)
-              delete_source_text(st, source_id) unless source_types_from_chunks.includes?(st)
-            end
-          end
-        end
+        delete_source_text_internal(internal_source_id)
       end
 
       deleted_count
@@ -681,32 +703,58 @@ module Memo
     # If the source is already in the queue, the text is updated.
     def enqueue(
       source_type : String,
-      source_id : Int64,
+      source_id : ExternalId,
       text : String,
-      pair_id : Int64? = nil,
-      parent_id : Int64? = nil
+      pair_id : ExternalId? = nil,
+      parent_id : ExternalId? = nil
+    )
+      # Resolve external IDs to internal IDs
+      internal_source_id = SourceRegistry.resolve(@db, source_type, source_id)
+      internal_pair_id = if pid = pair_id
+                           SourceRegistry.resolve(@db, source_type, pid)
+                         else
+                           nil
+                         end
+      internal_parent_id = if pid = parent_id
+                             SourceRegistry.resolve(@db, source_type, pid)
+                           else
+                             nil
+                           end
+
+      enqueue_internal(
+        source_type: source_type,
+        internal_source_id: internal_source_id,
+        text: text,
+        internal_pair_id: internal_pair_id,
+        internal_parent_id: internal_parent_id
+      )
+    end
+
+    # Internal enqueue using internal source IDs
+    private def enqueue_internal(
+      source_type : String,
+      internal_source_id : Int64,
+      text : String,
+      internal_pair_id : Int64? = nil,
+      internal_parent_id : Int64? = nil
     )
       prefix = Memo.table_prefix
       now = Time.utc.to_unix_ms
 
-      # Store pair_id and parent_id in the text field as metadata prefix
-      # Format: "MEMO_META:pair_id,parent_id\n" followed by actual text
-      stored_text = if pair_id || parent_id
-                      "MEMO_META:#{pair_id || ""},#{parent_id || ""}\n#{text}"
-                    else
-                      text
-                    end
+      # Store source_type, pair_id and parent_id in the text field as metadata prefix
+      # Format: "MEMO_META:source_type,pair_id,parent_id\n" followed by actual text
+      stored_text = "MEMO_META:#{source_type},#{internal_pair_id || ""},#{internal_parent_id || ""}\n#{text}"
 
       @db.exec(
-        "INSERT INTO #{prefix}embed_queue (source_type, source_id, text, status, created_at)
-         VALUES (?, ?, ?, -1, ?)
-         ON CONFLICT(source_type, source_id) DO UPDATE SET
+        "INSERT INTO #{prefix}embed_queue (source_id, text, status, created_at)
+         VALUES (?, ?, -1, ?)
+         ON CONFLICT(source_id) DO UPDATE SET
            text = excluded.text,
            status = -1,
            error_message = NULL,
            attempts = 0,
            processed_at = NULL",
-        source_type, source_id, stored_text, now
+        internal_source_id, stored_text, now
       )
     end
 
@@ -724,12 +772,32 @@ module Memo
     # Enqueue multiple documents for later embedding
     #
     # More efficient than calling enqueue() multiple times.
+    # Resolves all external IDs to internal IDs in a single transaction.
     def enqueue_batch(docs : Array(Document))
       return if docs.empty?
 
       @db.transaction do
         docs.each do |doc|
-          enqueue(doc)
+          # Resolve external IDs to internal IDs
+          internal_source_id = SourceRegistry.resolve(@db, doc.source_type, doc.source_id)
+          internal_pair_id = if pid = doc.pair_id
+                               SourceRegistry.resolve(@db, doc.source_type, pid)
+                             else
+                               nil
+                             end
+          internal_parent_id = if pid = doc.parent_id
+                                 SourceRegistry.resolve(@db, doc.source_type, pid)
+                               else
+                                 nil
+                               end
+
+          enqueue_internal(
+            source_type: doc.source_type,
+            internal_source_id: internal_source_id,
+            text: doc.text,
+            internal_pair_id: internal_pair_id,
+            internal_parent_id: internal_parent_id
+          )
         end
       end
     end
@@ -752,11 +820,11 @@ module Memo
       processed = 0
 
       loop do
-        # Get a batch of pending items
-        items = [] of {Int64, String, Int64, String, Int64?, Int64?}
+        # Get a batch of pending items (source_id is internal ID)
+        items = [] of {Int64, Int64, String, String, Int64?, Int64?}
 
         @db.query(
-          "SELECT id, source_type, source_id, text FROM #{prefix}embed_queue
+          "SELECT id, source_id, text FROM #{prefix}embed_queue
            WHERE status = -1
            ORDER BY created_at ASC
            LIMIT ?",
@@ -764,29 +832,28 @@ module Memo
         ) do |rs|
           rs.each do
             id = rs.read(Int64)
-            source_type = rs.read(String)
-            source_id = rs.read(Int64)
+            internal_source_id = rs.read(Int64)
             stored_text = rs.read(String)
 
-            # Parse metadata if present
-            text, pair_id, parent_id = parse_queue_text(stored_text)
+            # Parse metadata (source_type, pair_id, parent_id) from stored text
+            source_type, text, pair_id, parent_id = parse_queue_text_internal(stored_text)
 
-            items << {id, source_type, source_id, text, pair_id, parent_id}
+            items << {id, internal_source_id, source_type, text, pair_id, parent_id}
           end
         end
 
         break if items.empty?
 
         # Process each item
-        items.each do |id, source_type, source_id, text, pair_id, parent_id|
+        items.each do |id, internal_source_id, source_type, text, pair_id, parent_id|
           begin
             # Embed and store the document
-            stored = embed_and_store(
+            stored = embed_and_store_internal(
               source_type: source_type,
-              source_id: source_id,
+              internal_source_id: internal_source_id,
               text: text,
-              pair_id: pair_id,
-              parent_id: parent_id
+              internal_pair_id: pair_id,
+              internal_parent_id: parent_id
             )
 
             # Mark as successful
@@ -843,38 +910,38 @@ module Memo
       end
     end
 
-    # Process a specific queued item
+    # Process a specific queued item by internal source ID
     #
     # Used by index() for immediate processing with retry support.
     # Returns number of chunks stored.
-    def process_queue_item(source_type : String, source_id : Int64) : Int32
+    private def process_queue_item_internal(internal_source_id : Int64) : Int32
       prefix = Memo.table_prefix
       max_retries = @queue_config.max_retries
 
-      # Get the specific item
+      # Get the specific item (using internal source_id)
       row = @db.query_one?(
         "SELECT id, text FROM #{prefix}embed_queue
-         WHERE source_type = ? AND source_id = ? AND status = -1",
-        source_type, source_id,
+         WHERE source_id = ? AND status = -1",
+        internal_source_id,
         as: {Int64, String}
       )
 
       return 0 unless row
 
       id, stored_text = row
-      text, pair_id, parent_id = parse_queue_text(stored_text)
+      source_type, text, pair_id, parent_id = parse_queue_text_internal(stored_text)
 
       attempts = 0
       last_error : Exception? = nil
 
       while attempts < max_retries
         begin
-          chunks_stored = embed_and_store(
+          chunks_stored = embed_and_store_internal(
             source_type: source_type,
-            source_id: source_id,
+            internal_source_id: internal_source_id,
             text: text,
-            pair_id: pair_id,
-            parent_id: parent_id
+            internal_pair_id: pair_id,
+            internal_parent_id: parent_id
           )
 
           # Mark as successful
@@ -969,23 +1036,25 @@ module Memo
       queued = 0
 
       # Get source texts and metadata from chunks table
-      # texts stores full content, chunks has metadata (pair_id, parent_id)
+      # texts stores full content (keyed by internal source_id), chunks has metadata
+      # Join through sources to get only sources of the requested type
       sources = [] of {Int64, Int64?, Int64?, String}
 
       @db.query(
         "SELECT st.source_id, c.pair_id, c.parent_id, st.content
          FROM #{prefix}texts st
-         LEFT JOIN #{prefix}chunks c ON st.source_type = c.source_type AND st.source_id = c.source_id
-         WHERE st.source_type = ?
+         JOIN #{prefix}sources s ON st.source_id = s.id
+         LEFT JOIN #{prefix}chunks c ON st.source_id = c.source_id
+         WHERE s.source_type = ?
          GROUP BY st.source_id",
         source_type
       ) do |rs|
         rs.each do
-          source_id = rs.read(Int64)
+          internal_source_id = rs.read(Int64)
           pair_id = rs.read(Int64?)
           parent_id = rs.read(Int64?)
           text = rs.read(String)
-          sources << {source_id, pair_id, parent_id, text}
+          sources << {internal_source_id, pair_id, parent_id, text}
         end
       end
 
@@ -994,18 +1063,18 @@ module Memo
       @db.transaction do
         # Delete existing chunks and embeddings for this source type
         # (orphan cleanup will handle embeddings not referenced elsewhere)
-        sources.each do |source_id, _, _, _|
-          delete(source_id, source_type)
+        sources.each do |internal_source_id, _, _, _|
+          delete_internal(internal_source_id, source_type)
         end
 
-        # Queue for re-embedding
-        sources.each do |source_id, pair_id, parent_id, text|
-          enqueue(
+        # Queue for re-embedding using internal IDs
+        sources.each do |internal_source_id, pair_id, parent_id, text|
+          enqueue_internal(
             source_type: source_type,
-            source_id: source_id,
+            internal_source_id: internal_source_id,
             text: text,
-            pair_id: pair_id,
-            parent_id: parent_id
+            internal_pair_id: pair_id,
+            internal_parent_id: parent_id
           )
           queued += 1
         end
@@ -1016,8 +1085,8 @@ module Memo
 
     # Re-index all content of a given source type using a block to fetch text
     #
-    # Use this when text storage is disabled. The block receives each source_id
-    # and should return the text to embed.
+    # Use this when text storage is disabled. The block receives the external
+    # source_id and should return the text to embed.
     #
     # Returns number of items queued for re-indexing.
     #
@@ -1028,25 +1097,30 @@ module Memo
     # end
     # memo.process_queue
     # ```
-    def reindex(source_type : String, &block : Int64 -> String) : Int32
+    def reindex(source_type : String, &block : ExternalId -> String) : Int32
       prefix = Memo.table_prefix
       queued = 0
 
-      # Get all source_ids and metadata for this source type
-      sources = [] of {Int64, Int64?, Int64?}
+      # Get all internal source_ids and metadata for this source type
+      # plus external IDs for the callback
+      sources = [] of {Int64, ExternalId, Int64?, Int64?}
 
       @db.query(
-        "SELECT DISTINCT c.source_id, c.pair_id, c.parent_id
+        "SELECT DISTINCT c.source_id, s.external_int, s.external_text, c.pair_id, c.parent_id
          FROM #{prefix}chunks c
          JOIN #{prefix}embeddings e ON c.hash = e.hash
+         JOIN #{prefix}sources s ON c.source_id = s.id
          WHERE c.source_type = ? AND e.service_id = ?",
         source_type, @service_id
       ) do |rs|
         rs.each do
-          source_id = rs.read(Int64)
+          internal_source_id = rs.read(Int64)
+          external_int = rs.read(Int64?)
+          external_text = rs.read(String?)
           pair_id = rs.read(Int64?)
           parent_id = rs.read(Int64?)
-          sources << {source_id, pair_id, parent_id}
+          external_id : ExternalId = external_int || external_text.not_nil!
+          sources << {internal_source_id, external_id, pair_id, parent_id}
         end
       end
 
@@ -1054,19 +1128,19 @@ module Memo
 
       @db.transaction do
         # Delete existing chunks and embeddings
-        sources.each do |source_id, _, _|
-          delete(source_id, source_type)
+        sources.each do |internal_source_id, _, _, _|
+          delete_internal(internal_source_id, source_type)
         end
 
-        # Queue for re-embedding using block to get text
-        sources.each do |source_id, pair_id, parent_id|
-          text = block.call(source_id)
-          enqueue(
+        # Queue for re-embedding using block to get text (passes external ID)
+        sources.each do |internal_source_id, external_id, pair_id, parent_id|
+          text = block.call(external_id)
+          enqueue_internal(
             source_type: source_type,
-            source_id: source_id,
+            internal_source_id: internal_source_id,
             text: text,
-            pair_id: pair_id,
-            parent_id: parent_id
+            internal_pair_id: pair_id,
+            internal_parent_id: parent_id
           )
           queued += 1
         end
@@ -1189,79 +1263,82 @@ module Memo
       vectors
     end
 
-    # Store source text (keyed by source_type/source_id)
+    # Store source text (keyed by internal source_id)
     # Also populates FTS5 index for full-text search
     #
     # Stores the original un-chunked text. Chunk text is extracted
     # using offset/size from the chunks table.
-    private def store_source_text(source_type : String, source_id : Int64, content : String)
+    private def store_source_text_internal(internal_source_id : Int64, content : String)
       prefix = Memo.table_prefix
       now = Time.utc.to_unix_ms
 
-      # Insert or replace source text
+      # Insert or replace source text (keyed by internal source_id)
       @db.exec(
-        "INSERT OR REPLACE INTO #{prefix}texts (source_type, source_id, content, created_at)
-         VALUES (?, ?, ?, ?)",
-        source_type, source_id, content, now
+        "INSERT OR REPLACE INTO #{prefix}texts (source_id, content, created_at)
+         VALUES (?, ?, ?)",
+        internal_source_id, content, now
       )
 
       # Update FTS5 index
       # Delete any existing entry first (FTS5 doesn't support INSERT OR REPLACE)
       @db.exec(
-        "DELETE FROM #{prefix}texts_fts WHERE source_type = ? AND source_id = ?",
-        source_type, source_id
+        "DELETE FROM #{prefix}texts_fts WHERE source_id = ?",
+        internal_source_id
       )
       @db.exec(
-        "INSERT INTO #{prefix}texts_fts (source_type, source_id, content)
-         VALUES (?, ?, ?)",
-        source_type, source_id, content
+        "INSERT INTO #{prefix}texts_fts (source_id, content)
+         VALUES (?, ?)",
+        internal_source_id, content
       )
     end
 
-    # Delete source text
-    private def delete_source_text(source_type : String, source_id : Int64)
+    # Delete source text by internal ID
+    private def delete_source_text_internal(internal_source_id : Int64)
       prefix = Memo.table_prefix
       @db.exec(
-        "DELETE FROM #{prefix}texts WHERE source_type = ? AND source_id = ?",
-        source_type, source_id
+        "DELETE FROM #{prefix}texts WHERE source_id = ?",
+        internal_source_id
       )
       @db.exec(
-        "DELETE FROM #{prefix}texts_fts WHERE source_type = ? AND source_id = ?",
-        source_type, source_id
+        "DELETE FROM #{prefix}texts_fts WHERE source_id = ?",
+        internal_source_id
       )
     end
 
-    # Get source text by source_type and source_id
-    private def get_source_text(source_type : String, source_id : Int64) : String?
+    # Get source text by internal source_id
+    private def get_source_text_internal(internal_source_id : Int64) : String?
       prefix = Memo.table_prefix
       @db.query_one?(
-        "SELECT content FROM #{prefix}texts WHERE source_type = ? AND source_id = ?",
-        source_type, source_id,
+        "SELECT content FROM #{prefix}texts WHERE source_id = ?",
+        internal_source_id,
         as: String
       )
     end
 
-    # Parse queue text to extract metadata and actual text
+    # Parse queue text to extract metadata and actual text (internal format)
     #
-    # Format: "MEMO_META:pair_id,parent_id\n" followed by actual text
-    # Returns {text, pair_id, parent_id}
-    private def parse_queue_text(stored_text : String) : {String, Int64?, Int64?}
+    # Format: "MEMO_META:source_type,pair_id,parent_id\n" followed by actual text
+    # Returns {source_type, text, internal_pair_id, internal_parent_id}
+    private def parse_queue_text_internal(stored_text : String) : {String, String, Int64?, Int64?}
       if stored_text.starts_with?("MEMO_META:")
         newline_idx = stored_text.index('\n')
         if newline_idx
           meta_line = stored_text[10...newline_idx]
           text = stored_text[(newline_idx + 1)..]
 
-          parts = meta_line.split(',', 2)
-          pair_id = parts[0].empty? ? nil : parts[0].to_i64
-          parent_id = parts.size > 1 && !parts[1].empty? ? parts[1].to_i64 : nil
+          parts = meta_line.split(',', 3)
+          source_type = parts[0]
+          pair_id = parts.size > 1 && !parts[1].empty? ? parts[1].to_i64 : nil
+          parent_id = parts.size > 2 && !parts[2].empty? ? parts[2].to_i64 : nil
 
-          {text, pair_id, parent_id}
+          {source_type, text, pair_id, parent_id}
         else
-          {stored_text, nil, nil}
+          # Malformed - no newline
+          {"unknown", stored_text, nil, nil}
         end
       else
-        {stored_text, nil, nil}
+        # No metadata prefix - legacy format, shouldn't happen with new code
+        {"unknown", stored_text, nil, nil}
       end
     end
 
@@ -1270,18 +1347,20 @@ module Memo
     # This is the internal implementation used by both process_queue and
     # process_queue_item. It does not interact with the queue table.
     #
+    # All IDs are internal (FK to sources table).
+    #
     # Deletes existing chunks for the source before re-indexing to ensure
     # clean state if chunking settings have changed.
     #
     # TODO: Consider storing source text hash to skip re-indexing unchanged content
     #
     # Returns number of chunks successfully stored.
-    private def embed_and_store(
+    private def embed_and_store_internal(
       source_type : String,
-      source_id : Int64,
+      internal_source_id : Int64,
       text : String,
-      pair_id : Int64? = nil,
-      parent_id : Int64? = nil
+      internal_pair_id : Int64? = nil,
+      internal_parent_id : Int64? = nil
     ) : Int32
       # Chunk text (returns tuples of {text, offset, size})
       chunks = Chunking.chunk_text(text, @chunking_config)
@@ -1314,11 +1393,11 @@ module Memo
       @db.transaction do
         # Delete existing chunks for this source before storing new ones
         # This ensures clean state if chunking settings have changed
-        delete(source_id, source_type)
+        delete_internal(internal_source_id, source_type)
 
         # Store source text once (not per-chunk)
         # Chunk text is extracted using offset/size when needed
-        store_source_text(source_type, source_id, text) if @text_storage
+        store_source_text_internal(internal_source_id, text) if @text_storage
 
         chunks.each_with_index do |(chunk_text, offset, size), idx|
           hash = Storage.compute_hash(chunk_text)
@@ -1333,15 +1412,16 @@ module Memo
           Projection.store_projections(@db, hash, @service_id, projections)
 
           # Create chunk reference with offset/size from chunking
+          # All IDs are internal (FK to sources table)
           chunk_id = Storage.create_chunk(
             db: @db,
             hash: hash,
             source_type: source_type,
-            source_id: source_id,
+            source_id: internal_source_id,
             offset: offset,
             size: size,
-            pair_id: pair_id,
-            parent_id: parent_id
+            pair_id: internal_pair_id,
+            parent_id: internal_parent_id
           )
 
           # Only count if chunk was actually inserted (not ignored as duplicate)

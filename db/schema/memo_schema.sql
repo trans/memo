@@ -150,19 +150,51 @@ CREATE TABLE IF NOT EXISTS projections (
 );
 
 -- =============================================================================
--- Chunks table: Links content hashes to external sources
+-- Sources table: Identity mapping for flexible external IDs
+--
+-- Maps external source identifiers (integer or string) to internal integer IDs.
+-- This enables:
+--   - Integer IDs: Time-based, sortable (e.g., Unix timestamps)
+--   - String IDs: UUIDs and other text identifiers
+--
+-- Each source is identified by (source_type, external_int) OR (source_type, external_text).
+-- Exactly one of external_int or external_text is set per row.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_type TEXT NOT NULL,       -- Application-defined type
+    external_int INTEGER,            -- Integer external ID (sortable)
+    external_text TEXT,              -- String external ID (UUID, etc.)
+    created_at INTEGER NOT NULL,
+
+    -- Ensure exactly one type of external ID is set
+    CHECK ((external_int IS NOT NULL AND external_text IS NULL) OR
+           (external_int IS NULL AND external_text IS NOT NULL)),
+
+    UNIQUE(source_type, external_int),
+    UNIQUE(source_type, external_text)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sources_type_int ON sources(source_type, external_int)
+    WHERE external_int IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_sources_type_text ON sources(source_type, external_text)
+    WHERE external_text IS NOT NULL;
+
+-- =============================================================================
+-- Chunks table: Links content hashes to sources
 --
 -- Maps embeddings back to their original sources. A single embedding (hash)
 -- can be referenced by multiple chunks if the same content appears in different
 -- locations or contexts.
 --
 -- Source identification:
---   - source_type: Application-defined type (e.g., "event", "document", "artifact")
---   - source_id: Integer ID in external system
+--   - source_id: FK to sources.id (internal identifier)
+--   - source_type: Denormalized for fast filtering (matches sources.source_type)
 --
 -- Relationships (optional):
---   - pair_id: Related source (e.g., question paired with answer)
---   - parent_id: Hierarchical parent (e.g., agent execution context)
+--   - pair_id: Related source (FK to sources.id)
+--   - parent_id: Hierarchical parent (FK to sources.id)
 --
 -- Usage tracking:
 --   - match_count: How many times this chunk appeared in search results
@@ -173,13 +205,13 @@ CREATE TABLE IF NOT EXISTS chunks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     hash BLOB NOT NULL,              -- Content hash (references embeddings via join)
 
-    -- Source identification
-    source_type TEXT NOT NULL,       -- Application-defined type
-    source_id INTEGER NOT NULL,      -- External ID (integer)
+    -- Source identification (FK to sources table)
+    source_id INTEGER NOT NULL REFERENCES sources(id),
+    source_type TEXT NOT NULL,       -- Denormalized for fast filtering
 
-    -- Relationships (nullable - not all sources are paired/nested)
-    pair_id INTEGER,                 -- Related source (e.g., question for answer)
-    parent_id INTEGER,               -- Hierarchical parent
+    -- Relationships (FK to sources.id, nullable)
+    pair_id INTEGER REFERENCES sources(id),
+    parent_id INTEGER REFERENCES sources(id),
 
     -- Chunk location within source
     offset INTEGER,                  -- Character position in source
@@ -194,7 +226,7 @@ CREATE TABLE IF NOT EXISTS chunks (
     -- Note: hash is a soft reference to embeddings. No FK constraint because
     -- embeddings has composite PK (hash, service_id). Integrity is enforced
     -- at query time by joining on hash with service_id filter.
-    UNIQUE(source_type, source_id, offset)
+    UNIQUE(source_id, offset)
 );
 
 CREATE INDEX IF NOT EXISTS idx_chunks_hash ON chunks(hash);
@@ -219,8 +251,7 @@ CREATE INDEX IF NOT EXISTS idx_chunks_parent ON chunks(parent_id) WHERE parent_i
 
 CREATE TABLE IF NOT EXISTS embed_queue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source_type TEXT NOT NULL,       -- What kind of thing to embed
-    source_id INTEGER NOT NULL,      -- ID of thing to embed
+    source_id INTEGER NOT NULL REFERENCES sources(id),  -- FK to sources table
     text TEXT,                       -- Pre-extracted text (optional, for efficiency)
     status INTEGER NOT NULL DEFAULT -1,  -- -1=pending, 0=success, >0=error
     error_message TEXT,              -- Error details if status > 0
@@ -228,7 +259,7 @@ CREATE TABLE IF NOT EXISTS embed_queue (
     created_at INTEGER NOT NULL,     -- Unix timestamp (ms) when enqueued
     processed_at INTEGER,            -- Unix timestamp (ms) when processed
 
-    UNIQUE(source_type, source_id)
+    UNIQUE(source_id)
 );
 
 -- Index for finding pending items
@@ -250,13 +281,12 @@ CREATE INDEX IF NOT EXISTS idx_queue_retries ON embed_queue(status, attempts) WH
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS texts (
-    source_type TEXT NOT NULL,
-    source_id INTEGER NOT NULL,
+    source_id INTEGER PRIMARY KEY REFERENCES sources(id),  -- FK to sources table
     content TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    PRIMARY KEY (source_type, source_id)
+    created_at INTEGER NOT NULL
 );
 
 -- FTS5 virtual table for full-text search on source content
+-- Note: source_id here is the internal ID (FK to sources)
 CREATE VIRTUAL TABLE IF NOT EXISTS texts_fts
-USING fts5(source_type, source_id UNINDEXED, content);
+USING fts5(source_id UNINDEXED, content);

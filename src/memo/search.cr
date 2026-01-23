@@ -4,13 +4,16 @@ module Memo
     extend self
 
     # Search result struct
+    #
+    # Returns external source IDs (Int64 or String), matching what was indexed.
     struct Result
       getter chunk_id : Int64
       getter hash : Bytes
       getter source_type : String
-      getter source_id : Int64
-      getter pair_id : Int64?
-      getter parent_id : Int64?
+      getter source_id : ExternalId        # External ID (what user provided)
+      getter internal_source_id : Int64    # Internal ID (FK to sources)
+      getter pair_id : ExternalId?
+      getter parent_id : ExternalId?
       getter offset : Int32?
       getter size : Int32
       getter match_count : Int32
@@ -19,7 +22,7 @@ module Memo
       getter text : String?  # Only populated with detail level
 
       def initialize(
-        @chunk_id, @hash, @source_type, @source_id,
+        @chunk_id, @hash, @source_type, @source_id, @internal_source_id,
         @pair_id, @parent_id, @offset, @size,
         @match_count, @read_count, @score, @text = nil
       )
@@ -27,17 +30,19 @@ module Memo
     end
 
     # Filters for semantic search
+    #
+    # Uses internal IDs for filtering (resolved by Service.search from external IDs)
     struct Filters
       property source_type : String?
-      property source_id : Int64?
-      property pair_id : Int64?
-      property parent_id : Int64?
+      property internal_source_id : Int64?
+      property internal_pair_id : Int64?
+      property internal_parent_id : Int64?
 
       def initialize(
         @source_type = nil,
-        @source_id = nil,
-        @pair_id = nil,
-        @parent_id = nil
+        @internal_source_id = nil,
+        @internal_pair_id = nil,
+        @internal_parent_id = nil
       )
       end
     end
@@ -49,7 +54,8 @@ module Memo
     # IMPORTANT: Must provide service_id to ensure embeddings are from same vector space
     #
     # sql_where: Raw SQL fragment to filter chunks.
-    #   Example: "c.source_id IN (SELECT id FROM artifact WHERE kind = 'goal')"
+    #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE memo_id = artifact.source_id)"
+    #   Note: c.source_id is the internal ID (FK to sources table)
     #
     # like: Array of LIKE patterns for AND filtering by text content.
     #   Requires text storage to be enabled.
@@ -104,15 +110,15 @@ module Memo
           where_clauses << "c.source_type = ?"
           params << source_type
         end
-        if source_id = filters.source_id
+        if source_id = filters.internal_source_id
           where_clauses << "c.source_id = ?"
           params << source_id
         end
-        if pair_id = filters.pair_id
+        if pair_id = filters.internal_pair_id
           where_clauses << "c.pair_id = ?"
           params << pair_id
         end
-        if parent_id = filters.parent_id
+        if parent_id = filters.internal_parent_id
           where_clauses << "c.parent_id = ?"
           params << parent_id
         end
@@ -141,7 +147,7 @@ module Memo
       end
 
       # Add text join if text filtering or text inclusion requested
-      # Text is stored per-source, so join on (source_type, source_id)
+      # Text is stored per internal source_id
       # Chunk text is extracted via SUBSTR using offset/size from the original source.
       #
       # Range-based chunking guarantees: SUBSTR(content, offset+1, size) returns
@@ -157,7 +163,7 @@ module Memo
         # Use LEFT JOIN for include_text alone (results without text still returned)
         # Use regular JOIN if like filter requires text (no text = no match)
         join_type = like ? "JOIN" : "LEFT JOIN"
-        text_join = "#{join_type} #{prefix}texts st ON c.source_type = st.source_type AND c.source_id = st.source_id"
+        text_join = "#{join_type} #{prefix}texts st ON c.source_id = st.source_id"
         # Extract chunk text using offset and size (SQLite SUBSTR is 1-indexed)
         # Returns exactly the text that was embedded (range-based chunking guarantees this)
         text_select = ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text" if include_text
@@ -167,7 +173,7 @@ module Memo
       # FTS5 searches source text - a match means the source document contains the term
       # Note: FTS5 MATCH doesn't work with table aliases, so we use the full table name
       if needs_fts_join
-        fts_join = "JOIN #{prefix}texts_fts ON c.source_type = #{prefix}texts_fts.source_type AND c.source_id = #{prefix}texts_fts.source_id"
+        fts_join = "JOIN #{prefix}texts_fts ON c.source_id = #{prefix}texts_fts.source_id"
       end
 
       # Add LIKE filters (AND logic) - searches source text
@@ -190,13 +196,21 @@ module Memo
       # Stream embeddings and keep only top-k results
       top_results = [] of Result
 
+      # Join with sources table to get external IDs
+      # Also join pair_source and parent_source for their external IDs
       db.query(
         <<-SQL,
-          SELECT c.id, c.hash, c.source_type, c.source_id, c.pair_id, c.parent_id,
+          SELECT c.id, c.hash, c.source_type, c.source_id,
+                 s.external_int, s.external_text,
+                 c.pair_id, ps.external_int, ps.external_text,
+                 c.parent_id, prs.external_int, prs.external_text,
                  c.offset, c.size, c.match_count, c.read_count,
                  e.embedding#{text_select}
           FROM #{prefix}chunks c
           JOIN #{prefix}embeddings e ON c.hash = e.hash
+          JOIN #{prefix}sources s ON c.source_id = s.id
+          LEFT JOIN #{prefix}sources ps ON c.pair_id = ps.id
+          LEFT JOIN #{prefix}sources prs ON c.parent_id = prs.id
           #{projection_join}
           #{text_join}
           #{fts_join}
@@ -208,15 +222,26 @@ module Memo
           chunk_id = rs.read(Int64)
           hash = rs.read(Bytes)
           source_type = rs.read(String)
-          source_id = rs.read(Int64)
-          pair_id = rs.read(Int64?)
-          parent_id = rs.read(Int64?)
+          internal_source_id = rs.read(Int64)
+          external_int = rs.read(Int64?)
+          external_text = rs.read(String?)
+          internal_pair_id = rs.read(Int64?)
+          pair_external_int = rs.read(Int64?)
+          pair_external_text = rs.read(String?)
+          internal_parent_id = rs.read(Int64?)
+          parent_external_int = rs.read(Int64?)
+          parent_external_text = rs.read(String?)
           offset = rs.read(Int32?)
           size = rs.read(Int32)
           match_count = rs.read(Int32)
           read_count = rs.read(Int32)
           embedding_blob = rs.read(Bytes)
           text_content = include_text ? rs.read(String?) : nil
+
+          # Build external IDs
+          external_source_id : ExternalId = external_int || external_text.not_nil!
+          external_pair_id : ExternalId? = internal_pair_id ? (pair_external_int || pair_external_text) : nil
+          external_parent_id : ExternalId? = internal_parent_id ? (parent_external_int || parent_external_text) : nil
 
           # Decode and compute similarity
           stored_embedding = Storage.deserialize_embedding(embedding_blob)
@@ -229,9 +254,10 @@ module Memo
             chunk_id: chunk_id,
             hash: hash,
             source_type: source_type,
-            source_id: source_id,
-            pair_id: pair_id,
-            parent_id: parent_id,
+            source_id: external_source_id,
+            internal_source_id: internal_source_id,
+            pair_id: external_pair_id,
+            parent_id: external_parent_id,
             offset: offset,
             size: size,
             match_count: match_count,

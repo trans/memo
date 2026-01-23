@@ -194,7 +194,7 @@ describe Memo::Projection do
           format: "mock",
           base_url: nil,
           model: "test-model",
-          
+
           dimensions: 8,
           max_tokens: 1000
         )
@@ -219,7 +219,9 @@ describe Memo::Projection do
           projections = Memo::Projection.compute_projections(emb, proj_vectors)
           Memo::Projection.store_projections(db, hash, service_id, projections)
 
-          Memo::Storage.create_chunk(db, hash, "document", i.to_i64, 0, 100)
+          # Create source record first, then chunk
+          internal_id = create_test_source(db, "document", i.to_i64)
+          Memo::Storage.create_chunk(db, hash, "document", internal_id, 0, 100)
         end
 
         # Query with embedding similar to first and third
@@ -250,7 +252,7 @@ describe Memo::Projection do
           format: "mock",
           base_url: nil,
           model: "test-model",
-          
+
           dimensions: 8,
           max_tokens: 1000
         )
@@ -258,7 +260,8 @@ describe Memo::Projection do
         embedding = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         hash = Memo::Storage.compute_hash("text")
         Memo::Storage.store_embedding(db, hash, embedding, 10, service_id)
-        Memo::Storage.create_chunk(db, hash, "document", 1_i64, 0, 100)
+        internal_id = create_test_source(db, "document", 1_i64)
+        Memo::Storage.create_chunk(db, hash, "document", internal_id, 0, 100)
 
         # Search without projection vectors (nil)
         results = Memo::Search.semantic(

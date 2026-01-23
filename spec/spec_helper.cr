@@ -22,6 +22,17 @@ def with_test_db(&block : DB::Database ->)
   end
 end
 
+# Helper to create a source record for low-level tests
+# Returns the internal source ID
+def create_test_source(db : DB::Database, source_type : String, external_id : Int64) : Int64
+  prefix = Memo.table_prefix
+  db.exec(
+    "INSERT INTO #{prefix}sources (source_type, external_int, created_at) VALUES (?, ?, ?)",
+    source_type, external_id, Time.utc.to_unix_ms
+  )
+  db.scalar("SELECT last_insert_rowid()").as(Int64)
+end
+
 # Helper to create a test database path
 def with_test_db_path(&block : String ->)
   # Create temp file path for test database

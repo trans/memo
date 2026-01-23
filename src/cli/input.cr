@@ -28,6 +28,28 @@ module Memo::CLI::Input
     value.as_bool? || raise ArgumentError.new("Expected boolean for '#{key}', got #{type_name(value)}")
   end
 
+  # Parse external ID (Int64 or String)
+  #
+  # Accepts either an integer or string value and returns the appropriate type.
+  # Used for source_id, pair_id, parent_id which support both types.
+  def external_id(data : Hash(String, JSON::Any), key : String) : Memo::ExternalId?
+    return nil unless value = data[key]?
+
+    # Try integer first, then string
+    if int_val = value.as_i64?
+      int_val
+    elsif str_val = value.as_s?
+      str_val
+    else
+      raise ArgumentError.new("Expected integer or string for '#{key}', got #{type_name(value)}")
+    end
+  end
+
+  # Parse required external ID (Int64 or String)
+  def external_id!(data : Hash(String, JSON::Any), key : String) : Memo::ExternalId
+    external_id(data, key) || raise ArgumentError.new("Missing required field '#{key}'")
+  end
+
   private def type_name(value : JSON::Any) : String
     case value.raw
     when String then "string"

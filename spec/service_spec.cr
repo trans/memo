@@ -125,9 +125,14 @@ describe Memo::Service do
           text: "Test document"
         )
 
-        # Verify chunk was stored
+        # Verify chunk was stored with correct source
+        # Join with sources table to get external ID
+        prefix = Memo.table_prefix
         result = service.db.query_one(
-          "SELECT source_type, source_id FROM #{Memo.table_prefix}chunks LIMIT 1",
+          "SELECT c.source_type, s.external_int
+           FROM #{prefix}chunks c
+           JOIN #{prefix}sources s ON c.source_id = s.id
+           LIMIT 1",
           as: {String, Int64}
         )
         result.should eq({"event", 42_i64})
@@ -145,8 +150,14 @@ describe Memo::Service do
         )
 
         # Verify relationships stored
+        # Join with sources table to get external IDs for pair and parent
+        prefix = Memo.table_prefix
         result = service.db.query_one(
-          "SELECT pair_id, parent_id FROM #{Memo.table_prefix}chunks LIMIT 1",
+          "SELECT ps.external_int, prs.external_int
+           FROM #{prefix}chunks c
+           LEFT JOIN #{prefix}sources ps ON c.pair_id = ps.id
+           LEFT JOIN #{prefix}sources prs ON c.parent_id = prs.id
+           LIMIT 1",
           as: {Int64?, Int64?}
         )
         result.should eq({99_i64, 88_i64})
@@ -245,8 +256,14 @@ describe Memo::Service do
 
         service.index_batch(docs)
 
+        # Join with sources table to get external IDs for pair and parent
+        prefix = Memo.table_prefix
         result = service.db.query_one(
-          "SELECT pair_id, parent_id FROM #{Memo.table_prefix}chunks LIMIT 1",
+          "SELECT ps.external_int, prs.external_int
+           FROM #{prefix}chunks c
+           LEFT JOIN #{prefix}sources ps ON c.pair_id = ps.id
+           LEFT JOIN #{prefix}sources prs ON c.parent_id = prs.id
+           LIMIT 1",
           as: {Int64?, Int64?}
         )
         result.should eq({99_i64, 88_i64})
@@ -407,9 +424,12 @@ describe Memo::Service do
       with_test_service do |service|
         service.index(source_type: "event", source_id: 1_i64, text: "Stored text content")
 
-        # Verify text was stored (keyed by source, not hash)
+        # Verify text was stored (keyed by internal source_id)
+        # Join with sources to find by external ID
         content = service.db.query_one?(
-          "SELECT content FROM texts WHERE source_type = ? AND source_id = ?",
+          "SELECT t.content FROM texts t
+           JOIN sources s ON t.source_id = s.id
+           WHERE s.source_type = ? AND s.external_int = ?",
           "event", 1_i64,
           as: String
         )
@@ -440,7 +460,9 @@ describe Memo::Service do
         count.should eq(1)
 
         content = service.db.query_one?(
-          "SELECT content FROM texts WHERE source_type = ? AND source_id = ?",
+          "SELECT t.content FROM texts t
+           JOIN sources s ON t.source_id = s.id
+           WHERE s.source_type = ? AND s.external_int = ?",
           "event", 1_i64,
           as: String
         )

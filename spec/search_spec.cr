@@ -36,7 +36,7 @@ describe Memo::Search do
           format: "mock",
           base_url: nil,
           model: "test-model",
-          
+
           dimensions: 8,
           max_tokens: 1000
         )
@@ -52,7 +52,9 @@ describe Memo::Search do
         texts.each_with_index do |text, i|
           hash = Memo::Storage.compute_hash(text)
           Memo::Storage.store_embedding(db, hash, embeddings[i], 10, service_id)
-          Memo::Storage.create_chunk(db, hash, "document", i.to_i64, 0, 100)
+          # Create source record first, then use internal ID for chunk
+          internal_id = create_test_source(db, "document", i.to_i64)
+          Memo::Storage.create_chunk(db, hash, "document", internal_id, 0, 100)
         end
 
         # Query with embedding similar to first and third
@@ -80,7 +82,7 @@ describe Memo::Search do
           format: "mock",
           base_url: nil,
           model: "test-model",
-          
+
           dimensions: 8,
           max_tokens: 1000
         )
@@ -90,11 +92,13 @@ describe Memo::Search do
         # Store embeddings with different source types
         hash1 = Memo::Storage.compute_hash("text1")
         Memo::Storage.store_embedding(db, hash1, embedding, 10, service_id)
-        Memo::Storage.create_chunk(db, hash1, "document", 1_i64, 0, 100)
+        internal_id1 = create_test_source(db, "document", 1_i64)
+        Memo::Storage.create_chunk(db, hash1, "document", internal_id1, 0, 100)
 
         hash2 = Memo::Storage.compute_hash("text2")
         Memo::Storage.store_embedding(db, hash2, embedding, 10, service_id)
-        Memo::Storage.create_chunk(db, hash2, "event", 2_i64, 0, 100)
+        internal_id2 = create_test_source(db, "event", 2_i64)
+        Memo::Storage.create_chunk(db, hash2, "event", internal_id2, 0, 100)
 
         # Search with filter
         filters = Memo::Search::Filters.new(source_type: "document")
@@ -118,7 +122,7 @@ describe Memo::Search do
           format: "openai",
           base_url: nil,
           model: "text-embedding-3-small",
-          
+
           dimensions: 8,
           max_tokens: 8191
         )
@@ -129,7 +133,7 @@ describe Memo::Search do
           format: "openai",
           base_url: nil,
           model: "text-embedding-3-large",
-          
+
           dimensions: 8,
           max_tokens: 8191
         )
@@ -139,11 +143,13 @@ describe Memo::Search do
         # Store embeddings from different services
         hash1 = Memo::Storage.compute_hash("text1")
         Memo::Storage.store_embedding(db, hash1, embedding, 10, service1_id)
-        Memo::Storage.create_chunk(db, hash1, "document", 1_i64, 0, 100)
+        internal_id1 = create_test_source(db, "document", 1_i64)
+        Memo::Storage.create_chunk(db, hash1, "document", internal_id1, 0, 100)
 
         hash2 = Memo::Storage.compute_hash("text2")
         Memo::Storage.store_embedding(db, hash2, embedding, 10, service2_id)
-        Memo::Storage.create_chunk(db, hash2, "document", 2_i64, 0, 100)
+        internal_id2 = create_test_source(db, "document", 2_i64)
+        Memo::Storage.create_chunk(db, hash2, "document", internal_id2, 0, 100)
 
         # Search with service1
         results = Memo::Search.semantic(
@@ -153,7 +159,8 @@ describe Memo::Search do
         )
 
         results.size.should eq(1)
-        results[0].source_id.should eq(1)
+        # Results return external source_id
+        results[0].source_id.should eq(1_i64)
       end
     end
 
@@ -165,7 +172,7 @@ describe Memo::Search do
           format: "mock",
           base_url: nil,
           model: "test-model",
-          
+
           dimensions: 8,
           max_tokens: 1000
         )
@@ -174,7 +181,8 @@ describe Memo::Search do
         embedding = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
         hash = Memo::Storage.compute_hash("text")
         Memo::Storage.store_embedding(db, hash, embedding, 10, service_id)
-        Memo::Storage.create_chunk(db, hash, "document", 1_i64, 0, 100)
+        internal_id = create_test_source(db, "document", 1_i64)
+        Memo::Storage.create_chunk(db, hash, "document", internal_id, 0, 100)
 
         # Query with very different embedding
         query_embedding = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -198,7 +206,7 @@ describe Memo::Search do
           format: "mock",
           base_url: nil,
           model: "test-model",
-          
+
           dimensions: 8,
           max_tokens: 1000
         )
@@ -206,7 +214,8 @@ describe Memo::Search do
         embedding = Array.new(8) { |i| i.to_f64 }
         hash = Memo::Storage.compute_hash("text")
         Memo::Storage.store_embedding(db, hash, embedding, 10, service_id)
-        chunk_id = Memo::Storage.create_chunk(db, hash, "document", 1_i64, 0, 100)
+        internal_id = create_test_source(db, "document", 1_i64)
+        chunk_id = Memo::Storage.create_chunk(db, hash, "document", internal_id, 0, 100)
 
         # Search twice
         2.times do
@@ -237,7 +246,7 @@ describe Memo::Search do
           format: "mock",
           base_url: nil,
           model: "test-model",
-          
+
           dimensions: 8,
           max_tokens: 1000
         )
@@ -245,7 +254,8 @@ describe Memo::Search do
         embedding = Array.new(8) { |i| i.to_f64 }
         hash = Memo::Storage.compute_hash("text")
         Memo::Storage.store_embedding(db, hash, embedding, 10, service_id)
-        chunk_id = Memo::Storage.create_chunk(db, hash, "document", 1_i64, 0, 100)
+        internal_id = create_test_source(db, "document", 1_i64)
+        chunk_id = Memo::Storage.create_chunk(db, hash, "document", internal_id, 0, 100)
 
         # Mark as read twice
         2.times do

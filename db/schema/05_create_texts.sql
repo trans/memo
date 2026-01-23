@@ -9,13 +9,12 @@
 -- - Reindexing without requiring the original source
 
 CREATE TABLE IF NOT EXISTS texts (
-    source_type TEXT NOT NULL,
-    source_id INTEGER NOT NULL,
+    source_id INTEGER PRIMARY KEY REFERENCES sources(id),  -- FK to sources table
     content TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    PRIMARY KEY (source_type, source_id)
+    created_at INTEGER NOT NULL
 );
 
 -- FTS5 virtual table for full-text search on source content
+-- Note: source_id here is the internal ID (FK to sources)
 CREATE VIRTUAL TABLE IF NOT EXISTS texts_fts
-USING fts5(source_type, source_id UNINDEXED, content);
+USING fts5(source_id UNINDEXED, content);

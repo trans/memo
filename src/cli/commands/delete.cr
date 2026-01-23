@@ -2,7 +2,7 @@ module Memo::CLI::Commands::Delete
   extend self
 
   def run(memo : Memo::Service, input : Hash(String, JSON::Any), json : Bool)
-    source_id = input["source-id"].as_i64
+    source_id = Input.external_id!(input, "source-id")
     source_type = Input.string(input, "source-type")
 
     count = memo.delete(
@@ -13,7 +13,12 @@ module Memo::CLI::Commands::Delete
     if json
       output = Hash(String, JSON::Any).new
       output["deleted"] = JSON::Any.new(count.to_i64)
-      output["source-id"] = JSON::Any.new(source_id)
+      case sid = source_id
+      when Int64
+        output["source-id"] = JSON::Any.new(sid)
+      when String
+        output["source-id"] = JSON::Any.new(sid)
+      end
       if source_type
         output["source-type"] = JSON::Any.new(source_type)
       end
