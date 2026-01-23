@@ -426,9 +426,10 @@ describe Memo::Service do
 
         # Verify text was stored (keyed by internal source_id)
         # Join with sources to find by external ID
+        prefix = Memo.table_prefix
         content = service.db.query_one?(
-          "SELECT t.content FROM texts t
-           JOIN sources s ON t.source_id = s.id
+          "SELECT t.content FROM #{prefix}texts t
+           JOIN #{prefix}sources s ON t.source_id = s.id
            WHERE s.source_type = ? AND s.external_int = ?",
           "event", 1_i64,
           as: String
@@ -444,7 +445,8 @@ describe Memo::Service do
         service.index(source_type: "event", source_id: 2_i64, text: "Same text")
 
         # Should have two text entries (one per source)
-        count = service.db.scalar("SELECT COUNT(*) FROM texts").as(Int64)
+        prefix = Memo.table_prefix
+        count = service.db.scalar("SELECT COUNT(*) FROM #{prefix}texts").as(Int64)
         count.should eq(2)
       end
     end
@@ -456,12 +458,13 @@ describe Memo::Service do
         service.index(source_type: "event", source_id: 1_i64, text: "Updated text")
 
         # Should still have one entry with updated content
-        count = service.db.scalar("SELECT COUNT(*) FROM texts").as(Int64)
+        prefix = Memo.table_prefix
+        count = service.db.scalar("SELECT COUNT(*) FROM #{prefix}texts").as(Int64)
         count.should eq(1)
 
         content = service.db.query_one?(
-          "SELECT t.content FROM texts t
-           JOIN sources s ON t.source_id = s.id
+          "SELECT t.content FROM #{prefix}texts t
+           JOIN #{prefix}sources s ON t.source_id = s.id
            WHERE s.source_type = ? AND s.external_int = ?",
           "event", 1_i64,
           as: String
