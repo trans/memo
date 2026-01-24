@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-01-24
+
+### Changed
+- **Vocabulary now builds incrementally during index**
+  - Words are extracted and embedded alongside chunks automatically
+  - No need to run `build-vocab` separately
+  - Existing word frequencies updated on each index
+  - `build-vocab` remains available for full rebuild
+
+### Added
+- `--no-vocab` CLI flag to disable vocabulary building during index
+- `build_vocab` option in Service initialization (default true)
+
 ## [0.5.0] - 2026-01-22
 
 ### Added
