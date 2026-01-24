@@ -115,6 +115,9 @@ module Memo
     # Track whether text storage is enabled
     getter? text_storage : Bool = false
 
+    # Track whether vocab building is enabled
+    getter? build_vocab : Bool = false
+
     # Initialize service with database path
     #
     # Use EITHER:
@@ -133,6 +136,7 @@ module Memo
     # - dimensions: Vector dimensions (auto-detected from model)
     # - max_tokens: Token limit (auto-detected from model)
     # - store_text: Enable text storage in texts table (default true)
+    # - build_vocab: Enable incremental vocabulary building (default true, requires store_text)
     # - chunking_max_tokens: Max tokens per chunk (default 2000)
     #
     # Example:
@@ -154,6 +158,7 @@ module Memo
       max_tokens : Int32? = nil,
       chunking_max_tokens : Int32 = 2000,
       store_text : Bool = true,
+      build_vocab : Bool = true,
       batch_size : Int32 = 100,
       max_retries : Int32 = 3,
       table_prefix : String = "memo_"
@@ -167,6 +172,7 @@ module Memo
       @db = DB.open("sqlite3://#{db_path}")
       @owns_db = true
       @text_storage = store_text
+      @build_vocab = build_vocab && store_text  # vocab requires text storage
       @table_prefix = table_prefix
 
       # Set prefix on db connection (modules read from this)
@@ -227,6 +233,7 @@ module Memo
       max_tokens : Int32? = nil,
       chunking_max_tokens : Int32 = 2000,
       store_text : Bool = true,
+      build_vocab : Bool = true,
       batch_size : Int32 = 100,
       max_retries : Int32 = 3,
       db_path : String? = nil,
@@ -235,6 +242,7 @@ module Memo
       @db = db
       @owns_db = false  # Caller owns the connection
       @text_storage = store_text
+      @build_vocab = build_vocab && store_text  # vocab requires text storage
       @table_prefix = table_prefix
 
       # Set prefix on db connection (modules read from this)
@@ -1471,10 +1479,29 @@ module Memo
       # Extract just the text for embedding
       chunk_texts = chunks.map { |(chunk_text, _, _)| chunk_text }
 
-      # Embed chunks (API call - outside transaction so failure is safe)
-      embed_result = @provider.embed_texts(chunk_texts)
+      # Extract vocabulary if enabled
+      new_word_freqs = [] of Vocab::WordFrequency
+      existing_word_freqs = [] of Vocab::WordFrequency
 
-      # Update tokens_per_byte ratio based on actual API results
+      if @build_vocab
+        word_freqs = Vocab.extract_terms(text)
+        if !word_freqs.empty?
+          all_words = word_freqs.map(&.word)
+          existing_words = Vocab.get_existing_words(@db, all_words, @service_id)
+
+          new_word_freqs = word_freqs.reject { |wf| existing_words.includes?(wf.word) }
+          existing_word_freqs = word_freqs.select { |wf| existing_words.includes?(wf.word) }
+        end
+      end
+
+      # Combine chunks + new words for embedding in single API call
+      new_words = new_word_freqs.map(&.word)
+      texts_to_embed = chunk_texts + new_words
+
+      # Embed all texts (API call - outside transaction so failure is safe)
+      embed_result = @provider.embed_texts(texts_to_embed)
+
+      # Update tokens_per_byte ratio based on actual API results (chunks only)
       total_bytes = chunk_texts.sum(&.bytesize)
       if total_bytes > 0 && embed_result.total_tokens > 0
         observed_ratio = embed_result.total_tokens.to_f / total_bytes
@@ -1501,6 +1528,7 @@ module Memo
         # Chunk text is extracted using offset/size when needed
         store_source_text_internal(internal_source_id, text) if @text_storage
 
+        # Store chunk embeddings
         chunks.each_with_index do |(chunk_text, offset, size), idx|
           hash = Storage.compute_hash(chunk_text)
           embedding = embed_result.embeddings[idx]
@@ -1528,6 +1556,18 @@ module Memo
 
           # Only count if chunk was actually inserted (not ignored as duplicate)
           success_count += 1 if chunk_id > 0
+        end
+
+        # Store new word embeddings (embeddings start after chunks)
+        if @build_vocab
+          chunk_count = chunks.size
+          new_word_freqs.each_with_index do |wf, idx|
+            embedding = embed_result.embeddings[chunk_count + idx]
+            Vocab.store_word(@db, wf.word, embedding, wf.count, @service_id)
+          end
+
+          # Update frequencies for existing words
+          Vocab.update_frequencies(@db, existing_word_freqs, @service_id)
         end
       end
 

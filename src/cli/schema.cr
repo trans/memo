@@ -3,10 +3,11 @@ module Memo::CLI
   GLOBAL_SCHEMA = %({
     "type": "object",
     "properties": {
-      "db":      {"type": "string",  "short": "d", "description": "Database path", "default": "memo.db"},
-      "service": {"type": "string",  "short": "s", "description": "Service name"},
-      "api-key": {"type": "string",  "short": "k", "description": "API key"},
-      "json":    {"type": "boolean", "short": "j", "description": "Output as JSON"}
+      "db":       {"type": "string",  "short": "d", "description": "Database path", "default": "memo.db"},
+      "service":  {"type": "string",  "short": "s", "description": "Service name"},
+      "api-key":  {"type": "string",  "short": "k", "description": "API key"},
+      "json":     {"type": "boolean", "short": "j", "description": "Output as JSON"},
+      "no-vocab": {"type": "boolean", "description": "Disable vocabulary building during index"}
     }
   })
 

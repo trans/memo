@@ -163,6 +163,55 @@ module Memo
       end
     end
 
+    # Get existing words from vocab for a service
+    #
+    # Returns set of words that already have embeddings
+    def get_existing_words(db : DB::Database, words : Array(String), service_id : Int64) : Set(String)
+      return Set(String).new if words.empty?
+
+      prefix = db.memo_table_prefix
+      existing = Set(String).new
+
+      # Query in batches to avoid SQL parameter limits
+      words.each_slice(500) do |batch|
+        placeholders = batch.map { "?" }.join(", ")
+        db.query(
+          "SELECT word FROM #{prefix}vocab WHERE service_id = ? AND word IN (#{placeholders})",
+          args: [service_id] + batch
+        ) do |rs|
+          rs.each { existing << rs.read(String) }
+        end
+      end
+
+      existing
+    end
+
+    # Update frequencies for existing words (increment by count)
+    def update_frequencies(db : DB::Database, word_freqs : Array(WordFrequency), service_id : Int64)
+      return if word_freqs.empty?
+
+      prefix = db.memo_table_prefix
+      word_freqs.each do |wf|
+        db.exec(
+          "UPDATE #{prefix}vocab SET frequency = frequency + ? WHERE word = ? AND service_id = ?",
+          wf.count, wf.word, service_id
+        )
+      end
+    end
+
+    # Store a single word with embedding
+    def store_word(db : DB::Database, word : String, embedding : Array(Float64), frequency : Int32, service_id : Int64)
+      prefix = db.memo_table_prefix
+      embedding_blob = Storage.serialize_embedding(embedding)
+      now = Time.utc.to_unix_ms
+
+      db.exec(
+        "INSERT OR REPLACE INTO #{prefix}vocab (word, service_id, embedding, frequency, created_at)
+         VALUES (?, ?, ?, ?, ?)",
+        word, service_id, embedding_blob, frequency, now
+      )
+    end
+
     # Clear all vocabulary for a service
     def clear(db : DB::Database, service_id : Int64)
       prefix = db.memo_table_prefix

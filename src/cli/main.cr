@@ -59,6 +59,7 @@ module Memo::CLI
     service_name = input["service"]?.try(&.as_s)
     api_key = input["api-key"]?.try(&.as_s) || ENV["MEMO_API_KEY"]? || ENV["OPENAI_API_KEY"]? || ENV["VOYAGE_API_KEY"]?
     json_output = input["json"]?.try(&.as_bool) || false
+    no_vocab = input["no-vocab"]?.try(&.as_bool) || false
 
     # Route to command handler
     case result.subcommand
@@ -94,7 +95,8 @@ module Memo::CLI
       memo = Memo::Service.new(
         db_path: db_path,
         service: service_name,
-        api_key: api_key
+        api_key: api_key,
+        build_vocab: !no_vocab
       )
       begin
         case result.subcommand
