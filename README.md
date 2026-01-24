@@ -48,6 +48,7 @@ export VOYAGE_API_KEY=pa-...    # Fallback
 -s, --service=NAME  Service name (default: openai)
 -k, --api-key=KEY   API key (overrides environment variables)
 -j, --json          Output as JSON (default: human-readable)
+    --no-vocab      Disable vocabulary building during index
 -h, --help          Show help
 -v, --version       Show version
 ```
@@ -78,19 +79,21 @@ memo delete source-id=1
 memo stats
 ```
 
-**Build vocabulary (for word-level similarity):**
-
-```bash
-memo build-vocab
-```
-
 **Find similar words:**
+
+Vocabulary is built automatically during indexing. Just use `like`:
 
 ```bash
 memo like "database"
 # 0.70  data
 # 0.70  databases
 # 0.57  sqlite
+```
+
+**Rebuild vocabulary (optional):**
+
+```bash
+memo build-vocab  # Full rebuild from all indexed texts
 ```
 
 ### Service Management
