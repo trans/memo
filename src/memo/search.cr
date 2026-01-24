@@ -5,12 +5,13 @@ module Memo
 
     # Search result struct
     #
-    # Returns external source IDs (Int64 or String), matching what was indexed.
+    # Returns external source IDs (Int64, String, or Bytes), matching what was indexed.
+    # source_id may be nil for memo-managed sources (e.g., file indexer).
     struct Result
       getter chunk_id : Int64
       getter hash : Bytes
       getter source_type : String
-      getter source_id : ExternalId        # External ID (what user provided)
+      getter source_id : ExternalId?       # External ID (nil for memo-managed sources)
       getter internal_source_id : Int64    # Internal ID (FK to sources)
       getter pair_id : ExternalId?
       getter parent_id : ExternalId?
@@ -201,9 +202,9 @@ module Memo
       db.query(
         <<-SQL,
           SELECT c.id, c.hash, c.source_type, c.source_id,
-                 s.external_int, s.external_text,
-                 c.pair_id, ps.external_int, ps.external_text,
-                 c.parent_id, prs.external_int, prs.external_text,
+                 s.external_int, s.external_text, s.external_blob,
+                 c.pair_id, ps.external_int, ps.external_text, ps.external_blob,
+                 c.parent_id, prs.external_int, prs.external_text, prs.external_blob,
                  c.offset, c.size, c.match_count, c.read_count,
                  e.embedding#{text_select}
           FROM #{prefix}chunks c
@@ -225,12 +226,15 @@ module Memo
           internal_source_id = rs.read(Int64)
           external_int = rs.read(Int64?)
           external_text = rs.read(String?)
+          external_blob = rs.read(Bytes?)
           internal_pair_id = rs.read(Int64?)
           pair_external_int = rs.read(Int64?)
           pair_external_text = rs.read(String?)
+          pair_external_blob = rs.read(Bytes?)
           internal_parent_id = rs.read(Int64?)
           parent_external_int = rs.read(Int64?)
           parent_external_text = rs.read(String?)
+          parent_external_blob = rs.read(Bytes?)
           offset = rs.read(Int32?)
           size = rs.read(Int32)
           match_count = rs.read(Int32)
@@ -238,10 +242,10 @@ module Memo
           embedding_blob = rs.read(Bytes)
           text_content = include_text ? rs.read(String?) : nil
 
-          # Build external IDs
-          external_source_id : ExternalId = external_int || external_text.not_nil!
-          external_pair_id : ExternalId? = internal_pair_id ? (pair_external_int || pair_external_text) : nil
-          external_parent_id : ExternalId? = internal_parent_id ? (parent_external_int || parent_external_text) : nil
+          # Build external IDs (may be nil for memo-managed sources)
+          external_source_id : ExternalId? = external_int || external_text || external_blob
+          external_pair_id : ExternalId? = internal_pair_id ? (pair_external_int || pair_external_text || pair_external_blob) : nil
+          external_parent_id : ExternalId? = internal_parent_id ? (parent_external_int || parent_external_text || parent_external_blob) : nil
 
           # Decode and compute similarity
           stored_embedding = Storage.deserialize_embedding(embedding_blob)

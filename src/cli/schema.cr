@@ -70,6 +70,18 @@ module Memo::CLI
     }
   })
 
+  INDEX_FILES_SCHEMA = %({
+    "type": "object",
+    "positional": ["path"],
+    "properties": {
+      "path":        {"type": "string",  "description": "Directory to index"},
+      "ignore-file": {"type": "string",  "default": ".gitignore", "description": "Ignore file name"},
+      "full":        {"type": "boolean", "default": false, "description": "Re-index all files (ignore mtime)"},
+      "dry-run":     {"type": "boolean", "default": false, "description": "List files without indexing"}
+    },
+    "required": ["path"]
+  })
+
   # Service subcommand schemas
   SERVICE_LIST_SCHEMA = %({
     "type": "object",

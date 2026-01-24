@@ -20,6 +20,11 @@ dependencies:
   jargon:
     github: trans/jargon
     branch: main
+  ignoreme:
+    github: trans/ignoreme
+    branch: main
+  magic:
+    github: naqvis/magic.cr
 
 targets:
   memo:

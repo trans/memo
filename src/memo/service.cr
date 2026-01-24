@@ -1259,6 +1259,115 @@ module Memo
       Vocab.clear(@db, @service_id)
     end
 
+    # =========================================================================
+    # File Indexing Operations
+    # =========================================================================
+
+    # Index files from a directory
+    #
+    # Walks directory, respects ignore files, skips binary files,
+    # and indexes text content. Tracks file metadata for incremental updates.
+    #
+    # Options:
+    # - root: Directory to index
+    # - ignore_file: Ignore file name (default ".gitignore")
+    # - incremental: Skip unchanged files based on mtime (default true)
+    # - dry_run: List files without indexing (default false)
+    #
+    # Returns tuple of (indexed_count, skipped_count, total_files)
+    #
+    # Example:
+    # ```
+    # indexed, skipped, total = memo.index_files("/path/to/project")
+    # ```
+    def index_files(
+      root : String,
+      ignore_file : String = ".gitignore",
+      incremental : Bool = true,
+      dry_run : Bool = false,
+      &block : String, Symbol ->
+    ) : {Int32, Int32, Int32}
+      root_path = Path.new(root).expand.to_s
+      indexed = 0
+      skipped = 0
+      total = 0
+
+      Files.walk(root_path, ignore_file) do |file_path|
+        total += 1
+        info = Files.file_info(file_path, root_path)
+
+        # Check if already indexed
+        existing = Files.get_by_path(@db, info.path)
+
+        if existing && incremental && !Files.needs_update?(existing, info.mtime)
+          skipped += 1
+          block.call(info.path, :skipped)
+          next
+        end
+
+        if dry_run
+          block.call(info.path, :would_index)
+          next
+        end
+
+        # Read file content
+        content = File.read(file_path)
+
+        # Get or create source (memo-managed, no external_id)
+        source_id = if existing
+                      existing.source_id
+                    else
+                      SourceRegistry.create(@db, "file")
+                    end
+
+        # Index the content
+        enqueue_internal(
+          source_type: "file",
+          internal_source_id: source_id,
+          text: content
+        )
+        process_queue_item_internal(source_id)
+
+        # Store/update file metadata
+        Files.store(@db, source_id, info)
+
+        indexed += 1
+        block.call(info.path, :indexed)
+      end
+
+      {indexed, skipped, total}
+    end
+
+    # Index files without progress callback
+    def index_files(
+      root : String,
+      ignore_file : String = ".gitignore",
+      incremental : Bool = true,
+      dry_run : Bool = false
+    ) : {Int32, Int32, Int32}
+      index_files(root, ignore_file, incremental, dry_run) { |_, _| }
+    end
+
+    # Get file record by path
+    def get_file(path : String) : Files::FileRecord?
+      Files.get_by_path(@db, path)
+    end
+
+    # Get file record by content hash
+    def get_file_by_hash(hash : Bytes) : Files::FileRecord?
+      Files.get_by_hash(@db, hash)
+    end
+
+    # List indexed files
+    def list_files(limit : Int32 = 100, offset : Int32 = 0) : Array(Files::FileRecord)
+      Files.list(@db, limit, offset)
+    end
+
+    # Count indexed files
+    def file_count : Int64
+      Files.count(@db)
+    end
+
     # Initialize provider from service name, format parameters, or default
     #
     # Priority:

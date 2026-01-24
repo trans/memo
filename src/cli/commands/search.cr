@@ -16,11 +16,14 @@ module Memo::CLI::Commands::Search
         result = Hash(String, JSON::Any).new
         result["chunk-id"] = JSON::Any.new(r.chunk_id)
         result["source-type"] = JSON::Any.new(r.source_type)
+        result["internal-source-id"] = JSON::Any.new(r.internal_source_id)
         case sid = r.source_id
         when Int64
           result["source-id"] = JSON::Any.new(sid)
         when String
           result["source-id"] = JSON::Any.new(sid)
+        when Bytes
+          result["source-id"] = JSON::Any.new(sid.hexstring)
         end
         result["score"] = JSON::Any.new(r.score)
         result["offset"] = r.offset ? JSON::Any.new(r.offset.not_nil!.to_i64) : JSON::Any.new(nil)
@@ -36,7 +39,9 @@ module Memo::CLI::Commands::Search
         puts "No results found."
       else
         results.each_with_index do |r, i|
-          puts "#{i + 1}. #{r.source_type}:#{r.source_id} (score: #{"%.3f" % r.score})"
+          # Display source_id or internal_source_id for memo-managed sources
+          source_display = r.source_id || "##{r.internal_source_id}"
+          puts "#{i + 1}. #{r.source_type}:#{source_display} (score: #{"%.3f" % r.score})"
           if text = r.text
             # Truncate long text for display
             display_text = text.size > 100 ? text[0, 100] + "..." : text

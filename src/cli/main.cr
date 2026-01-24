@@ -22,6 +22,7 @@ module Memo::CLI
     cli.subcommand("search", Jargon.merge(SEARCH_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("like", Jargon.merge(LIKE_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("build-vocab", Jargon.merge(BUILD_VOCAB_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("index-files", Jargon.merge(INDEX_FILES_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("delete", Jargon.merge(DELETE_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("stats", Jargon.merge(STATS_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("service", service_cli)
@@ -91,7 +92,7 @@ module Memo::CLI
       ensure
         db.close
       end
-    when "index", "search", "like", "build-vocab", "delete", "stats"
+    when "index", "search", "like", "build-vocab", "index-files", "delete", "stats"
       memo = Memo::Service.new(
         db_path: db_path,
         service: service_name,
@@ -104,6 +105,7 @@ module Memo::CLI
         when "search"      then Commands::Search.run(memo, input, json_output)
         when "like"        then Commands::Like.run(memo, input, json_output)
         when "build-vocab" then Commands::BuildVocab.run(memo, input, json_output)
+        when "index-files" then Commands::IndexFiles.run(memo, input, json_output)
         when "delete"      then Commands::Delete.run(memo, input, json_output)
         when "stats"       then Commands::Stats.run(memo, input, json_output)
         end
@@ -128,6 +130,7 @@ module Memo::CLI
 
     Commands:
       index         Index text content
+      index-files   Index files from directory
       search        Search indexed content
       like          Find similar words
       build-vocab   Build vocabulary from indexed content
