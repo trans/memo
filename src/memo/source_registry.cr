@@ -1,14 +1,28 @@
 # Source identity registry for flexible source IDs
 #
-# Maps external IDs (Int64 or String) to internal integer IDs.
+# Maps external IDs (Int64, String, or Bytes) to internal integer IDs.
 # This allows the rest of the system to use efficient integer FKs
 # while supporting flexible external identifiers.
 #
 # Integer IDs remain sortable for chronological queries.
 # String IDs support UUIDs and other text identifiers.
+# Bytes IDs support raw hashes and binary UUIDs.
+# External IDs are optional - memo-managed sources may have no external ID.
 module Memo
   module SourceRegistry
     extend self
+
+    # Create a source with no external ID (memo-managed)
+    #
+    # Returns the internal (database) ID for the new source.
+    def create(db : DB::Database, source_type : String) : Int64
+      prefix = db.memo_table_prefix
+      db.exec(
+        "INSERT INTO #{prefix}sources (source_type, created_at) VALUES (?, ?)",
+        source_type, Time.utc.to_unix_ms
+      )
+      db.scalar("SELECT last_insert_rowid()").as(Int64)
+    end
 
     # Resolve external ID to internal ID, creating source record if needed
     #
@@ -37,6 +51,22 @@ module Memo
         )
         db.scalar("SELECT last_insert_rowid()").as(Int64)
 
+      when Bytes
+        # Try to find existing source by blob ID
+        internal_id = db.query_one?(
+          "SELECT id FROM #{prefix}sources WHERE source_type = ? AND external_blob = ?",
+          source_type, external_id,
+          as: Int64
+        )
+        return internal_id if internal_id
+
+        # Create new source with blob ID
+        db.exec(
+          "INSERT INTO #{prefix}sources (source_type, external_blob, created_at) VALUES (?, ?, ?)",
+          source_type, external_id, Time.utc.to_unix_ms
+        )
+        db.scalar("SELECT last_insert_rowid()").as(Int64)
+
       else # String
         ext_str = external_id.as(String)
         # Try to find existing source by text ID
@@ -59,18 +89,20 @@ module Memo
     # Get external ID and source_type from internal ID
     #
     # Returns tuple of (source_type, external_id) or nil if not found.
-    def get_external(db : DB::Database, internal_id : Int64) : {String, ExternalId}?
+    # external_id may be nil if source has no external ID (memo-managed).
+    def get_external(db : DB::Database, internal_id : Int64) : {String, ExternalId?}?
       prefix = db.memo_table_prefix
 
       db.query_one?(
-        "SELECT source_type, external_int, external_text FROM #{prefix}sources WHERE id = ?",
+        "SELECT source_type, external_int, external_text, external_blob FROM #{prefix}sources WHERE id = ?",
         internal_id
       ) do |rs|
         source_type = rs.read(String)
         external_int = rs.read(Int64?)
         external_text = rs.read(String?)
+        external_blob = rs.read(Bytes?)
 
-        external_id : ExternalId = external_int || external_text.not_nil!
+        external_id : ExternalId? = external_int || external_text || external_blob
         {source_type, external_id}
       end
     end
@@ -92,6 +124,12 @@ module Memo
           source_type, external_id,
           as: Int64
         )
+      when Bytes
+        db.query_one?(
+          "SELECT id FROM #{prefix}sources WHERE source_type = ? AND external_blob = ?",
+          source_type, external_id,
+          as: Int64
+        )
       else # String
         db.query_one?(
           "SELECT id FROM #{prefix}sources WHERE source_type = ? AND external_text = ?",
@@ -103,7 +141,7 @@ module Memo
 
     # Get internal ID without source_type filter
     #
-    # Searches both integer and text IDs. Returns first match.
+    # Searches integer, text, and blob IDs. Returns first match.
     # Use when source_type is unknown or when IDs are globally unique.
     def get_internal_any_type(
       db : DB::Database,
@@ -115,6 +153,12 @@ module Memo
       when Int64
         db.query_one?(
           "SELECT id FROM #{prefix}sources WHERE external_int = ?",
+          external_id,
+          as: Int64
+        )
+      when Bytes
+        db.query_one?(
+          "SELECT id FROM #{prefix}sources WHERE external_blob = ?",
           external_id,
           as: Int64
         )
@@ -144,6 +188,11 @@ module Memo
                    "DELETE FROM #{prefix}sources WHERE source_type = ? AND external_int = ?",
                    source_type, external_id
                  )
+               when Bytes
+                 db.exec(
+                   "DELETE FROM #{prefix}sources WHERE source_type = ? AND external_blob = ?",
+                   source_type, external_id
+                 )
                else # String
                  db.exec(
                    "DELETE FROM #{prefix}sources WHERE source_type = ? AND external_text = ?",
@@ -165,17 +214,18 @@ module Memo
     #
     # For integer IDs, returns sorted by external_int (chronological).
     # For text IDs, returns sorted by external_text (alphabetical).
+    # Sources without external IDs are included with nil external_id.
     def list(
       db : DB::Database,
       source_type : String,
       limit : Int32 = 100,
       offset : Int32 = 0
-    ) : Array({Int64, ExternalId})
+    ) : Array({Int64, ExternalId?})
       prefix = db.memo_table_prefix
-      results = [] of {Int64, ExternalId}
+      results = [] of {Int64, ExternalId?}
 
       db.query(
-        "SELECT id, external_int, external_text FROM #{prefix}sources
+        "SELECT id, external_int, external_text, external_blob FROM #{prefix}sources
          WHERE source_type = ?
          ORDER BY COALESCE(external_int, 0), external_text
          LIMIT ? OFFSET ?",
@@ -185,7 +235,8 @@ module Memo
           internal_id = rs.read(Int64)
           external_int = rs.read(Int64?)
           external_text = rs.read(String?)
-          external_id : ExternalId = external_int || external_text.not_nil!
+          external_blob = rs.read(Bytes?)
+          external_id : ExternalId? = external_int || external_text || external_blob
           results << {internal_id, external_id}
         end
       end

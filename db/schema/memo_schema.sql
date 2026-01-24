@@ -156,30 +156,32 @@ CREATE TABLE IF NOT EXISTS projections (
 -- This enables:
 --   - Integer IDs: Time-based, sortable (e.g., Unix timestamps)
 --   - String IDs: UUIDs and other text identifiers
+--   - No external ID: Memo-managed sources (e.g., file indexer)
 --
--- Each source is identified by (source_type, external_int) OR (source_type, external_text).
--- Exactly one of external_int or external_text is set per row.
+-- Each source is identified by (source_type, external_int) OR (source_type, external_text),
+-- or by internal id only when no external ID is provided.
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_type TEXT NOT NULL,       -- Application-defined type
-    external_int INTEGER,            -- Integer external ID (sortable)
-    external_text TEXT,              -- String external ID (UUID, etc.)
+    external_int INTEGER,            -- Integer external ID (sortable, optional)
+    external_text TEXT,              -- String external ID (UUID, etc., optional)
+    external_blob BLOB,              -- Binary external ID (raw hash, binary UUID, optional)
     created_at INTEGER NOT NULL,
 
-    -- Ensure exactly one type of external ID is set
-    CHECK ((external_int IS NOT NULL AND external_text IS NULL) OR
-           (external_int IS NULL AND external_text IS NOT NULL)),
-
+    -- External IDs are optional, but if provided, must be unique per source_type
     UNIQUE(source_type, external_int),
-    UNIQUE(source_type, external_text)
+    UNIQUE(source_type, external_text),
+    UNIQUE(source_type, external_blob)
 );
 
 CREATE INDEX IF NOT EXISTS idx_sources_type_int ON sources(source_type, external_int)
     WHERE external_int IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_sources_type_text ON sources(source_type, external_text)
     WHERE external_text IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_sources_type_blob ON sources(source_type, external_blob)
+    WHERE external_blob IS NOT NULL;
 
 -- =============================================================================
 -- Chunks table: Links content hashes to sources
@@ -317,3 +319,29 @@ CREATE TABLE IF NOT EXISTS vocab (
 );
 
 CREATE INDEX IF NOT EXISTS idx_vocab_service ON vocab(service_id);
+
+-- =============================================================================
+-- Files table: File metadata for memo-managed file indexing
+--
+-- Tracks file paths, content hashes, and modification times for files indexed
+-- via the CLI `index-files` command. Enables:
+--   - Re-indexing by path (find existing source)
+--   - Incremental updates (skip unchanged files via mtime)
+--   - Cross-system correlation via content_hash
+--
+-- For memo-managed sources (no external_id), this table provides the lookup
+-- mechanism. External systems can query by content_hash to correlate.
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS files (
+    source_id INTEGER PRIMARY KEY REFERENCES sources(id),
+    path TEXT NOT NULL,              -- Relative file path
+    content_hash BLOB NOT NULL,      -- SHA256 of file content
+    mtime INTEGER NOT NULL,          -- File modification time (Unix ms)
+    size INTEGER NOT NULL,           -- File size in bytes
+    created_at INTEGER NOT NULL,
+
+    UNIQUE(path)
+);
+
+CREATE INDEX IF NOT EXISTS idx_files_hash ON files(content_hash);
