@@ -70,5 +70,5 @@ require "./memo/service"
 # Internal modules (Storage, Search, Chunking, RRF) remain accessible
 # for advanced use cases but Service is the recommended entry point.
 module Memo
-  VERSION = "0.5.0"
+  VERSION = "0.5.1"
 end
