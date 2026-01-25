@@ -51,7 +51,19 @@ module Memo
         )
 
         unless response.success?
-          raise Exception.new("Voyage AI API error: #{response.status_code} - #{response.body}")
+          error_msg = begin
+            error_data = JSON.parse(response.body)
+            if msg = error_data["error"]?.try(&.["message"]?.try(&.as_s?))
+              msg
+            elsif msg = error_data["detail"]?.try(&.as_s?)
+              msg
+            else
+              response.body
+            end
+          rescue
+            response.body
+          end
+          raise Exception.new("Voyage AI API error (#{response.status_code}): #{error_msg}")
         end
 
         data = JSON.parse(response.body)

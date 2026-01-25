@@ -235,6 +235,9 @@ module Memo
       &block : String ->
     )
       Dir.each_child(current.to_s) do |entry|
+        # Always skip .git directory
+        next if entry == ".git"
+
         full_path = current / entry
         relative_path = full_path.relative_to(root).to_s
 
