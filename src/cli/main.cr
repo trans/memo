@@ -8,6 +8,12 @@ module Memo::CLI
   VERSION = Memo::VERSION
 
   def self.run(args = ARGV)
+    # Nested CLI for index subcommands
+    index_cli = Jargon.new("index")
+    index_cli.subcommand("text", Jargon.merge(INDEX_TEXT_SCHEMA, GLOBAL_SCHEMA))
+    index_cli.subcommand("dir", Jargon.merge(INDEX_DIR_SCHEMA, GLOBAL_SCHEMA))
+    index_cli.default_subcommand("text")
+
     # Nested CLI for service subcommands
     service_cli = Jargon.new("service")
     service_cli.subcommand("list", Jargon.merge(SERVICE_LIST_SCHEMA, GLOBAL_SCHEMA))
@@ -18,11 +24,10 @@ module Memo::CLI
 
     # Main CLI
     cli = Jargon.new("memo")
-    cli.subcommand("index", Jargon.merge(INDEX_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("index", index_cli)
     cli.subcommand("search", Jargon.merge(SEARCH_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("like", Jargon.merge(LIKE_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("build-vocab", Jargon.merge(BUILD_VOCAB_SCHEMA, GLOBAL_SCHEMA))
-    cli.subcommand("index-files", Jargon.merge(INDEX_FILES_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("delete", Jargon.merge(DELETE_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("stats", Jargon.merge(STATS_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("service", service_cli)
@@ -92,7 +97,7 @@ module Memo::CLI
       ensure
         db.close
       end
-    when "index", "search", "like", "build-vocab", "index-files", "delete", "stats"
+    when "index text", "index dir", "search", "like", "build-vocab", "delete", "stats"
       memo = Memo::Service.new(
         db_path: db_path,
         service: service_name,
@@ -101,11 +106,11 @@ module Memo::CLI
       )
       begin
         case result.subcommand
-        when "index"       then Commands::Index.run(memo, input, json_output)
+        when "index text"  then Commands::IndexText.run(memo, input, json_output)
+        when "index dir"   then Commands::IndexDir.run(memo, input, json_output)
         when "search"      then Commands::Search.run(memo, input, json_output)
         when "like"        then Commands::Like.run(memo, input, json_output)
         when "build-vocab" then Commands::BuildVocab.run(memo, input, json_output)
-        when "index-files" then Commands::IndexFiles.run(memo, input, json_output)
         when "delete"      then Commands::Delete.run(memo, input, json_output)
         when "stats"       then Commands::Stats.run(memo, input, json_output)
         end
@@ -129,8 +134,8 @@ module Memo::CLI
     Semantic search CLI for Memo.
 
     Commands:
-      index         Index text content
-      index-files   Index files from directory
+      index text    Index text content
+      index dir     Index files from directory
       search        Search indexed content
       like          Find similar words
       build-vocab   Build vocabulary from indexed content

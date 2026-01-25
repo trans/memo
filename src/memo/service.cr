@@ -298,15 +298,22 @@ module Memo
     # Supports both integer and string source IDs:
     # - Int64: Time-based, sortable IDs (e.g., Unix timestamps)
     # - String: UUIDs and other text identifiers
+    #
+    # When source_id is nil, memo creates and manages the source internally.
+    # Useful for CLI and cases where external ID correlation isn't needed.
     def index(
       source_type : String,
-      source_id : ExternalId,
+      source_id : ExternalId?,
       text : String,
       pair_id : ExternalId? = nil,
       parent_id : ExternalId? = nil
     ) : Int32
-      # Resolve external IDs to internal IDs
-      internal_source_id = SourceRegistry.resolve(@db, source_type, source_id)
+      # Resolve or create source ID
+      internal_source_id = if sid = source_id
+                             SourceRegistry.resolve(@db, source_type, sid)
+                           else
+                             SourceRegistry.create(@db, source_type)
+                           end
       internal_pair_id = if pid = pair_id
                            SourceRegistry.resolve(@db, source_type, pid)
                          else

@@ -12,16 +12,17 @@ module Memo::CLI
   })
 
   # Command schemas
-  INDEX_SCHEMA = %({
+  INDEX_TEXT_SCHEMA = %({
     "type": "object",
+    "positional": ["text"],
     "properties": {
-      "source-type": {"type": "string",  "description": "Source type identifier (e.g., article, note)"},
-      "source-id":   {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Unique source ID (integer or string/UUID)"},
       "text":        {"type": "string",  "description": "Text content to index"},
+      "source-type": {"type": "string",  "default": "text", "description": "Source type identifier (e.g., article, note)"},
+      "source-id":   {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Unique source ID (integer or string/UUID)"},
       "pair-id":     {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Related source ID"},
       "parent-id":   {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Parent source ID for hierarchies"}
     },
-    "required": ["source-type", "source-id", "text"]
+    "required": ["text"]
   })
 
   SEARCH_SCHEMA = %({
@@ -70,7 +71,7 @@ module Memo::CLI
     }
   })
 
-  INDEX_FILES_SCHEMA = %({
+  INDEX_DIR_SCHEMA = %({
     "type": "object",
     "positional": ["path"],
     "properties": {

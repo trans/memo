@@ -1,6 +1,6 @@
 require "json"
 
-module Memo::CLI::Commands::IndexFiles
+module Memo::CLI::Commands::IndexDir
   extend self
 
   def run(memo : Memo::Service, input : Hash(String, JSON::Any), json : Bool)
