@@ -39,17 +39,44 @@ module Memo::CLI::Commands::Search
         puts "No results found."
       else
         results.each_with_index do |r, i|
-          # Display source_id or internal_source_id for memo-managed sources
-          source_display = r.source_id || "##{r.internal_source_id}"
-          puts "#{i + 1}. #{r.source_type}:#{source_display} (score: #{"%.3f" % r.score})"
-          if text = r.text
-            # Truncate long text for display
-            display_text = text.size > 100 ? text[0, 100] + "..." : text
-            display_text = display_text.gsub("\n", " ")
-            puts "   #{display_text}"
+          # Display source info
+          source_display = if r.source_type == "file" && !r.source_id
+            # Memo-managed file - look up path
+            file_record = memo.get_file_by_source(r.internal_source_id)
+            path = file_record.try(&.path) || "unknown"
+            "[F#{r.internal_source_id}] #{path}"
+          elsif sid = r.source_id
+            "#{r.source_type}:#{sid}"
+          else
+            "#{r.source_type}:##{r.internal_source_id}"
           end
+          puts "#{i + 1}. #{source_display} (score: #{"%.3f" % r.score})"
+          if text = r.text
+            # Calculate starting line number from offset
+            start_line = if r.source_type == "file" && (offset = r.offset)
+              file_record = memo.get_file_by_source(r.internal_source_id)
+              if file_record && (full_text = memo.get_source_text(r.internal_source_id))
+                # Count newlines before offset
+                full_text[0, offset].count('\n') + 1
+              else
+                1
+              end
+            else
+              1
+            end
+
+            # Show first few lines with line numbers
+            lines = text.split('\n')
+            lines[0, 4].each_with_index do |line, idx|
+              next if line.blank?
+              line_num = start_line + idx
+              truncated = line.size > 70 ? line[0, 67] + "..." : line
+              puts "   %4d | %s" % [line_num, truncated]
+            end
+          end
+          puts
         end
-        puts "\n#{results.size} result(s)"
+        puts "#{results.size} result(s)"
       end
     end
   end

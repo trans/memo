@@ -1469,6 +1469,11 @@ module Memo
       Files.get_by_hash(@db, hash)
     end
 
+    # Get file record by source ID
+    def get_file_by_source(source_id : Int64) : Files::FileRecord?
+      Files.get_by_source(@db, source_id)
+    end
+
     # List indexed files
     def list_files(limit : Int32 = 100, offset : Int32 = 0) : Array(Files::FileRecord)
       Files.list(@db, limit, offset)
@@ -1636,6 +1641,11 @@ module Memo
     end
 
     # Get source text by internal source_id
+    def get_source_text(internal_source_id : Int64) : String?
+      get_source_text_internal(internal_source_id)
+    end
+
+    # Get source text by internal source_id (internal)
     private def get_source_text_internal(internal_source_id : Int64) : String?
       prefix = @table_prefix
       @db.query_one?(
