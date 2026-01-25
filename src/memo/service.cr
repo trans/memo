@@ -1299,6 +1299,9 @@ module Memo
       skipped = 0
       total = 0
 
+      # Collect files to index
+      files_to_index = [] of {Int64, String, Files::FileInfo}  # source_id, content, info
+
       Files.walk(root_path, ignore_file) do |file_path|
         total += 1
         info = Files.file_info(file_path, root_path)
@@ -1327,22 +1330,123 @@ module Memo
                       SourceRegistry.create(@db, "file")
                     end
 
-        # Index the content
-        enqueue_internal(
-          source_type: "file",
-          internal_source_id: source_id,
-          text: content
-        )
-        process_queue_item_internal(source_id)
-
-        # Store/update file metadata
-        Files.store(@db, source_id, info)
-
-        indexed += 1
+        files_to_index << {source_id, content, info}
         block.call(info.path, :indexed)
       end
 
+      # Batch process all files
+      return {0, skipped, total} if files_to_index.empty?
+
+      index_files_batched(files_to_index)
+      indexed = files_to_index.size
+
       {indexed, skipped, total}
+    end
+
+    # Batch index multiple files with a single API call
+    #
+    # Much more efficient than indexing files one at a time.
+    private def index_files_batched(files : Array({Int64, String, Files::FileInfo}))
+      return if files.empty?
+
+      # Phase 1: Chunk all files and collect data
+      all_chunks = [] of {Int64, String, Int32, Int32}  # source_id, chunk_text, offset, size
+      vocab_map = Hash(String, Int32).new(0)  # word => total count
+
+      files.each do |source_id, content, info|
+        chunks = Chunking.chunk_text(content, @chunking_config)
+        chunks.each do |(chunk_text, offset, size)|
+          all_chunks << {source_id, chunk_text, offset, size}
+        end
+
+        # Extract vocabulary
+        if @build_vocab
+          word_freqs = Vocab.extract_terms(content)
+          word_freqs.each do |wf|
+            vocab_map[wf.word] += wf.count
+          end
+        end
+      end
+
+      # Check which vocab words already exist
+      new_vocab = [] of Vocab::WordFrequency
+      existing_vocab = [] of Vocab::WordFrequency
+
+      if @build_vocab && !vocab_map.empty?
+        all_words = vocab_map.keys
+        existing_words = Vocab.get_existing_words(@db, all_words, @service_id)
+
+        vocab_map.each do |word, count|
+          wf = Vocab::WordFrequency.new(word, count)
+          if existing_words.includes?(word)
+            existing_vocab << wf
+          else
+            new_vocab << wf
+          end
+        end
+      end
+
+      # Phase 2: Single batched API call for all chunks + new vocab
+      chunk_texts = all_chunks.map { |(_, chunk_text, _, _)| chunk_text }
+      new_words = new_vocab.map(&.word)
+      texts_to_embed = chunk_texts + new_words
+
+      return if texts_to_embed.empty?
+
+      embed_result = @provider.embed_texts(texts_to_embed)
+
+      # Phase 3: Store everything in a transaction
+      @db.transaction do
+        # Delete existing chunks for all sources being re-indexed
+        source_ids = files.map { |(source_id, _, _)| source_id }.uniq
+        source_ids.each do |source_id|
+          delete_internal(source_id, "file")
+        end
+
+        # Store source texts
+        if @text_storage
+          files.each do |source_id, content, info|
+            store_source_text_internal(source_id, content)
+          end
+        end
+
+        # Store file metadata
+        files.each do |source_id, _, info|
+          Files.store(@db, source_id, info)
+        end
+
+        # Store chunk embeddings
+        all_chunks.each_with_index do |(source_id, chunk_text, offset, size), idx|
+          hash = Storage.compute_hash(chunk_text)
+          embedding = embed_result.embeddings[idx]
+          token_count = embed_result.token_counts[idx]
+
+          Storage.store_embedding(@db, hash, embedding, token_count, @service_id)
+          projections = Projection.compute_projections(embedding, @projection_vectors)
+          Projection.store_projections(@db, hash, @service_id, projections)
+
+          Storage.create_chunk(
+            db: @db,
+            hash: hash,
+            source_type: "file",
+            source_id: source_id,
+            offset: offset,
+            size: size
+          )
+        end
+
+        # Store new vocab embeddings
+        if @build_vocab
+          chunk_count = all_chunks.size
+          new_vocab.each_with_index do |wf, idx|
+            embedding = embed_result.embeddings[chunk_count + idx]
+            Vocab.store_word(@db, wf.word, embedding, wf.count, @service_id)
+          end
+
+          # Update frequencies for existing words
+          Vocab.update_frequencies(@db, existing_vocab, @service_id)
+        end
+      end
     end
 
     # Index files without progress callback
