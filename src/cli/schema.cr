@@ -27,10 +27,11 @@ module Memo::CLI
 
   SEARCH_SCHEMA = %({
     "type": "object",
+    "positional": ["query"],
     "properties": {
       "query":        {"type": "string",  "description": "Search query text"},
       "limit":        {"type": "integer", "default": 10, "description": "Maximum number of results"},
-      "min-score":    {"type": "number",  "default": 0.7, "description": "Minimum similarity score (0.0-1.0)"},
+      "min-score":    {"type": "number",  "default": 0.3, "description": "Minimum similarity score (0.0-1.0)"},
       "source-type":  {"type": "string",  "description": "Filter by source type"},
       "source-id":    {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Filter by source ID (integer or string/UUID)"},
       "include-text": {"type": "boolean", "default": true, "description": "Include chunk text in results"}
