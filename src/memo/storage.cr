@@ -227,15 +227,16 @@ module Memo
       )
     end
 
-    # Serialize embedding to binary blob (little-endian Float32 for space efficiency)
+    # Serialize embedding to binary blob (Int16 for 50% storage reduction)
     #
-    # TODO: Consider int16 normalization for embeddings to reduce storage by 50%
-    #       (1536 dims: 6KB -> 3KB). Precision loss is ~0.003% for normalized vectors.
-    #       Would require mapping float range [-1,1] to int16 range [-32768,32767].
+    # Maps normalized float range [-1, 1] to Int16 range [-32768, 32767].
+    # Precision loss is ~0.003% for normalized vectors.
     def serialize_embedding(embedding : Array(Float64)) : Bytes
       io = IO::Memory.new
       embedding.each do |value|
-        io.write_bytes(value.to_f32, IO::ByteFormat::LittleEndian)
+        # Map [-1, 1] to [-32768, 32767]
+        int_val = (value.clamp(-1.0, 1.0) * 32767).round.to_i16
+        io.write_bytes(int_val, IO::ByteFormat::LittleEndian)
       end
       io.to_slice
     end
@@ -245,9 +246,10 @@ module Memo
       io = IO::Memory.new(blob)
       embedding = [] of Float64
 
-      # Each float32 is 4 bytes
-      (blob.size // 4).times do
-        embedding << io.read_bytes(Float32, IO::ByteFormat::LittleEndian).to_f64
+      # Each int16 is 2 bytes
+      (blob.size // 2).times do
+        int_val = io.read_bytes(Int16, IO::ByteFormat::LittleEndian)
+        embedding << int_val.to_f64 / 32767.0
       end
 
       embedding

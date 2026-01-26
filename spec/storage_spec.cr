@@ -149,13 +149,16 @@ describe Memo::Storage do
 
         text = "Test text"
         hash = Memo::Storage.compute_hash(text)
-        original_embedding = Array.new(8) { |i| i.to_f64 }
+        original_embedding = Array.new(8) { |i| (i - 4).to_f64 / 4.0 }  # Normalized: [-1, 1]
 
         Memo::Storage.store_embedding(db, hash, original_embedding, 10, service_id)
 
         retrieved = Memo::Storage.get_embedding(db, hash, service_id)
         retrieved.should_not be_nil
-        retrieved.not_nil!.should eq(original_embedding)
+        # Int16 quantization means small differences (~0.00003 per dim)
+        retrieved.not_nil!.each_with_index do |val, i|
+          (val - original_embedding[i]).abs.should be < 0.001
+        end
       end
     end
 
@@ -233,12 +236,13 @@ describe Memo::Storage do
 
   describe "serialization" do
     it "round-trips embeddings correctly" do
-      original = [1.5, 2.7, 3.9, -0.5, 100.123, -200.456]
+      # Use normalized values in [-1, 1] range (as embedding models produce)
+      original = [0.5, -0.3, 0.9, -0.5, 0.123, -0.456]
 
       blob = Memo::Storage.serialize_embedding(original)
       restored = Memo::Storage.deserialize_embedding(blob)
 
-      # Float32 precision means small differences are expected
+      # Int16 quantization means small differences are expected (~0.00003 per dim)
       restored.size.should eq(original.size)
       restored.each_with_index do |val, i|
         (val - original[i]).abs.should be < 0.001
