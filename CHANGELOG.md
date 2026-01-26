@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-01-26
+
+### Added
+- **File indexer** (`memo index dir <path>`)
+  - Index all text files in a directory
+  - Respects `.gitignore` patterns (via `ignoreme` library)
+  - Binary file detection (via `libmagic`)
+  - Incremental updates via mtime tracking
+  - `--full` flag to force re-index all files
+  - `--dry-run` to preview without indexing
+- **Content hash skip** - Skip re-indexing when text content unchanged
+- **Search output improvements**
+  - Show file paths with IDs (e.g., `[F15] src/memo/search.cr`)
+  - Display line numbers for code context
+  - Positional query argument (`memo search "query"`)
+
+### Changed
+- **CLI refactored to subcommands**
+  - `memo index text "..."` (was `memo index`)
+  - `memo index dir <path>` (was `memo index-files`)
+  - `source-id` now optional for `index text`
+- **Batched file indexing** - Single API call for all files (~3x faster)
+- **Int16 embedding storage** - 50% size reduction (breaking: requires re-index)
+- **Default min-score lowered** to 0.3 (was 0.7)
+
+### Fixed
+- Always skip `.git` directory when indexing
+- Cleaner API error messages (parse JSON, show message only)
+
 ## [0.5.1] - 2026-01-24
 
 ### Changed

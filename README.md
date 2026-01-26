@@ -55,16 +55,27 @@ export VOYAGE_API_KEY=pa-...    # Fallback
 
 ### Commands
 
-**Index a document:**
+**Index text:**
 
 ```bash
-memo index source-type=article source-id=1 text="Your document text"
+memo index text "Your document text"
+memo index text "Document" --source-type=article --source-id=1
+```
+
+**Index files from directory:**
+
+```bash
+memo index dir .                    # Index current directory
+memo index dir /path/to/project     # Index specific path
+memo index dir . --dry-run          # Preview without indexing
+memo index dir . --full             # Force re-index all files
 ```
 
 **Search:**
 
 ```bash
-memo search query="semantic search" limit=5
+memo search "semantic search"
+memo search "query" --limit=5 --min-score=0.5
 ```
 
 **Delete:**
