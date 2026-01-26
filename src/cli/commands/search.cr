@@ -38,7 +38,7 @@ module Memo::CLI::Commands::Search
       if results.empty?
         puts "No results found."
       else
-        results.each_with_index do |r, i|
+        results.each do |r|
           # Display source info
           source_display = if r.source_type == "file" && !r.source_id
             # Memo-managed file - look up path
@@ -50,7 +50,7 @@ module Memo::CLI::Commands::Search
           else
             "#{r.source_type}:##{r.internal_source_id}"
           end
-          puts "#{i + 1}. #{source_display} (score: #{"%.3f" % r.score})"
+          puts "#{source_display} (score: #{"%.3f" % r.score})"
           if text = r.text
             # Calculate starting line number from offset
             start_line = if r.source_type == "file" && (offset = r.offset)
