@@ -1406,7 +1406,7 @@ module Memo
         # Store source texts
         if @text_storage
           files.each do |source_id, content, info|
-            store_source_text_internal(source_id, content)
+            store_source_text_internal(source_id, content, info.content_hash)
           end
         end
 
@@ -1603,15 +1603,16 @@ module Memo
     #
     # Stores the original un-chunked text. Chunk text is extracted
     # using offset/size from the chunks table.
-    private def store_source_text_internal(internal_source_id : Int64, content : String)
+    private def store_source_text_internal(internal_source_id : Int64, content : String, content_hash : Bytes? = nil)
       prefix = @table_prefix
       now = Time.utc.to_unix_ms
+      hash = content_hash || Storage.compute_hash(content)
 
       # Insert or replace source text (keyed by internal source_id)
       @db.exec(
-        "INSERT OR REPLACE INTO #{prefix}texts (source_id, content, created_at)
-         VALUES (?, ?, ?)",
-        internal_source_id, content, now
+        "INSERT OR REPLACE INTO #{prefix}texts (source_id, content, content_hash, created_at)
+         VALUES (?, ?, ?, ?)",
+        internal_source_id, content, hash, now
       )
 
       # Update FTS5 index
@@ -1625,6 +1626,17 @@ module Memo
          VALUES (?, ?)",
         internal_source_id, content
       )
+    end
+
+    # Check if source text has changed by comparing content hash
+    private def source_text_changed?(internal_source_id : Int64, content_hash : Bytes) : Bool
+      prefix = @table_prefix
+      stored_hash = @db.query_one?(
+        "SELECT content_hash FROM #{prefix}texts WHERE source_id = ?",
+        internal_source_id,
+        as: Bytes?
+      )
+      stored_hash.nil? || stored_hash != content_hash
     end
 
     # Delete source text by internal ID
@@ -1692,9 +1704,7 @@ module Memo
     # Deletes existing chunks for the source before re-indexing to ensure
     # clean state if chunking settings have changed.
     #
-    # TODO: Consider storing source text hash to skip re-indexing unchanged content
-    #
-    # Returns number of chunks successfully stored.
+    # Returns number of chunks successfully stored, or -1 if skipped (unchanged).
     private def embed_and_store_internal(
       source_type : String,
       internal_source_id : Int64,
@@ -1702,6 +1712,12 @@ module Memo
       internal_pair_id : Int64? = nil,
       internal_parent_id : Int64? = nil
     ) : Int32
+      # Check if content has changed (skip re-embedding if identical)
+      content_hash = Storage.compute_hash(text)
+      unless source_text_changed?(internal_source_id, content_hash)
+        return -1  # Unchanged, skip
+      end
+
       # Chunk text (returns tuples of {text, offset, size})
       chunks = Chunking.chunk_text(text, @chunking_config)
       return 0 if chunks.empty?
@@ -1756,7 +1772,7 @@ module Memo
 
         # Store source text once (not per-chunk)
         # Chunk text is extracted using offset/size when needed
-        store_source_text_internal(internal_source_id, text) if @text_storage
+        store_source_text_internal(internal_source_id, text, content_hash) if @text_storage
 
         # Store chunk embeddings
         chunks.each_with_index do |(chunk_text, offset, size), idx|

@@ -285,6 +285,7 @@ CREATE INDEX IF NOT EXISTS idx_queue_retries ON embed_queue(status, attempts) WH
 CREATE TABLE IF NOT EXISTS texts (
     source_id INTEGER PRIMARY KEY REFERENCES sources(id),  -- FK to sources table
     content TEXT NOT NULL,
+    content_hash BLOB,  -- SHA256 hash for change detection
     created_at INTEGER NOT NULL
 );
 

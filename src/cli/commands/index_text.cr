@@ -17,6 +17,7 @@ module Memo::CLI::Commands::IndexText
     if json
       output = Hash(String, JSON::Any).new
       output["indexed"] = JSON::Any.new(count.to_i64)
+      output["skipped"] = JSON::Any.new(count == -1)
       output["source-type"] = JSON::Any.new(source_type)
       if sid = source_id
         case sid
@@ -29,7 +30,11 @@ module Memo::CLI::Commands::IndexText
       puts output.to_pretty_json
     else
       source_display = source_id ? "#{source_type}:#{source_id}" : source_type
-      puts "Indexed #{count} chunk(s) for #{source_display}"
+      if count == -1
+        puts "Unchanged, skipped #{source_display}"
+      else
+        puts "Indexed #{count} chunk(s) for #{source_display}"
+      end
     end
   end
 end

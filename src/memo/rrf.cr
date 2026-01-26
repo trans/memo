@@ -1,13 +1,11 @@
 module Memo
   # Reciprocal Rank Fusion (RRF) for combining ranked search results
   #
-  # TODO: Decide on RRF utility approach:
-  # 1. Remove entirely - too specialized, apps can implement (only ~20 lines)
-  # 2. Make generic - accept any type with #id and #score (but Search::Result has chunk_id)
-  # 3. Keep current - but requires conversion to RRF::Item (loses metadata)
+  # NOTE: This is a client utility - kept for backwards compatibility (used by Copious).
+  # For new code, consider TF-IDF weighted semantic scoring instead.
   #
-  # Current implementation loses Search::Result metadata (source_type, offset, etc.)
-  # when converting to RRF::Item. Apps need to re-lookup full results after merge.
+  # TODO: Add TF-IDF weighting option to semantic search - boost scores based on
+  # term relevance rather than merging separate ranked lists.
   #
   # RRF merges multiple ranked lists by computing a score based on rank position:
   #   score = 1 / (k + rank)
