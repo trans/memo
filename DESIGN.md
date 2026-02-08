@@ -5,7 +5,7 @@
 Memo is a semantic search library for Crystal that provides:
 - Text chunking with configurable parameters
 - Vector embedding storage with deduplication
-- Similarity search with projection-based pre-filtering
+- Fast similarity search via USearch HNSW index
 - Text storage with LIKE and FTS5 full-text search
 
 ## Core Concepts
@@ -14,19 +14,22 @@ Memo is a semantic search library for Crystal that provides:
 
 1. **Chunking**: Break large text into optimal-sized pieces
 2. **Embedding**: Generate vector representations of chunks
-3. **Storage**: Store embeddings and optionally text content
-4. **Search**: Find similar chunks via vector similarity with text filtering
-5. **Projection filtering**: Fast candidate pre-filtering using random projections
+3. **Storage**: Store vectors in USearch HNSW index, metadata in SQLite
+4. **Search**: Find similar chunks via approximate nearest neighbor with text filtering
 
 ## Storage Architecture
 
-Memo stores all data in a single SQLite file at the provided `db_path`:
+Memo stores data in a SQLite file plus USearch index files alongside it:
 
 ```
-/var/data/memo.db    # Services, embeddings, chunks, projections, texts, queue
+/var/data/memo.db                                          # Metadata, chunks, texts, queue
+/var/data/openai--text-embedding-3-small--1536.usearch     # HNSW index (one per service)
 ```
 
-The database contains all tables needed for semantic search and text storage.
+- **SQLite**: Services, embeddings registry (deduplication), chunks, sources, texts, queue
+- **USearch**: HNSW index files storing actual vectors (one per service)
+
+The SQLite embeddings table `rowid` serves as the USearch key (UInt64), linking the two stores.
 
 ## Database Schema
 
@@ -47,16 +50,16 @@ CREATE TABLE services (
 );
 ```
 
-### `embeddings` - Vector Storage
+### `embeddings` - Deduplication Registry
 
-Stores embedding vectors. Same content can have different embeddings per service,
-enabling multi-model support. Deduplicated by (hash, service_id) pair.
+Tracks which content has been embedded for each service. Actual vectors are
+stored in USearch HNSW index files. Deduplicated by (hash, service_id) pair.
+The SQLite `rowid` serves as the USearch key.
 
 ```sql
 CREATE TABLE embeddings (
     hash BLOB NOT NULL,              -- SHA256 of text
     service_id INTEGER NOT NULL,     -- FK to services
-    embedding BLOB NOT NULL,         -- Float32 array
     token_count INTEGER NOT NULL,
     created_at INTEGER NOT NULL,
     PRIMARY KEY (hash, service_id),
@@ -84,34 +87,6 @@ CREATE TABLE chunks (
     created_at INTEGER NOT NULL
     -- Note: hash is a soft reference. Integrity enforced at query time
     -- by joining on hash with service_id filter.
-);
-```
-
-### `projections` - Fast Filtering
-
-Stores random projection values for pre-filtering candidates. One row per
-(hash, service_id) pair, matching the embeddings table.
-
-```sql
-CREATE TABLE projections (
-    hash BLOB NOT NULL,
-    service_id INTEGER NOT NULL,
-    proj_0 REAL, proj_1 REAL, proj_2 REAL, proj_3 REAL,
-    proj_4 REAL, proj_5 REAL, proj_6 REAL, proj_7 REAL,
-    PRIMARY KEY (hash, service_id),
-    FOREIGN KEY (hash, service_id) REFERENCES embeddings(hash, service_id)
-);
-```
-
-### `projection_vectors` - Projection Configuration
-
-Stores the random vectors used for projection (per service).
-
-```sql
-CREATE TABLE projection_vectors (
-    service_id INTEGER PRIMARY KEY,
-    vectors BLOB NOT NULL,           -- Serialized projection vectors
-    FOREIGN KEY (service_id) REFERENCES services(id)
 );
 ```
 
@@ -227,8 +202,8 @@ memo.index_batch(docs)
 1. Enqueue document in embed_queue table
 2. Chunk text into optimal-sized pieces
 3. Generate embeddings via provider API (with retry on failure)
-4. Compute projection values for fast filtering
-5. Store embeddings (deduplicated by content hash)
+4. Store embedding registry entry (deduplicated by content hash)
+5. Add vector to USearch HNSW index (if new)
 6. Create chunk references linking to source
 7. Store text content in texts table (if enabled)
 8. Mark queue item as completed
@@ -257,14 +232,18 @@ results = memo.search(query: "animals", match: "cats OR dogs")  # FTS5
 results = memo.search(query: "cats", include_text: true)
 ```
 
-**Search process:**
+**Search process (unfiltered):**
 1. Generate query embedding
-2. Compute query projections
-3. Pre-filter candidates using projection distance
-4. Apply text filters (LIKE, FTS5) if specified
-5. Apply custom SQL filter if specified
-6. Compute cosine similarity for candidates
-7. Return results ranked by similarity
+2. USearch HNSW approximate nearest neighbor search
+3. Batch-fetch chunk metadata from SQLite by rowid
+4. Convert cosine distance to similarity score (1 - distance)
+5. Filter by min_score, return results ranked by similarity
+
+**Search process (filtered):**
+1. Generate query embedding
+2. SQL pre-filter to get valid embedding rowids (source_type, LIKE, FTS5, sql_where)
+3. USearch filtered_search with valid rowid set as predicate
+4. Batch-fetch chunk metadata and return ranked results
 
 ### Search Results
 
@@ -352,16 +331,17 @@ memo.process_queue
 - After max retries, items are marked as permanently failed (status > 0)
 - `reindex` without block requires text storage; with block works regardless
 
-## Projection Filtering
+## USearch HNSW Index
 
-Memo uses random projection for fast candidate pre-filtering:
+Memo uses USearch for fast approximate nearest neighbor search:
 
-1. **Projection vectors**: 8 random orthogonal vectors generated per service
-2. **Projection values**: Each embedding is projected onto these vectors (8 scalar values)
-3. **Distance estimation**: Manhattan distance between query and stored projections approximates cosine distance
-4. **Pre-filtering**: Candidates outside a distance threshold are skipped before expensive cosine computation
+1. **HNSW graph**: Hierarchical Navigable Small World index for O(log n) search
+2. **One index per service**: Isolated vector spaces, stored as `.usearch` files
+3. **f16 quantization**: Half-precision storage for reduced disk/memory usage
+4. **Cosine metric**: Native cosine distance (similarity = 1 - distance)
+5. **Filtered search**: SQL pre-filtering builds a valid key set, then USearch searches only within that set
 
-This reduces the number of full cosine similarity calculations needed, improving search performance on large datasets.
+Index files are named `{format}--{model}--{dimensions}.usearch` and stored alongside the SQLite database.
 
 ## Text Filtering
 
@@ -392,10 +372,10 @@ memo.search(query: "animals", match: "cats NOT dogs")   # Negation
 
 ## Design Decisions
 
-1. **Single-file storage**: One SQLite database for all data
-2. **Projection pre-filtering**: Fast candidate reduction before cosine similarity
+1. **Dual storage**: SQLite for metadata, USearch for vectors
+2. **HNSW indexing**: O(log n) approximate nearest neighbor via USearch
 3. **Content-hash deduplication**: Same text stored once regardless of source
-4. **Service isolation**: Embeddings from different models never mixed
+4. **Service isolation**: Embeddings from different models never mixed (separate indexes)
 5. **Optional text storage**: Disable with `store_text: false` if managing text separately
 6. **FTS5 integration**: Full-text search alongside semantic search
 

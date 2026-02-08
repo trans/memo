@@ -7,9 +7,8 @@ Semantic search and vector storage library for Crystal.
 - **CLI tool** - Index, search, and manage from the command line
 - **Text chunking** - Smart segmentation into optimal-sized pieces
 - **Embedding storage** - Deduplication by content hash
-- **Similarity search** - Cosine similarity with filtering
+- **HNSW search** - Fast approximate nearest neighbor via USearch
 - **Text storage** - Optional persistent text with LIKE and FTS5 full-text search
-- **Projection filtering** - Fast candidate pre-filtering via random projections
 
 ## Installation
 
@@ -367,9 +366,13 @@ end
 
 ## Storage
 
-Memo stores all data in a single SQLite file at the specified `db_path`:
+Memo stores data in a SQLite file at the specified `db_path` plus USearch index files alongside it:
 
-- Services, embeddings, chunks, projections, texts, and queue
+- **SQLite**: Services, embeddings registry, chunks, texts, and queue
+- **USearch**: HNSW index files (one per service, e.g. `openai--text-embedding-3-small--1536.usearch`)
+
+Vectors are stored in USearch HNSW indexes for fast approximate nearest neighbor search.
+The SQLite embeddings table serves as a deduplication registry (content hash tracking).
 
 Text storage can be disabled with `store_text: false` if you prefer to manage text separately.
 

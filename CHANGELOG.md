@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-02-08
+
+### Changed
+- **USearch HNSW index** replaces brute-force cosine similarity search
+  - O(log n) approximate nearest neighbor via USearch HNSW
+  - One `.usearch` index file per service alongside the SQLite database
+  - f16 quantization with cosine metric
+- **Embedding vectors removed from SQLite** - USearch is now the sole vector store
+  - Embeddings table retained as deduplication registry (hash, service_id, token_count)
+  - SQLite rowid maps to USearch key (UInt64)
+- **Filtered search** uses SQL pre-filtering then USearch `filtered_search`
+
+### Removed
+- **Projection system** - replaced entirely by HNSW index
+  - Removed `projection.cr`, projection tables, and projection vectors
+- Embedding BLOB column from embeddings table
+
+### Breaking
+- Requires re-index (embedding storage format changed)
+- USearch C library must be built (`scripts/setup.sh` in usearch shard)
+
 ## [0.6.0] - 2026-01-26
 
 ### Added
