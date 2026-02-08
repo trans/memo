@@ -85,7 +85,7 @@ module Memo
   # ## Database
   #
   # Memo stores all data in a single SQLite file at the provided `db_path`.
-  # Contains: services, embeddings, chunks, projections, texts, queue
+  # Contains: services, embeddings, chunks, texts, queue
   #
   class Service
     getter db : DB::Database
@@ -96,7 +96,9 @@ module Memo
     getter queue_config : Config::Queue
     getter dimensions : Int32
     getter batch_size : Int32
-    getter projection_vectors : Array(Array(Float64))
+    getter usearch_index : USearch::Index
+    getter service_format : String
+    getter service_model : String
     getter db_path : String?
     getter table_prefix : String
 
@@ -105,6 +107,8 @@ module Memo
       provider : Providers::Base,
       service_id : Int64,
       service_name : String,
+      format : String,
+      model : String,
       dimensions : Int32,
       max_tokens : Int32,
       tokens_per_byte : Float64
@@ -196,11 +200,12 @@ module Memo
       @provider = config.provider
       @service_id = config.service_id
       @service_name = config.service_name
+      @service_format = config.format
+      @service_model = config.model
       @dimensions = config.dimensions
 
-      # Get or create projection vectors for this service
-      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
-                            create_projection_vectors(@dimensions, @service_id)
+      # Open USearch HNSW index for this service
+      @usearch_index = USearchIndex.open(db_path, config.format, config.model, config.dimensions)
 
       # Create chunking config with service's tokens_per_byte ratio
       @chunking_config = Config::Chunking.new(
@@ -271,11 +276,14 @@ module Memo
       @provider = config.provider
       @service_id = config.service_id
       @service_name = config.service_name
+      @service_format = config.format
+      @service_model = config.model
       @dimensions = config.dimensions
 
-      # Get or create projection vectors for this service
-      @projection_vectors = Projection.get_projection_vectors(@db, @service_id) ||
-                            create_projection_vectors(@dimensions, @service_id)
+      # Open USearch HNSW index for this service
+      resolved_db_path = @db_path
+      raise ArgumentError.new("db_path required for USearch index") unless resolved_db_path
+      @usearch_index = USearchIndex.open(resolved_db_path, config.format, config.model, config.dimensions)
 
       # Create chunking config with service's tokens_per_byte ratio
       @chunking_config = Config::Chunking.new(
@@ -426,16 +434,16 @@ module Memo
                       else             nil
                       end
 
-      # Search with projection filtering
+      # Search using USearch HNSW index
       Search.semantic(
         db: @db,
         embedding: query_embedding,
         service_id: @service_id,
+        usearch_index: @usearch_index,
         limit: limit,
         min_score: min_score,
         filters: filters,
         sql_where: sql_where,
-        projection_vectors: @projection_vectors,
         like: @text_storage ? like_patterns : nil,
         match: @text_storage ? match : nil,
         include_text: @text_storage && include_text
@@ -542,7 +550,7 @@ module Memo
           deleted_count += result.rows_affected.to_i
         end
 
-        # Clean up orphaned embeddings and projections (for ALL services)
+        # Clean up orphaned embeddings (for ALL services)
         hashes.each do |hash|
           # Check if any chunks still reference this hash
           remaining = @db.scalar(
@@ -551,8 +559,10 @@ module Memo
           ).as(Int64)
 
           if remaining == 0
-            # No more references - delete embeddings and projections for all services
-            @db.exec("DELETE FROM #{prefix}projections WHERE hash = ?", hash)
+            # Remove from current service's USearch index before deleting
+            if rowid = Storage.get_rowid(@db, hash, @service_id)
+              USearchIndex.remove(@usearch_index, rowid.to_u64)
+            end
             @db.exec("DELETE FROM #{prefix}embeddings WHERE hash = ?", hash)
           end
         end
@@ -572,6 +582,10 @@ module Memo
     # Note: If service was initialized with an existing db connection,
     # close is a no-op (caller owns the connection).
     def close
+      # Save USearch index before closing
+      if resolved_db_path = @db_path
+        USearchIndex.close(@usearch_index, resolved_db_path, @service_format, @service_model, @dimensions)
+      end
       return unless @owns_db
       @db.close
     rescue
@@ -653,7 +667,12 @@ module Memo
     def delete_service(name : String, force : Bool = false) : Bool
       svc = ServiceProvider.get_by_name(@db, name)
       return false unless svc
-      ServiceProvider.delete(@db, svc.id, force)
+      result = ServiceProvider.delete(@db, svc.id, force)
+      # Delete USearch index file if service was deleted
+      if result && (resolved_db_path = @db_path)
+        USearchIndex.delete_file(resolved_db_path, svc.format, svc.model, svc.dimensions)
+      end
+      result
     end
 
     # Get usage statistics for a service
@@ -688,18 +707,25 @@ module Memo
       svc = ServiceProvider.get_by_name(@db, name)
       raise ArgumentError.new("Service '#{name}' not found") unless svc
 
+      resolved_db_path = @db_path
+      raise ArgumentError.new("db_path required for USearch index") unless resolved_db_path
+
       # Create provider instance from stored config
       provider_instance = Providers::Registry.create(svc.format, api_key, svc.model, svc.base_url)
       raise ArgumentError.new("Unknown format: #{svc.format}") unless provider_instance
 
+      # Close current USearch index
+      USearchIndex.close(@usearch_index, resolved_db_path, @service_format, @service_model, @dimensions)
+
       @provider = provider_instance
       @service_name = name
       @service_id = svc.id
+      @service_format = svc.format
+      @service_model = svc.model
       @dimensions = svc.dimensions
 
-      # Get or create projection vectors for this service
-      @projection_vectors = Projection.get_projection_vectors(@db, svc.id) ||
-                            create_projection_vectors(svc.dimensions, svc.id)
+      # Open USearch index for the new service
+      @usearch_index = USearchIndex.open(resolved_db_path, svc.format, svc.model, svc.dimensions)
     end
 
     # =========================================================================
@@ -1421,9 +1447,8 @@ module Memo
           embedding = embed_result.embeddings[idx]
           token_count = embed_result.token_counts[idx]
 
-          Storage.store_embedding(@db, hash, embedding, token_count, @service_id)
-          projections = Projection.compute_projections(embedding, @projection_vectors)
-          Projection.store_projections(@db, hash, @service_id, projections)
+          inserted, rowid = Storage.store_embedding(@db, hash, token_count, @service_id)
+          USearchIndex.add(@usearch_index, rowid.to_u64, embedding) if inserted
 
           Storage.create_chunk(
             db: @db,
@@ -1518,7 +1543,7 @@ module Memo
           raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds service limit (#{svc_max_tokens})")
         end
 
-        ProviderConfig.new(provider_instance, svc_id, service, svc_dimensions, svc_max_tokens, svc_tokens_per_byte)
+        ProviderConfig.new(provider_instance, svc_id, service, svc_format, svc_model, svc_dimensions, svc_max_tokens, svc_tokens_per_byte)
       elsif format
         # Configure inline from format parameters
         final_format = format
@@ -1531,7 +1556,7 @@ module Memo
         if existing
           # Use existing service configuration
           # Don't allow overriding dimensions - it's intrinsic to the model
-          # and overriding would cause projection vector dimension mismatch
+          # and overriding would cause USearch index dimension mismatch
           _id, _fmt, _base_url, svc_model, svc_dimensions, svc_max_tokens, svc_tokens_per_byte = existing
           if dimensions && dimensions != svc_dimensions
             raise ArgumentError.new("Cannot override dimensions (#{dimensions}) for existing service with dimensions=#{svc_dimensions}")
@@ -1572,7 +1597,7 @@ module Memo
           max_tokens: final_max_tokens
         )
 
-        ProviderConfig.new(provider_instance, service_id, "#{final_format}/#{final_model}", final_dimensions, final_max_tokens, final_tokens_per_byte)
+        ProviderConfig.new(provider_instance, service_id, "#{final_format}/#{final_model}", final_format, final_model, final_dimensions, final_max_tokens, final_tokens_per_byte)
       else
         # Use the default service
         default_svc = ServiceProvider.get_default(@db)
@@ -1587,15 +1612,8 @@ module Memo
           raise ArgumentError.new("chunking_max_tokens (#{chunking_max_tokens}) exceeds service limit (#{default_svc.max_tokens})")
         end
 
-        ProviderConfig.new(provider_instance, default_svc.id, default_svc.name, default_svc.dimensions, default_svc.max_tokens, default_svc.tokens_per_byte)
+        ProviderConfig.new(provider_instance, default_svc.id, default_svc.name, default_svc.format, default_svc.model, default_svc.dimensions, default_svc.max_tokens, default_svc.tokens_per_byte)
       end
-    end
-
-    # Generate and store projection vectors for this service
-    private def create_projection_vectors(dimensions : Int32, service_id : Int64) : Array(Array(Float64))
-      vectors = Projection.generate_orthogonal_vectors(dimensions)
-      Projection.store_projection_vectors(@db, service_id, vectors)
-      vectors
     end
 
     # Store source text (keyed by internal source_id)
@@ -1780,12 +1798,9 @@ module Memo
           embedding = embed_result.embeddings[idx]
           token_count = embed_result.token_counts[idx]
 
-          # Store embedding (deduplicated by hash)
-          Storage.store_embedding(@db, hash, embedding, token_count, @service_id)
-
-          # Compute and store projections for fast filtering (per service)
-          projections = Projection.compute_projections(embedding, @projection_vectors)
-          Projection.store_projections(@db, hash, @service_id, projections)
+          # Store embedding (deduplicated by hash) and add to USearch index
+          inserted, rowid = Storage.store_embedding(@db, hash, token_count, @service_id)
+          USearchIndex.add(@usearch_index, rowid.to_u64, embedding) if inserted
 
           # Create chunk reference with offset/size from chunking
           # All IDs are internal (FK to sources table)

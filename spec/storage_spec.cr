@@ -76,7 +76,7 @@ describe Memo::Storage do
   end
 
   describe ".store_embedding" do
-    it "stores embedding and returns true" do
+    it "stores embedding and returns inserted with rowid" do
       with_test_db do |db|
         service_id = Memo::Storage.register_service(
           db: db,
@@ -84,28 +84,27 @@ describe Memo::Storage do
           format: "mock",
           base_url: nil,
           model: "test-model",
-          
+
           dimensions: 8,
           max_tokens: 1000
         )
 
         text = "Test text"
         hash = Memo::Storage.compute_hash(text)
-        embedding = Array.new(8) { |i| i.to_f64 }
 
-        result = Memo::Storage.store_embedding(
+        inserted, rowid = Memo::Storage.store_embedding(
           db: db,
           hash: hash,
-          embedding: embedding,
           token_count: 10,
           service_id: service_id
         )
 
-        result.should be_true
+        inserted.should be_true
+        rowid.should be > 0
       end
     end
 
-    it "deduplicates by hash" do
+    it "deduplicates by hash and returns same rowid" do
       with_test_db do |db|
         service_id = Memo::Storage.register_service(
           db: db,
@@ -113,18 +112,21 @@ describe Memo::Storage do
           format: "mock",
           base_url: nil,
           model: "test-model",
-          
+
           dimensions: 8,
           max_tokens: 1000
         )
 
         text = "Test text"
         hash = Memo::Storage.compute_hash(text)
-        embedding = Array.new(8) { |i| i.to_f64 }
 
         # Store twice with same hash
-        Memo::Storage.store_embedding(db, hash, embedding, 10, service_id)
-        Memo::Storage.store_embedding(db, hash, embedding, 10, service_id)
+        inserted1, rowid1 = Memo::Storage.store_embedding(db, hash, 10, service_id)
+        inserted2, rowid2 = Memo::Storage.store_embedding(db, hash, 10, service_id)
+
+        inserted1.should be_true
+        inserted2.should be_false
+        rowid1.should eq(rowid2)
 
         # Should only have one embedding
         count = db.scalar("SELECT COUNT(*) FROM memo_embeddings WHERE hash = ?", hash).as(Int64)
@@ -133,8 +135,8 @@ describe Memo::Storage do
     end
   end
 
-  describe ".get_embedding" do
-    it "retrieves stored embedding" do
+  describe ".get_rowid" do
+    it "returns rowid for existing embedding" do
       with_test_db do |db|
         service_id = Memo::Storage.register_service(
           db: db,
@@ -142,31 +144,23 @@ describe Memo::Storage do
           format: "mock",
           base_url: nil,
           model: "test-model",
-          
           dimensions: 8,
           max_tokens: 1000
         )
 
-        text = "Test text"
-        hash = Memo::Storage.compute_hash(text)
-        original_embedding = Array.new(8) { |i| (i - 4).to_f64 / 4.0 }  # Normalized: [-1, 1]
+        hash = Memo::Storage.compute_hash("test")
+        _, rowid = Memo::Storage.store_embedding(db, hash, 10, service_id)
 
-        Memo::Storage.store_embedding(db, hash, original_embedding, 10, service_id)
-
-        retrieved = Memo::Storage.get_embedding(db, hash, service_id)
-        retrieved.should_not be_nil
-        # Int16 quantization means small differences (~0.00003 per dim)
-        retrieved.not_nil!.each_with_index do |val, i|
-          (val - original_embedding[i]).abs.should be < 0.001
-        end
+        found_rowid = Memo::Storage.get_rowid(db, hash, service_id)
+        found_rowid.should eq(rowid)
       end
     end
 
     it "returns nil for non-existent hash" do
       with_test_db do |db|
         hash = Memo::Storage.compute_hash("nonexistent")
-        retrieved = Memo::Storage.get_embedding(db, hash, 1_i64)
-        retrieved.should be_nil
+        rowid = Memo::Storage.get_rowid(db, hash, 1_i64)
+        rowid.should be_nil
       end
     end
   end
@@ -187,9 +181,8 @@ describe Memo::Storage do
 
         text = "Test text"
         hash = Memo::Storage.compute_hash(text)
-        embedding = Array.new(8) { |i| i.to_f64 }
 
-        Memo::Storage.store_embedding(db, hash, embedding, 10, service_id)
+        Memo::Storage.store_embedding(db, hash, 10, service_id)
 
         chunk_id = Memo::Storage.create_chunk(
           db: db,
@@ -221,9 +214,8 @@ describe Memo::Storage do
 
         text = "Test text"
         hash = Memo::Storage.compute_hash(text)
-        embedding = Array.new(8) { |i| i.to_f64 }
 
-        Memo::Storage.store_embedding(db, hash, embedding, 10, service_id)
+        Memo::Storage.store_embedding(db, hash, 10, service_id)
 
         # Create two chunks referencing same embedding
         id1 = Memo::Storage.create_chunk(db, hash, "document", 1_i64, 0, 100)

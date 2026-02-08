@@ -25,6 +25,9 @@ dependencies:
     branch: main
   magic:
     github: naqvis/magic.cr
+  usearch:
+    github: trans/usearch.cr
+    branch: main
 
 targets:
   memo:

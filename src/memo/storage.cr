@@ -122,45 +122,50 @@ module Memo
       )
     end
 
-    # Store embedding in database (deduplicated by hash + service_id)
+    # Register embedding hash in database (deduplicated by hash + service_id)
     #
-    # Returns true if inserted, false if already exists for this service
+    # Vectors are stored in USearch; this table tracks what has been embedded
+    # for deduplication. The SQLite rowid serves as the USearch key.
+    #
+    # Returns {inserted, rowid} where inserted is true if new, rowid is the USearch key.
     def store_embedding(
       db : DB::Database,
       hash : Bytes,
-      embedding : Array(Float64),
       token_count : Int32,
       service_id : Int64
-    ) : Bool
+    ) : {Bool, Int64}
       prefix = db.memo_table_prefix
-
-      # Serialize embedding as blob (pack floats as binary)
-      embedding_blob = serialize_embedding(embedding)
 
       # Try to insert (will skip if hash+service_id already exists due to composite PRIMARY KEY)
       result = db.exec(
-        "INSERT OR IGNORE INTO #{prefix}embeddings (hash, service_id, embedding, token_count, created_at)
-         VALUES (?, ?, ?, ?, ?)",
-        hash, service_id, embedding_blob, token_count, Time.utc.to_unix_ms
+        "INSERT OR IGNORE INTO #{prefix}embeddings (hash, service_id, token_count, created_at)
+         VALUES (?, ?, ?, ?)",
+        hash, service_id, token_count, Time.utc.to_unix_ms
       )
 
-      # Return true if we actually inserted a new row
-      result.rows_affected > 0
+      inserted = result.rows_affected > 0
+
+      # Get the rowid (whether newly inserted or already existing)
+      rowid = db.query_one(
+        "SELECT rowid FROM #{prefix}embeddings WHERE hash = ? AND service_id = ?",
+        hash, service_id,
+        as: Int64
+      )
+
+      {inserted, rowid}
     end
 
-    # Get embedding by hash and service_id
+    # Get the rowid of an embedding by hash and service_id.
     #
-    # Returns nil if not found
-    def get_embedding(db : DB::Database, hash : Bytes, service_id : Int64) : Array(Float64)?
+    # Returns nil if not found. Used for USearch key lookup during deletion.
+    def get_rowid(db : DB::Database, hash : Bytes, service_id : Int64) : Int64?
       prefix = db.memo_table_prefix
 
       db.query_one?(
-        "SELECT embedding FROM #{prefix}embeddings WHERE hash = ? AND service_id = ?",
-        hash, service_id
-      ) do |rs|
-        blob = rs.read(Bytes)
-        deserialize_embedding(blob)
-      end
+        "SELECT rowid FROM #{prefix}embeddings WHERE hash = ? AND service_id = ?",
+        hash, service_id,
+        as: Int64
+      )
     end
 
     # Create chunk reference (or ignore if already exists)

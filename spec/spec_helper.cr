@@ -15,6 +15,8 @@ def with_test_db(&block : DB::Database ->)
   ensure
     db.close
     File.delete(temp_file) if File.exists?(temp_file)
+    # Clean up USearch index files
+    Dir.glob("#{File.dirname(temp_file)}/*.usearch").each { |f| File.delete(f) rescue nil }
   end
 end
 
@@ -38,6 +40,8 @@ def with_test_db_path(&block : String ->)
     yield db_path
   ensure
     File.delete(db_path) if File.exists?(db_path)
+    # Clean up USearch index files
+    Dir.glob("#{File.dirname(db_path)}/*.usearch").each { |f| File.delete(f) rescue nil }
   end
 end
 

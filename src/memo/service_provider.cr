@@ -277,7 +277,7 @@ module Memo
 
       db.transaction do
         if force && !stats.empty?
-          # Delete in order: chunks -> projections -> embeddings -> projection_vectors -> service
+          # Delete in order: chunks -> embeddings -> service
           # Get all embedding hashes for this service
           hashes = [] of Bytes
           db.query(
@@ -292,14 +292,10 @@ module Memo
           # Delete chunks referencing these embeddings
           hashes.each do |hash|
             db.exec("DELETE FROM #{prefix}chunks WHERE hash = ?", hash)
-            db.exec("DELETE FROM #{prefix}projections WHERE hash = ?", hash)
           end
 
           # Delete embeddings
           db.exec("DELETE FROM #{prefix}embeddings WHERE service_id = ?", id)
-
-          # Delete projection vectors
-          db.exec("DELETE FROM #{prefix}projection_vectors WHERE service_id = ?", id)
         end
 
         # Delete the service

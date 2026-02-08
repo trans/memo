@@ -9,28 +9,25 @@ describe Memo::Service do
       end
     end
 
-    it "creates projection vectors on initialization" do
+    it "opens USearch index on initialization" do
       with_test_service do |service|
-        service.projection_vectors.size.should eq(Memo::Projection::K)
-        service.projection_vectors.each do |vec|
-          vec.size.should eq(service.dimensions)
-        end
+        service.usearch_index.should_not be_nil
       end
     end
 
-    it "retrieves existing projection vectors on re-initialization" do
+    it "persists USearch index across re-initialization" do
       with_test_db_path do |db_path|
-        # First initialization creates vectors
+        # First initialization - index a document
         service1 = Memo::Service.new(
           db_path: db_path,
           service: "mock",
           chunking_max_tokens: 50
         )
-        original_vectors = service1.projection_vectors.clone
         service_id = service1.service_id
+        service1.index(source_type: "event", source_id: 1_i64, text: "Test document")
         service1.close
 
-        # Re-open same database - should get same vectors
+        # Re-open same database - index should persist
         service2 = Memo::Service.new(
           db_path: db_path,
           service: "mock",
@@ -38,14 +35,10 @@ describe Memo::Service do
         )
 
         service2.service_id.should eq(service_id)
-        service2.projection_vectors.size.should eq(original_vectors.size)
 
-        # Vectors should match (with Float32 precision tolerance)
-        original_vectors.each_with_index do |vec, i|
-          vec.each_with_index do |val, j|
-            (service2.projection_vectors[i][j] - val).abs.should be < 0.001
-          end
-        end
+        # Should be able to search and find the indexed document
+        results = service2.search(query: "test", min_score: 0.0)
+        results.size.should be > 0
 
         service2.close
       end
@@ -161,26 +154,6 @@ describe Memo::Service do
           as: {Int64?, Int64?}
         )
         result.should eq({99_i64, 88_i64})
-      end
-    end
-
-    it "stores projections when indexing" do
-      with_test_service do |service|
-        service.index(
-          source_type: "event",
-          source_id: 1_i64,
-          text: "Test document for projection"
-        )
-
-        # Verify projections were stored
-        hash = service.db.query_one(
-          "SELECT hash FROM #{service.table_prefix}embeddings LIMIT 1",
-          as: Bytes
-        )
-
-        projections = Memo::Projection.get_projections(service.db, hash, service.service_id)
-        projections.should_not be_nil
-        projections.not_nil!.size.should eq(Memo::Projection::K)
       end
     end
 

@@ -2,6 +2,7 @@ require "db"
 require "sqlite3"
 require "digest/sha256"
 require "set"
+require "usearch"
 
 # Extend DB::Database to carry table prefix
 # This avoids global state - each db connection knows its prefix
@@ -20,11 +21,12 @@ require "./memo/providers/mock"
 require "./memo/providers/registry"
 require "./memo/source_registry"
 require "./memo/storage"
-require "./memo/projection"
+require "./memo/usearch_index"
 require "./memo/rrf"
 require "./memo/search"
 require "./memo/vocab"
 require "./memo/files"
+require "./memo/clustering"
 require "./memo/service_provider"
 require "./memo/service"
 

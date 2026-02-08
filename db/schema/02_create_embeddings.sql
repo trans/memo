@@ -1,19 +1,14 @@
--- Embeddings table: Content hash → vector embedding mapping
+-- Embeddings registry: Content hash deduplication tracking
 --
--- Stores the actual embedding vectors and metadata. Content is deduplicated
--- by hash - identical text produces identical embeddings and only stored once.
+-- Tracks which content has been embedded for each service. Actual vectors
+-- are stored in USearch HNSW index files (one per service).
 --
--- The hash serves as both content identifier and primary key, ensuring
--- automatic deduplication.
---
--- Each embedding references a service (provider/model) to track which AI
--- service created it. This ensures searches only compare embeddings from
--- compatible vector spaces.
+-- Content is deduplicated by hash - identical text only needs one embedding.
+-- The SQLite rowid serves as the USearch key for vector lookup.
 
 CREATE TABLE IF NOT EXISTS embeddings (
     hash BLOB NOT NULL,              -- Content hash (SHA256 of text)
     service_id INTEGER NOT NULL,     -- FK to services table
-    embedding BLOB NOT NULL,         -- Vector embedding (serialized floats)
     token_count INTEGER NOT NULL,    -- Tokens in embedded text
     created_at INTEGER NOT NULL,     -- Unix timestamp (ms)
 

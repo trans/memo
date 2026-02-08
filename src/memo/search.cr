@@ -1,5 +1,5 @@
 module Memo
-  # Semantic search operations
+  # Semantic search operations using USearch HNSW index
   module Search
     extend self
 
@@ -48,178 +48,187 @@ module Memo
       end
     end
 
-    # Semantic search by embedding
+    # Semantic search using USearch HNSW index
     #
-    # Returns results ranked by cosine similarity
+    # Returns results ranked by cosine similarity.
     #
-    # IMPORTANT: Must provide service_id to ensure embeddings are from same vector space
+    # IMPORTANT: Must provide service_id to ensure embeddings are from same vector space.
     #
-    # sql_where: Raw SQL fragment to filter chunks.
-    #   Example: "c.source_id IN (SELECT id FROM main.artifact WHERE memo_id = artifact.source_id)"
-    #   Note: c.source_id is the internal ID (FK to sources table)
-    #
-    # like: Array of LIKE patterns for AND filtering by text content.
-    #   Requires text storage to be enabled.
-    #
-    # match: FTS5 full-text search query (e.g., "cats OR dogs").
-    #   Requires text storage to be enabled.
-    #
-    # include_text: If true, includes text content in search results.
-    #   Requires text storage to be enabled.
-    #
-    # projection_vectors: Random orthogonal vectors for fast pre-filtering.
-    #   If provided, candidates are filtered by projection distance before
-    #   computing full cosine similarity.
-    #
-    # projection_threshold: Maximum squared distance in projection space.
-    #   Candidates with projection distance > threshold are skipped.
-    #   Default 2.0 is generous to avoid false negatives.
+    # When metadata filters are present (source_type, like, match, sql_where),
+    # pre-filters via SQL to get valid embedding rowids, then uses USearch
+    # filtered_search. When no filters, uses direct USearch search.
     def semantic(
       db : DB::Database,
       embedding : Array(Float64),
       service_id : Int64,
+      usearch_index : USearch::Index,
       limit : Int32 = 10,
       min_score : Float64 = 0.7,
       filters : Filters? = nil,
       detail : Symbol = :reference,
       sql_where : String? = nil,
-      projection_vectors : Array(Array(Float64))? = nil,
-      projection_threshold : Float64 = 2.0,
       like : Array(String)? = nil,
       match : String? = nil,
       include_text : Bool = true
     ) : Array(Result)
       prefix = db.memo_table_prefix
 
-      # Compute query projections if projection vectors provided
-      query_projections = if proj_vecs = projection_vectors
-                            Projection.compute_projections(embedding, proj_vecs)
-                          else
-                            nil
-                          end
+      has_filters = filters || sql_where || (like && !like.empty?) || (match && !match.empty?)
 
-      # Build WHERE clauses
-      where_clauses = [] of String
-      params = [] of DB::Any
+      # Get nearest neighbor candidates from USearch
+      usearch_results = if has_filters
+                           search_filtered(db, usearch_index, embedding, service_id, limit, filters, sql_where, like, match)
+                         else
+                           USearchIndex.search(usearch_index, embedding, limit)
+                         end
 
-      # CRITICAL: Filter by service_id to ensure same vector space
-      where_clauses << "e.service_id = ?"
-      params << service_id
+      return [] of Result if usearch_results.empty?
 
-      if filters
-        if source_type = filters.source_type
+      # Build score lookup (cosine distance → similarity)
+      scores = {} of UInt64 => Float64
+      usearch_results.each do |r|
+        score = 1.0 - r.distance.to_f64
+        next if score < min_score
+        scores[r.key] = score
+      end
+
+      return [] of Result if scores.empty?
+
+      # Batch-fetch chunk metadata for matching rowids
+      fetch_results(db, service_id, scores, limit, include_text)
+    end
+
+    # Mark chunks as read (increment read_count)
+    def mark_as_read(db : DB::Database, chunk_ids : Array(Int64))
+      Storage.increment_read_count(db, chunk_ids)
+    end
+
+    # Pre-filter via SQL, then use USearch filtered_search
+    private def search_filtered(
+      db : DB::Database,
+      usearch_index : USearch::Index,
+      embedding : Array(Float64),
+      service_id : Int64,
+      limit : Int32,
+      filters : Filters?,
+      sql_where : String?,
+      like : Array(String)?,
+      match : String?
+    ) : Array(USearch::SearchResult)
+      prefix = db.memo_table_prefix
+
+      # Build SQL to get valid embedding rowids
+      where_clauses = ["e.service_id = ?"] of String
+      params = [service_id] of DB::Any
+
+      if f = filters
+        if source_type = f.source_type
           where_clauses << "c.source_type = ?"
           params << source_type
         end
-        if source_id = filters.internal_source_id
+        if source_id = f.internal_source_id
           where_clauses << "c.source_id = ?"
           params << source_id
         end
-        if pair_id = filters.internal_pair_id
+        if pair_id = f.internal_pair_id
           where_clauses << "c.pair_id = ?"
           params << pair_id
         end
-        if parent_id = filters.internal_parent_id
+        if parent_id = f.internal_parent_id
           where_clauses << "c.parent_id = ?"
           params << parent_id
         end
       end
 
-      # Add raw SQL WHERE clause if provided (for ATTACH queries)
       if sql_where && !sql_where.empty?
         where_clauses << "(#{sql_where})"
       end
 
-      # Add projection distance filter if projections available
-      projection_join = ""
-      if qp = query_projections
-        # Join on both hash and service_id to get correct projections for this service
-        projection_join = "JOIN #{prefix}projections p ON c.hash = p.hash AND p.service_id = e.service_id"
-        # Squared Euclidean distance in projection space
-        distance_expr = (0...Projection::K).map { |i|
-          "(p.proj_#{i} - ?) * (p.proj_#{i} - ?)"
-        }.join(" + ")
-        where_clauses << "(#{distance_expr}) <= ?"
-        qp.each do |proj|
-          params << proj
-          params << proj
-        end
-        params << projection_threshold
-      end
-
-      # Add text join if text filtering or text inclusion requested
-      # Text is stored per internal source_id
-      # Chunk text is extracted via SUBSTR using offset/size from the original source.
-      #
-      # Range-based chunking guarantees: SUBSTR(content, offset+1, size) returns
-      # exactly the same text that was embedded. Character offsets are used
-      # throughout, compatible with SQLite SUBSTR and Unicode text.
+      # Text joins
       text_join = ""
       fts_join = ""
-      text_select = ""
-      needs_text_join = like || include_text
-      needs_fts_join = match
 
-      if needs_text_join
-        # Use LEFT JOIN for include_text alone (results without text still returned)
-        # Use regular JOIN if like filter requires text (no text = no match)
-        join_type = like ? "JOIN" : "LEFT JOIN"
-        text_join = "#{join_type} #{prefix}texts st ON c.source_id = st.source_id"
-        # Extract chunk text using offset and size (SQLite SUBSTR is 1-indexed)
-        # Returns exactly the text that was embedded (range-based chunking guarantees this)
-        text_select = ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text" if include_text
-      end
-
-      # Add FTS5 join if match query provided
-      # FTS5 searches source text - a match means the source document contains the term
-      # Note: FTS5 MATCH doesn't work with table aliases, so we use the full table name
-      if needs_fts_join
-        fts_join = "JOIN #{prefix}texts_fts ON c.source_id = #{prefix}texts_fts.source_id"
-      end
-
-      # Add LIKE filters (AND logic) - searches source text
       if like && !like.empty?
+        text_join = "JOIN #{prefix}texts st ON c.source_id = st.source_id"
         like.each do |pattern|
           where_clauses << "st.content LIKE ?"
           params << pattern
         end
       end
 
-      # Add FTS5 match filter - searches source text
-      # Use unqualified table name since FTS5 MATCH requires it
       if match && !match.empty?
+        fts_join = "JOIN #{prefix}texts_fts ON c.source_id = #{prefix}texts_fts.source_id"
         where_clauses << "#{prefix}texts_fts MATCH ?"
         params << match
       end
 
-      where_clause = "WHERE #{where_clauses.join(" AND ")}"
+      # Query for valid rowids
+      valid_rowids = Set(UInt64).new
 
-      # Stream embeddings and keep only top-k results
-      top_results = [] of Result
-
-      # Join with sources table to get external IDs
-      # Also join pair_source and parent_source for their external IDs
       db.query(
         <<-SQL,
-          SELECT c.id, c.hash, c.source_type, c.source_id,
+          SELECT DISTINCT e.rowid
+          FROM #{prefix}chunks c
+          JOIN #{prefix}embeddings e ON c.hash = e.hash AND e.service_id = ?
+          #{text_join}
+          #{fts_join}
+          WHERE #{where_clauses.join(" AND ")}
+        SQL
+        args: [service_id] + params
+      ) do |rs|
+        rs.each do
+          valid_rowids << rs.read(Int64).to_u64
+        end
+      end
+
+      return [] of USearch::SearchResult if valid_rowids.empty?
+
+      # Use USearch filtered search with the valid set
+      USearchIndex.filtered_search(usearch_index, embedding, limit) do |key|
+        valid_rowids.includes?(key)
+      end
+    end
+
+    # Fetch chunk metadata for USearch results
+    private def fetch_results(
+      db : DB::Database,
+      service_id : Int64,
+      scores : Hash(UInt64, Float64),
+      limit : Int32,
+      include_text : Bool
+    ) : Array(Result)
+      prefix = db.memo_table_prefix
+      rowids = scores.keys.map(&.to_i64)
+
+      # Build text select/join if needed
+      text_select = include_text ? ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text" : ""
+      text_join = include_text ? "LEFT JOIN #{prefix}texts st ON c.source_id = st.source_id" : ""
+
+      placeholders = rowids.map { "?" }.join(", ")
+
+      results = [] of Result
+
+      db.query(
+        <<-SQL,
+          SELECT e.rowid, c.id, c.hash, c.source_type, c.source_id,
                  s.external_int, s.external_text, s.external_blob,
                  c.pair_id, ps.external_int, ps.external_text, ps.external_blob,
                  c.parent_id, prs.external_int, prs.external_text, prs.external_blob,
-                 c.offset, c.size, c.match_count, c.read_count,
-                 e.embedding#{text_select}
-          FROM #{prefix}chunks c
-          JOIN #{prefix}embeddings e ON c.hash = e.hash
+                 c.offset, c.size, c.match_count, c.read_count
+                 #{text_select}
+          FROM #{prefix}embeddings e
+          JOIN #{prefix}chunks c ON c.hash = e.hash
           JOIN #{prefix}sources s ON c.source_id = s.id
           LEFT JOIN #{prefix}sources ps ON c.pair_id = ps.id
           LEFT JOIN #{prefix}sources prs ON c.parent_id = prs.id
-          #{projection_join}
           #{text_join}
-          #{fts_join}
-          #{where_clause}
+          WHERE e.rowid IN (#{placeholders})
+            AND e.service_id = ?
         SQL
-        args: params
+        args: rowids.map(&.as(DB::Any)) + [service_id.as(DB::Any)]
       ) do |rs|
         rs.each do
+          embedding_rowid = rs.read(Int64).to_u64
           chunk_id = rs.read(Int64)
           hash = rs.read(Bytes)
           source_type = rs.read(String)
@@ -239,22 +248,16 @@ module Memo
           size = rs.read(Int32)
           match_count = rs.read(Int32)
           read_count = rs.read(Int32)
-          embedding_blob = rs.read(Bytes)
           text_content = include_text ? rs.read(String?) : nil
+
+          score = scores[embedding_rowid]? || 0.0
 
           # Build external IDs (may be nil for memo-managed sources)
           external_source_id : ExternalId? = external_int || external_text || external_blob
           external_pair_id : ExternalId? = internal_pair_id ? (pair_external_int || pair_external_text || pair_external_blob) : nil
           external_parent_id : ExternalId? = internal_parent_id ? (parent_external_int || parent_external_text || parent_external_blob) : nil
 
-          # Decode and compute similarity
-          stored_embedding = Storage.deserialize_embedding(embedding_blob)
-          score = cosine_similarity(embedding, stored_embedding)
-
-          # Only consider if meets minimum score
-          next if score < min_score
-
-          result = Result.new(
+          results << Result.new(
             chunk_id: chunk_id,
             hash: hash,
             source_type: source_type,
@@ -269,62 +272,17 @@ module Memo
             score: score,
             text: text_content
           )
-
-          # Insert maintaining sorted order
-          insert_sorted(top_results, result, limit)
         end
       end
 
+      # Sort by score descending and limit
+      results.sort_by! { |r| -r.score }
+      results = results.first(limit)
+
       # Increment match counts for results found
-      Storage.increment_match_count(db, top_results.map(&.chunk_id))
+      Storage.increment_match_count(db, results.map(&.chunk_id))
 
-      top_results
-    end
-
-    # Mark chunks as read (increment read_count)
-    def mark_as_read(db : DB::Database, chunk_ids : Array(Int64))
-      Storage.increment_read_count(db, chunk_ids)
-    end
-
-    # Calculate cosine similarity between two embeddings
-    #
-    # Returns score between -1.0 and 1.0:
-    # - 1.0 = identical vectors
-    # - 0.0 = orthogonal vectors
-    # - -1.0 = opposite vectors
-    private def cosine_similarity(vec_a : Array(Float64), vec_b : Array(Float64)) : Float64
-      raise "Vector dimensions don't match" if vec_a.size != vec_b.size
-
-      # Compute dot product
-      dot_product = vec_a.zip(vec_b).sum { |a, b| a * b }
-
-      # Compute magnitudes (L2 norms)
-      magnitude_a = Math.sqrt(vec_a.sum { |a| a * a })
-      magnitude_b = Math.sqrt(vec_b.sum { |b| b * b })
-
-      # Avoid division by zero
-      return 0.0 if magnitude_a == 0.0 || magnitude_b == 0.0
-
-      # Compute cosine similarity
-      dot_product / (magnitude_a * magnitude_b)
-    end
-
-    # Insert result into sorted array, maintaining max size
-    #
-    # More memory efficient than sorting entire result set
-    private def insert_sorted(
-      results : Array(Result),
-      new_result : Result,
-      max_size : Int32
-    )
-      # Find insertion point (binary search)
-      insert_idx = results.bsearch_index { |r| r.score < new_result.score } || results.size
-
-      # Insert at position
-      results.insert(insert_idx, new_result)
-
-      # Trim to max size
-      results.pop if results.size > max_size
+      results
     end
   end
 end
