@@ -52,11 +52,11 @@ body {
 }
 
 .hero-box::before {
-  background-image: url('header.png');
+  background-image: url('assets/header.png');
 }
 
 .hero-box::after {
-  background-image: url('header1.png');
+  background-image: url('assets/header1.png');
   animation-delay: -5s;
 }
 
@@ -148,11 +148,13 @@ body {
   font-size: 0.95rem;
 }
 
-.features-icons {
+.section-icon {
   display: block;
-  max-width: 560px;
-  margin: 0 auto 3rem;
+  max-width: 240px;
+  margin: 0 auto 1rem;
   border-radius: 12px;
+  mask-image: radial-gradient(ellipse 60% 60% at center, black 20%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 60% at center, black 20%, transparent 80%);
 }
 
 .features-grid {
