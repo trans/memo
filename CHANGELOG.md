@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-02-09
+
+### Added
+- **`--like` and `--match` flags for `memo search`** - expose SQL LIKE and FTS5 full-text filtering in the CLI
+- **Per-command `--help`** - `memo search --help` now shows command-specific options via Jargon's built-in help
+
 ## [0.8.0] - 2026-02-09
 
 ### Changed

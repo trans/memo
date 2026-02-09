@@ -77,6 +77,8 @@ echo "Document" | memo index --source-type=article --source-id=1
 ```bash
 memo search "semantic search"
 memo search "query" --limit=5 --min-score=0.5
+memo search "query" --like "%pattern%"       # Filter by LIKE pattern
+memo search "query" --match "cats OR dogs"   # Filter by FTS5 full-text search
 ```
 
 **Delete:**
