@@ -108,7 +108,7 @@
 
 <span class="cmt"># Create service with database path</span>
 memo = <span class="type">Memo::Service</span>.new(
-  <span class="sym">db_path:</span> <span class="str">"/var/data/memo.db"</span>,
+  <span class="sym">db_path:</span> <span class="str">"./memo.db"</span>,
   <span class="sym">format:</span>  <span class="str">"openai"</span>,
   <span class="sym">api_key:</span> ENV[<span class="str">"OPENAI_API_KEY"</span>]
 )
