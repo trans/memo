@@ -26,7 +26,7 @@ module Memo::CLI
     cli = Jargon.new("memo")
     cli.subcommand("index", index_cli)
     cli.subcommand("search", Jargon.merge(SEARCH_SCHEMA, GLOBAL_SCHEMA))
-    cli.subcommand("like", Jargon.merge(LIKE_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("terms", Jargon.merge(TERMS_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("build-vocab", Jargon.merge(BUILD_VOCAB_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("delete", Jargon.merge(DELETE_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("stats", Jargon.merge(STATS_SCHEMA, GLOBAL_SCHEMA))
@@ -97,7 +97,7 @@ module Memo::CLI
       ensure
         db.close
       end
-    when "index text", "index dir", "search", "like", "build-vocab", "delete", "stats"
+    when "index text", "index dir", "search", "terms", "build-vocab", "delete", "stats"
       memo = Memo::Service.new(
         db_path: db_path,
         service: service_name,
@@ -109,7 +109,7 @@ module Memo::CLI
         when "index text"  then Commands::IndexText.run(memo, input, json_output)
         when "index dir"   then Commands::IndexDir.run(memo, input, json_output)
         when "search"      then Commands::Search.run(memo, input, json_output)
-        when "like"        then Commands::Like.run(memo, input, json_output)
+        when "terms"       then Commands::Terms.run(memo, input, json_output)
         when "build-vocab" then Commands::BuildVocab.run(memo, input, json_output)
         when "delete"      then Commands::Delete.run(memo, input, json_output)
         when "stats"       then Commands::Stats.run(memo, input, json_output)
@@ -137,7 +137,7 @@ module Memo::CLI
       index text    Index text content
       index dir     Index files from directory
       search        Search indexed content
-      like          Find similar words
+      terms         Find similar words
       build-vocab   Build vocabulary from indexed content
       delete        Delete indexed content
       stats         Show statistics

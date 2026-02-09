@@ -91,10 +91,10 @@ memo stats
 
 **Find similar words:**
 
-Vocabulary is built automatically during indexing. Just use `like`:
+Vocabulary is built automatically during indexing. Just use `terms`:
 
 ```bash
-memo like "database"
+memo terms "database"
 # 0.70  data
 # 0.70  databases
 # 0.57  sqlite

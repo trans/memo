@@ -53,7 +53,7 @@ module Memo::CLI
     "properties": {}
   })
 
-  LIKE_SCHEMA = %({
+  TERMS_SCHEMA = %({
     "type": "object",
     "positional": ["query"],
     "properties": {

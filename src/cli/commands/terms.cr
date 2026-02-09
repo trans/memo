@@ -1,4 +1,4 @@
-module Memo::CLI::Commands::Like
+module Memo::CLI::Commands::Terms
   extend self
 
   def run(memo : Memo::Service, input : Hash(String, JSON::Any), json : Bool)
