@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Crystal Docs 1.19.1">
+<meta name="crystal_docs.project_version" content="main-dev">
+<meta name="crystal_docs.project_name" content="memo">
+
+
+
+<link href="css/style.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript" src="js/doc.js"></script>
+
+  <meta name="repository-name" content="memo">
+  <title>memo main-dev</title>
+  <script type="text/javascript">
+  CrystalDocs.base_path = "";
+  </script>
+</head>
+<body>
+
+<svg class="hidden">
+  <symbol id="octicon-link" viewBox="0 0 16 16">
+    <path fill="currentColor" fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path>
+  </symbol>
+</svg>
+<input type="checkbox" id="sidebar-btn">
+<label for="sidebar-btn" id="sidebar-btn-label">
+  <svg class="open" xmlns="http://www.w3.org/2000/svg" height="2em" width="2em" viewBox="0 0 512 512"><title>Open Sidebar</title><path fill="currentColor" d="M80 96v64h352V96H80zm0 112v64h352v-64H80zm0 112v64h352v-64H80z"></path></svg>
+  <svg class="close" xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 512 512"><title>Close Sidebar</title><path fill="currentColor" d="m118.6 73.4-45.2 45.2L210.7 256 73.4 393.4l45.2 45.2L256 301.3l137.4 137.3 45.2-45.2L301.3 256l137.3-137.4-45.2-45.2L256 210.7Z"></path></svg>
+</label>
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="search-box">
+      <input type="search" class="search-input" placeholder="Search..." spellcheck="false" aria-label="Search">
+    </div>
+
+    <div class="project-summary">
+      <h1 class="project-name">
+        <a href="index.html">
+          memo
+        </a>
+      </h1>
+
+      <span class="project-version">
+        main-dev
+      </span>
+    </div>
+  </div>
+
+  <div class="search-results hidden">
+    <ul class="search-list"></ul>
+  </div>
+
+  <div class="types-list">
+    <ul>
+  
+  <li class="parent " data-id="memo/Memo" data-name="memo">
+      <a href="Memo.html">Memo</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Chunking" data-name="memo::chunking">
+      <a href="Memo/Chunking.html">Chunking</a>
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/CLI" data-name="memo::cli">
+      <a href="Memo/CLI.html">CLI</a>
+      
+        <ul>
+  
+  <li class="parent " data-id="memo/Memo/CLI/Commands" data-name="memo::cli::commands">
+      <a href="Memo/CLI/Commands.html">Commands</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/BuildVocab" data-name="memo::cli::commands::buildvocab">
+      <a href="Memo/CLI/Commands/BuildVocab.html">BuildVocab</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Delete" data-name="memo::cli::commands::delete">
+      <a href="Memo/CLI/Commands/Delete.html">Delete</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/IndexFiles" data-name="memo::cli::commands::indexfiles">
+      <a href="Memo/CLI/Commands/IndexFiles.html">IndexFiles</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/IndexText" data-name="memo::cli::commands::indextext">
+      <a href="Memo/CLI/Commands/IndexText.html">IndexText</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Search" data-name="memo::cli::commands::search">
+      <a href="Memo/CLI/Commands/Search.html">Search</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceCreate" data-name="memo::cli::commands::servicecreate">
+      <a href="Memo/CLI/Commands/ServiceCreate.html">ServiceCreate</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceDelete" data-name="memo::cli::commands::servicedelete">
+      <a href="Memo/CLI/Commands/ServiceDelete.html">ServiceDelete</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Services" data-name="memo::cli::commands::services">
+      <a href="Memo/CLI/Commands/Services.html">Services</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceUse" data-name="memo::cli::commands::serviceuse">
+      <a href="Memo/CLI/Commands/ServiceUse.html">ServiceUse</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Stats" data-name="memo::cli::commands::stats">
+      <a href="Memo/CLI/Commands/Stats.html">Stats</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Terms" data-name="memo::cli::commands::terms">
+      <a href="Memo/CLI/Commands/Terms.html">Terms</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Input" data-name="memo::cli::input">
+      <a href="Memo/CLI/Input.html">Input</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Clustering" data-name="memo::clustering">
+      <a href="Memo/Clustering.html">Clustering</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Clustering/Cluster" data-name="memo::clustering::cluster">
+      <a href="Memo/Clustering/Cluster.html">Cluster</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Config" data-name="memo::config">
+      <a href="Memo/Config.html">Config</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Config/Chunking" data-name="memo::config::chunking">
+      <a href="Memo/Config/Chunking.html">Chunking</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/EmbeddingService" data-name="memo::config::embeddingservice">
+      <a href="Memo/Config/EmbeddingService.html">EmbeddingService</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/Queue" data-name="memo::config::queue">
+      <a href="Memo/Config/Queue.html">Queue</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/Search" data-name="memo::config::search">
+      <a href="Memo/Config/Search.html">Search</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Database" data-name="memo::database">
+      <a href="Memo/Database.html">Database</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Document" data-name="memo::document">
+      <a href="Memo/Document.html">Document</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/ExternalId" data-name="memo::externalid">
+      <a href="Memo/ExternalId.html">ExternalId</a>
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Files" data-name="memo::files">
+      <a href="Memo/Files.html">Files</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Files/FileInfo" data-name="memo::files::fileinfo">
+      <a href="Memo/Files/FileInfo.html">FileInfo</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Files/FileRecord" data-name="memo::files::filerecord">
+      <a href="Memo/Files/FileRecord.html">FileRecord</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Providers" data-name="memo::providers">
+      <a href="Memo/Providers.html">Providers</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Providers/Base" data-name="memo::providers::base">
+      <a href="Memo/Providers/Base.html">Base</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/EmbedResult" data-name="memo::providers::embedresult">
+      <a href="Memo/Providers/EmbedResult.html">EmbedResult</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Mock" data-name="memo::providers::mock">
+      <a href="Memo/Providers/Mock.html">Mock</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/OpenAI" data-name="memo::providers::openai">
+      <a href="Memo/Providers/OpenAI.html">OpenAI</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Registry" data-name="memo::providers::registry">
+      <a href="Memo/Providers/Registry.html">Registry</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Voyage" data-name="memo::providers::voyage">
+      <a href="Memo/Providers/Voyage.html">Voyage</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/RRF" data-name="memo::rrf">
+      <a href="Memo/RRF.html">RRF</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/RRF/Item" data-name="memo::rrf::item">
+      <a href="Memo/RRF/Item.html">Item</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Search" data-name="memo::search">
+      <a href="Memo/Search.html">Search</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Search/Filters" data-name="memo::search::filters">
+      <a href="Memo/Search/Filters.html">Filters</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Search/Result" data-name="memo::search::result">
+      <a href="Memo/Search/Result.html">Result</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Service" data-name="memo::service">
+      <a href="Memo/Service.html">Service</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Service/QueueStats" data-name="memo::service::queuestats">
+      <a href="Memo/Service/QueueStats.html">QueueStats</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/ServiceProvider" data-name="memo::serviceprovider">
+      <a href="Memo/ServiceProvider.html">ServiceProvider</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/ServiceProvider/Info" data-name="memo::serviceprovider::info">
+      <a href="Memo/ServiceProvider/Info.html">Info</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/ServiceProvider/Stats" data-name="memo::serviceprovider::stats">
+      <a href="Memo/ServiceProvider/Stats.html">Stats</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/SourceRegistry" data-name="memo::sourceregistry">
+      <a href="Memo/SourceRegistry.html">SourceRegistry</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Stats" data-name="memo::stats">
+      <a href="Memo/Stats.html">Stats</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Storage" data-name="memo::storage">
+      <a href="Memo/Storage.html">Storage</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/USearchIndex" data-name="memo::usearchindex">
+      <a href="Memo/USearchIndex.html">USearchIndex</a>
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Vocab" data-name="memo::vocab">
+      <a href="Memo/Vocab.html">Vocab</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Vocab/Result" data-name="memo::vocab::result">
+      <a href="Memo/Vocab/Result.html">Result</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Vocab/WordFrequency" data-name="memo::vocab::wordfrequency">
+      <a href="Memo/Vocab/WordFrequency.html">WordFrequency</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+</ul>
+
+  </div>
+</div>
+
+
+<div class="main-content">
+<h1><a id="memo" class="anchor" href="#memo">  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Memo</h1>
+<p>Semantic search and vector storage library for Crystal.</p>
+<h2><a id="features" class="anchor" href="#features">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Features</h2>
+<ul>
+<li><strong>CLI tool</strong> - Index, search, and manage from the command line</li>
+<li><strong>Text chunking</strong> - Smart segmentation into optimal-sized pieces</li>
+<li><strong>Embedding storage</strong> - Deduplication by content hash</li>
+<li><strong>HNSW search</strong> - Fast approximate nearest neighbor via USearch</li>
+<li><strong>Text storage</strong> - Optional persistent text with LIKE and FTS5 full-text search</li>
+</ul>
+<h2><a id="installation" class="anchor" href="#installation">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Installation</h2>
+<p>Add to your <code>shard.yml</code>:</p>
+<pre><code class="language-yaml">dependencies:
+  memo:
+    github: trans/memo</code></pre>
+<p>Then run <code>shards install</code>.</p>
+<h2><a id="cli" class="anchor" href="#cli">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>CLI</h2>
+<p>Build the CLI:</p>
+<pre><code class="language-bash">shards build</code></pre>
+<h3><a id="environment-variables" class="anchor" href="#environment-variables">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Environment Variables</h3>
+<p>The CLI reads API keys from environment variables:</p>
+<pre><code class="language-bash">export MEMO_API_KEY=sk-...      # Primary
+export OPENAI_API_KEY=sk-...    # Fallback
+export VOYAGE_API_KEY=pa-...    # Fallback</code></pre>
+<h3><a id="global-options" class="anchor" href="#global-options">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Global Options</h3>
+<pre><code class="language-crystal">-d, --db=PATH       Database path (default: memo.db)
+-s, --service=NAME  Service name (default: openai)
+-k, --api-key=KEY   API key (overrides environment variables)
+-j, --json          Output as JSON (default: human-readable)
+    --no-vocab      Disable vocabulary building during index
+-h, --help          Show help
+-v, --version       Show version</code></pre>
+<h3><a id="commands" class="anchor" href="#commands">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Commands</h3>
+<p><strong>Index files:</strong></p>
+<pre><code class="language-bash">memo index file1.cr file2.cr       # Index specific files
+memo index src/*.cr                # Index files matching a glob
+memo index -r .                    # Recursively index current directory
+memo index -r /path/to/project     # Recursively index specific path
+memo index -r . --dry-run          # Preview without indexing
+memo index -r . --full             # Force re-index all files</code></pre>
+<p><strong>Index text from stdin:</strong></p>
+<pre><code class="language-bash">echo &quot;Your document text&quot; | memo index
+echo &quot;Document&quot; | memo index --source-type=article --source-id=1</code></pre>
+<p><strong>Search:</strong></p>
+<pre><code class="language-bash">memo search &quot;semantic search&quot;
+memo search &quot;query&quot; --limit=5 --min-score=0.5
+memo search &quot;query&quot; --like &quot;%pattern%&quot;       # Filter by LIKE pattern
+memo search &quot;query&quot; --match &quot;cats OR dogs&quot;   # Filter by FTS5 full-text search</code></pre>
+<p><strong>Delete:</strong></p>
+<pre><code class="language-bash">memo delete source-id=1</code></pre>
+<p><strong>Stats:</strong></p>
+<pre><code class="language-bash">memo stats</code></pre>
+<p><strong>Find similar words:</strong></p>
+<p>Vocabulary is built automatically during indexing. Just use <code>terms</code>:</p>
+<pre><code class="language-bash">memo terms &quot;database&quot;
+# 0.70  data
+# 0.70  databases
+# 0.57  sqlite</code></pre>
+<p><strong>Rebuild vocabulary (optional):</strong></p>
+<pre><code class="language-bash">memo build-vocab  # Full rebuild from all indexed texts</code></pre>
+<h3><a id="service-management" class="anchor" href="#service-management">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Service Management</h3>
+<p>List available services:</p>
+<pre><code class="language-bash">memo service list
+memo service           # 'list' is the default</code></pre>
+<p>Set default service:</p>
+<pre><code class="language-bash">memo service use voyage</code></pre>
+<p>Create custom service:</p>
+<pre><code class="language-bash">memo service create name=my-openai format=openai model=text-embedding-3-large dimensions=1024 max-tokens=8191</code></pre>
+<p>Delete service:</p>
+<pre><code class="language-bash">memo service delete my-openai
+memo service delete my-openai force=true  # if service has embeddings</code></pre>
+<h3><a id="json-input" class="anchor" href="#json-input">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>JSON Input</h3>
+<p>Commands accept JSON via stdin with <code>--stdin</code>:</p>
+<pre><code class="language-bash">echo '{&quot;query&quot;:&quot;semantic search&quot;,&quot;limit&quot;:5}' | memo search --stdin</code></pre>
+<h3><a id="json-output" class="anchor" href="#json-output">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>JSON Output</h3>
+<p>Use <code>--json</code> for machine-readable output:</p>
+<pre><code class="language-bash">memo --json search query=&quot;test&quot; | jq '.[] | select(.score &gt; 0.8)'</code></pre>
+<h2><a id="quick-start-library" class="anchor" href="#quick-start-library">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Quick Start (Library)</h2>
+<pre><code class="language-crystal"><span class="k">require</span> <span class="s">&quot;memo&quot;</span>
+
+<span class="c"># Create service with database path</span>
+memo <span class="o">=</span> <span class="t">Memo</span><span class="t">::</span><span class="t">Service</span>.new(
+  db_path: <span class="s">&quot;/var/data/memo.db&quot;</span>,
+  format: <span class="s">&quot;openai&quot;</span>,
+  api_key: <span class="t">ENV</span>[<span class="s">&quot;OPENAI_API_KEY&quot;</span>]
+)
+
+<span class="c"># Index a document</span>
+memo.index(
+  source_type: <span class="s">&quot;article&quot;</span>,
+  source_id: <span class="n">42_i64</span>,
+  text: <span class="s">&quot;Your document text here...&quot;</span>
+)
+
+<span class="c"># Search</span>
+results <span class="o">=</span> memo.search(query: <span class="s">&quot;search query&quot;</span>, limit: <span class="n">10</span>)
+results.each <span class="k">do</span> <span class="o">|</span>r<span class="o">|</span>
+  puts <span class="s">&quot;</span><span class="i">#{</span>r.source_type<span class="i">}</span><span class="s">:</span><span class="i">#{</span>r.source_id<span class="i">}</span><span class="s"> (score: </span><span class="i">#{</span>r.score<span class="i">}</span><span class="s">)&quot;</span>
+<span class="k">end</span>
+
+<span class="c"># Clean up</span>
+memo.close</code></pre>
+<h2><a id="api" class="anchor" href="#api">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>API</h2>
+<h3><a id="memoservice" class="anchor" href="#memoservice">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a><code><a href="Memo/Service.html">Memo::Service</a></code></h3>
+<p>The main API. Handles database lifecycle, chunking, and embeddings.</p>
+<h4><a id="initialization" class="anchor" href="#initialization">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Initialization</h4>
+<pre><code class="language-crystal">memo <span class="o">=</span> <span class="t">Memo</span><span class="t">::</span><span class="t">Service</span>.new(
+  db_path: <span class="s">&quot;/var/data/memo.db&quot;</span>,  <span class="c"># Path to database file</span>
+  format: <span class="s">&quot;openai&quot;</span>,              <span class="c"># API format (&quot;openai&quot;, &quot;voyage&quot;, &quot;mock&quot;)</span>
+  api_key: <span class="s">&quot;sk-...&quot;</span>,             <span class="c"># API key for provider</span>
+  model: <span class="n">nil</span>,                    <span class="c"># Optional: override default model</span>
+  dimensions: <span class="n">nil</span>,               <span class="c"># Optional: embedding dimensions (provider default)</span>
+  store_text: <span class="n">true</span>,              <span class="c"># Optional: enable text storage (default true)</span>
+  chunking_max_tokens: <span class="n">2000</span>      <span class="c"># Optional: max tokens per chunk</span>
+)</code></pre>
+<p>For smaller embeddings (faster search, less storage):</p>
+<pre><code class="language-crystal">memo <span class="o">=</span> <span class="t">Memo</span><span class="t">::</span><span class="t">Service</span>.new(
+  db_path: <span class="s">&quot;/var/data/memo.db&quot;</span>,
+  format: <span class="s">&quot;openai&quot;</span>,
+  api_key: key,
+  model: <span class="s">&quot;text-embedding-3-large&quot;</span>,
+  dimensions: <span class="n">1024</span>  <span class="c"># Reduced from 3072 default</span>
+)</code></pre>
+<h4><a id="indexing" class="anchor" href="#indexing">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Indexing</h4>
+<pre><code class="language-crystal"><span class="c"># Index single document</span>
+memo.index(
+  source_type: <span class="s">&quot;article&quot;</span>,
+  source_id: <span class="n">123_i64</span>,
+  text: <span class="s">&quot;Long text to index...&quot;</span>,
+  pair_id: <span class="n">nil</span>,      <span class="c"># Optional: related source</span>
+  parent_id: <span class="n">nil</span>     <span class="c"># Optional: hierarchical parent</span>
+)
+
+<span class="c"># Index with Document struct</span>
+doc <span class="o">=</span> <span class="t">Memo</span><span class="t">::</span><span class="t">Document</span>.new(
+  source_type: <span class="s">&quot;article&quot;</span>,
+  source_id: <span class="n">123_i64</span>,
+  text: <span class="s">&quot;Document text...&quot;</span>
+)
+memo.index(doc)
+
+<span class="c"># Batch indexing (more efficient)</span>
+docs <span class="o">=</span> [
+  <span class="t">Memo</span><span class="t">::</span><span class="t">Document</span>.new(source_type: <span class="s">&quot;article&quot;</span>, source_id: <span class="n">1_i64</span>, text: <span class="s">&quot;First...&quot;</span>),
+  <span class="t">Memo</span><span class="t">::</span><span class="t">Document</span>.new(source_type: <span class="s">&quot;article&quot;</span>, source_id: <span class="n">2_i64</span>, text: <span class="s">&quot;Second...&quot;</span>),
+]
+memo.index_batch(docs)</code></pre>
+<h4><a id="search" class="anchor" href="#search">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Search</h4>
+<pre><code class="language-crystal">results <span class="o">=</span> memo.search(
+  query: <span class="s">&quot;search query&quot;</span>,
+  limit: <span class="n">10</span>,
+  min_score: <span class="n">0.7</span>,
+  source_type: <span class="n">nil</span>,    <span class="c"># Optional: filter by type</span>
+  source_id: <span class="n">nil</span>,      <span class="c"># Optional: filter by ID</span>
+  pair_id: <span class="n">nil</span>,        <span class="c"># Optional: filter by pair</span>
+  parent_id: <span class="n">nil</span>,      <span class="c"># Optional: filter by parent</span>
+  like: <span class="n">nil</span>,           <span class="c"># Optional: LIKE pattern(s) for text filtering</span>
+  match: <span class="n">nil</span>,          <span class="c"># Optional: FTS5 full-text search query</span>
+  sql_where: <span class="n">nil</span>,      <span class="c"># Optional: raw SQL WHERE clause</span>
+  include_text: <span class="n">false</span>  <span class="c"># Optional: include text content in results</span>
+)</code></pre>
+<h4><a id="text-filtering" class="anchor" href="#text-filtering">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Text Filtering</h4>
+<p>When text storage is enabled, you can filter by text content:</p>
+<pre><code class="language-crystal"># LIKE pattern (single)
+results = memo.search(query: &quot;cats&quot;, like: &quot;%kitten%&quot;)
+
+# LIKE patterns (AND logic)
+results = memo.search(query: &quot;pets&quot;, like: [&quot;%cat%&quot;, &quot;%dog%&quot;])
+
+# FTS5 full-text search
+results = memo.search(query: &quot;animals&quot;, match: &quot;cats OR dogs&quot;)
+results = memo.search(query: &quot;animals&quot;, match: &quot;quick brown*&quot;)  # prefix
+results = memo.search(query: &quot;animals&quot;, match: &#39;&quot;exact phrase&quot;&#39;)
+
+# Include text in results
+results = memo.search(query: &quot;cats&quot;, include_text: true)
+results.each { |r| puts r.text }</code></pre>
+<h4><a id="queue-operations" class="anchor" href="#queue-operations">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Queue Operations</h4>
+<p>All indexing goes through an embed queue with automatic retry support:</p>
+<pre><code class="language-crystal"><span class="c"># Check queue status</span>
+stats <span class="o">=</span> memo.queue_stats
+puts <span class="s">&quot;Pending: </span><span class="i">#{</span>stats[<span class="n">:pending</span>]<span class="i">}</span><span class="s">, Failed: </span><span class="i">#{</span>stats[<span class="n">:failed</span>]<span class="i">}</span><span class="s">&quot;</span>
+
+<span class="c"># Process any pending/failed items in queue</span>
+memo.process_queue
+
+<span class="c"># Process queue in background (non-blocking)</span>
+memo.process_queue_async
+
+<span class="c"># Re-index all documents of a type (requires text storage)</span>
+memo.reindex(<span class="s">&quot;article&quot;</span>)
+
+<span class="c"># Re-index with custom text provider (no text storage needed)</span>
+memo.reindex(<span class="s">&quot;article&quot;</span>) <span class="k">do</span> <span class="o">|</span>source_id<span class="o">|</span>
+  <span class="t">Article</span>.find(source_id).content  <span class="c"># Your app provides text</span>
+<span class="k">end</span>
+
+<span class="c"># Clear completed items from queue</span>
+memo.clear_completed_queue
+
+<span class="c"># Clear entire queue (pending, failed, completed)</span>
+memo.clear_queue</code></pre>
+<h4><a id="vocabulary-word-level-similarity" class="anchor" href="#vocabulary-word-level-similarity">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Vocabulary (Word-Level Similarity)</h4>
+<p>Build a vocabulary from indexed content for word-level semantic search:</p>
+<pre><code class="language-crystal"><span class="c"># Build vocabulary from all indexed texts</span>
+memo.build_vocab  <span class="c"># =&gt; 1523 (words stored)</span>
+
+<span class="c"># Find words similar to a query</span>
+results <span class="o">=</span> memo.like(<span class="s">&quot;database&quot;</span>)
+results.each <span class="k">do</span> <span class="o">|</span>r<span class="o">|</span>
+  puts <span class="s">&quot;</span><span class="i">#{</span>r.word<span class="i">}</span><span class="s">: </span><span class="i">#{</span>r.score<span class="i">}</span><span class="s"> (freq: </span><span class="i">#{</span>r.frequency<span class="i">}</span><span class="s">)&quot;</span>
+<span class="k">end</span>
+<span class="c"># data: 0.70 (freq: 5)</span>
+<span class="c"># databases: 0.70 (freq: 2)</span>
+<span class="c"># sqlite: 0.57 (freq: 1)</span>
+
+<span class="c"># Get vocabulary size</span>
+memo.vocab_stats  <span class="c"># =&gt; 1523</span>
+
+<span class="c"># Clear vocabulary</span>
+memo.clear_vocab</code></pre>
+<h4><a id="other-operations" class="anchor" href="#other-operations">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Other Operations</h4>
+<pre><code class="language-crystal"><span class="c"># Get statistics</span>
+stats <span class="o">=</span> memo.stats
+puts <span class="s">&quot;Embeddings: </span><span class="i">#{</span>stats.embeddings<span class="i">}</span><span class="s">, Chunks: </span><span class="i">#{</span>stats.chunks<span class="i">}</span><span class="s">, Sources: </span><span class="i">#{</span>stats.sources<span class="i">}</span><span class="s">&quot;</span>
+
+<span class="c"># Delete by source</span>
+memo.delete(source_id: <span class="n">123_i64</span>)
+memo.delete(source_id: <span class="n">123_i64</span>, source_type: <span class="s">&quot;article&quot;</span>)  <span class="c"># More specific</span>
+
+<span class="c"># Mark chunks as read</span>
+memo.mark_as_read(chunk_ids: [<span class="n">1_i64</span>, <span class="n">2_i64</span>])
+
+<span class="c"># Close connection</span>
+memo.close</code></pre>
+<h3><a id="search-results" class="anchor" href="#search-results">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Search Results</h3>
+<pre><code class="language-crystal"><span class="k">struct</span> <span class="t">Memo</span><span class="t">::</span><span class="t">Search</span><span class="t">::</span><span class="t">Result</span>
+  getter chunk_id : <span class="t">Int64</span>
+  getter source_type : <span class="t">String</span>
+  getter source_id : <span class="t">Int64</span>
+  getter score : <span class="t">Float64</span>
+  getter pair_id : <span class="t">Int64</span>?
+  getter parent_id : <span class="t">Int64</span>?
+  getter text : <span class="t">String</span>?  <span class="c"># When include_text: true</span>
+<span class="k">end</span></code></pre>
+<h2><a id="storage" class="anchor" href="#storage">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Storage</h2>
+<p>Memo stores data in a SQLite file at the specified <code>db_path</code> plus USearch index files alongside it:</p>
+<ul>
+<li><strong>SQLite</strong>: Services, embeddings registry, chunks, texts, and queue</li>
+<li><strong>USearch</strong>: HNSW index files (one per service, e.g. <code>openai--text-embedding-3-small--1536.usearch</code>)</li>
+</ul>
+<p>Vectors are stored in USearch HNSW indexes for fast approximate nearest neighbor search.
+The SQLite embeddings table serves as a deduplication registry (content hash tracking).</p>
+<p>Text storage can be disabled with <code>store_text: false</code> if you prefer to manage text separately.</p>
+<h2><a id="providers" class="anchor" href="#providers">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Providers</h2>
+<p>Currently supported:</p>
+<ul>
+<li><code>openai</code> - OpenAI text-embedding-3-small (default), text-embedding-3-large</li>
+<li><code>voyage</code> - Voyage AI voyage-3 (default), voyage-3-lite, voyage-code-3</li>
+<li><code>mock</code> - Deterministic embeddings for testing</li>
+</ul>
+<h2><a id="architecture" class="anchor" href="#architecture">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Architecture</h2>
+<p>See <a href="DESIGN.md">DESIGN.md</a> for detailed architecture documentation.</p>
+<h2><a id="license" class="anchor" href="#license">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>License</h2>
+<p>MIT</p>
+</div>
+</body>
+</html>

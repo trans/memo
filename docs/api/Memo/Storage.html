@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Crystal Docs 1.19.1">
+<meta name="crystal_docs.project_version" content="main-dev">
+<meta name="crystal_docs.project_name" content="memo">
+
+
+
+<link href="../css/style.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript" src="../js/doc.js"></script>
+
+  <meta name="repository-name" content="memo">
+  <title>Memo::Storage - memo main-dev</title>
+  <script type="text/javascript">
+    CrystalDocs.base_path = "../";
+  </script>
+</head>
+<body>
+
+<svg class="hidden">
+  <symbol id="octicon-link" viewBox="0 0 16 16">
+    <path fill="currentColor" fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path>
+  </symbol>
+</svg>
+<input type="checkbox" id="sidebar-btn">
+<label for="sidebar-btn" id="sidebar-btn-label">
+  <svg class="open" xmlns="http://www.w3.org/2000/svg" height="2em" width="2em" viewBox="0 0 512 512"><title>Open Sidebar</title><path fill="currentColor" d="M80 96v64h352V96H80zm0 112v64h352v-64H80zm0 112v64h352v-64H80z"></path></svg>
+  <svg class="close" xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 512 512"><title>Close Sidebar</title><path fill="currentColor" d="m118.6 73.4-45.2 45.2L210.7 256 73.4 393.4l45.2 45.2L256 301.3l137.4 137.3 45.2-45.2L301.3 256l137.3-137.4-45.2-45.2L256 210.7Z"></path></svg>
+</label>
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="search-box">
+      <input type="search" class="search-input" placeholder="Search..." spellcheck="false" aria-label="Search">
+    </div>
+
+    <div class="project-summary">
+      <h1 class="project-name">
+        <a href="../index.html">
+          memo
+        </a>
+      </h1>
+
+      <span class="project-version">
+        main-dev
+      </span>
+    </div>
+  </div>
+
+  <div class="search-results hidden">
+    <ul class="search-list"></ul>
+  </div>
+
+  <div class="types-list">
+    <ul>
+  
+  <li class="parent open current" data-id="memo/Memo" data-name="memo">
+      <a href="../Memo.html">Memo</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Chunking" data-name="memo::chunking">
+      <a href="../Memo/Chunking.html">Chunking</a>
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/CLI" data-name="memo::cli">
+      <a href="../Memo/CLI.html">CLI</a>
+      
+        <ul>
+  
+  <li class="parent " data-id="memo/Memo/CLI/Commands" data-name="memo::cli::commands">
+      <a href="../Memo/CLI/Commands.html">Commands</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/BuildVocab" data-name="memo::cli::commands::buildvocab">
+      <a href="../Memo/CLI/Commands/BuildVocab.html">BuildVocab</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Delete" data-name="memo::cli::commands::delete">
+      <a href="../Memo/CLI/Commands/Delete.html">Delete</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/IndexFiles" data-name="memo::cli::commands::indexfiles">
+      <a href="../Memo/CLI/Commands/IndexFiles.html">IndexFiles</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/IndexText" data-name="memo::cli::commands::indextext">
+      <a href="../Memo/CLI/Commands/IndexText.html">IndexText</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Search" data-name="memo::cli::commands::search">
+      <a href="../Memo/CLI/Commands/Search.html">Search</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceCreate" data-name="memo::cli::commands::servicecreate">
+      <a href="../Memo/CLI/Commands/ServiceCreate.html">ServiceCreate</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceDelete" data-name="memo::cli::commands::servicedelete">
+      <a href="../Memo/CLI/Commands/ServiceDelete.html">ServiceDelete</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Services" data-name="memo::cli::commands::services">
+      <a href="../Memo/CLI/Commands/Services.html">Services</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceUse" data-name="memo::cli::commands::serviceuse">
+      <a href="../Memo/CLI/Commands/ServiceUse.html">ServiceUse</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Stats" data-name="memo::cli::commands::stats">
+      <a href="../Memo/CLI/Commands/Stats.html">Stats</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Terms" data-name="memo::cli::commands::terms">
+      <a href="../Memo/CLI/Commands/Terms.html">Terms</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Input" data-name="memo::cli::input">
+      <a href="../Memo/CLI/Input.html">Input</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Clustering" data-name="memo::clustering">
+      <a href="../Memo/Clustering.html">Clustering</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Clustering/Cluster" data-name="memo::clustering::cluster">
+      <a href="../Memo/Clustering/Cluster.html">Cluster</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Config" data-name="memo::config">
+      <a href="../Memo/Config.html">Config</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Config/Chunking" data-name="memo::config::chunking">
+      <a href="../Memo/Config/Chunking.html">Chunking</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/EmbeddingService" data-name="memo::config::embeddingservice">
+      <a href="../Memo/Config/EmbeddingService.html">EmbeddingService</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/Queue" data-name="memo::config::queue">
+      <a href="../Memo/Config/Queue.html">Queue</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/Search" data-name="memo::config::search">
+      <a href="../Memo/Config/Search.html">Search</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Database" data-name="memo::database">
+      <a href="../Memo/Database.html">Database</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Document" data-name="memo::document">
+      <a href="../Memo/Document.html">Document</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/ExternalId" data-name="memo::externalid">
+      <a href="../Memo/ExternalId.html">ExternalId</a>
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Files" data-name="memo::files">
+      <a href="../Memo/Files.html">Files</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Files/FileInfo" data-name="memo::files::fileinfo">
+      <a href="../Memo/Files/FileInfo.html">FileInfo</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Files/FileRecord" data-name="memo::files::filerecord">
+      <a href="../Memo/Files/FileRecord.html">FileRecord</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Providers" data-name="memo::providers">
+      <a href="../Memo/Providers.html">Providers</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Providers/Base" data-name="memo::providers::base">
+      <a href="../Memo/Providers/Base.html">Base</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/EmbedResult" data-name="memo::providers::embedresult">
+      <a href="../Memo/Providers/EmbedResult.html">EmbedResult</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Mock" data-name="memo::providers::mock">
+      <a href="../Memo/Providers/Mock.html">Mock</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/OpenAI" data-name="memo::providers::openai">
+      <a href="../Memo/Providers/OpenAI.html">OpenAI</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Registry" data-name="memo::providers::registry">
+      <a href="../Memo/Providers/Registry.html">Registry</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Voyage" data-name="memo::providers::voyage">
+      <a href="../Memo/Providers/Voyage.html">Voyage</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/RRF" data-name="memo::rrf">
+      <a href="../Memo/RRF.html">RRF</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/RRF/Item" data-name="memo::rrf::item">
+      <a href="../Memo/RRF/Item.html">Item</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Search" data-name="memo::search">
+      <a href="../Memo/Search.html">Search</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Search/Filters" data-name="memo::search::filters">
+      <a href="../Memo/Search/Filters.html">Filters</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Search/Result" data-name="memo::search::result">
+      <a href="../Memo/Search/Result.html">Result</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Service" data-name="memo::service">
+      <a href="../Memo/Service.html">Service</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Service/QueueStats" data-name="memo::service::queuestats">
+      <a href="../Memo/Service/QueueStats.html">QueueStats</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/ServiceProvider" data-name="memo::serviceprovider">
+      <a href="../Memo/ServiceProvider.html">ServiceProvider</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/ServiceProvider/Info" data-name="memo::serviceprovider::info">
+      <a href="../Memo/ServiceProvider/Info.html">Info</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/ServiceProvider/Stats" data-name="memo::serviceprovider::stats">
+      <a href="../Memo/ServiceProvider/Stats.html">Stats</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/SourceRegistry" data-name="memo::sourceregistry">
+      <a href="../Memo/SourceRegistry.html">SourceRegistry</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Stats" data-name="memo::stats">
+      <a href="../Memo/Stats.html">Stats</a>
+      
+    </li>
+  
+  <li class=" current" data-id="memo/Memo/Storage" data-name="memo::storage">
+      <a href="../Memo/Storage.html">Storage</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/USearchIndex" data-name="memo::usearchindex">
+      <a href="../Memo/USearchIndex.html">USearchIndex</a>
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Vocab" data-name="memo::vocab">
+      <a href="../Memo/Vocab.html">Vocab</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Vocab/Result" data-name="memo::vocab::result">
+      <a href="../Memo/Vocab/Result.html">Result</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Vocab/WordFrequency" data-name="memo::vocab::wordfrequency">
+      <a href="../Memo/Vocab/WordFrequency.html">WordFrequency</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+</ul>
+
+  </div>
+</div>
+
+
+<div class="main-content">
+<h1 class="type-name">
+
+  <span class="kind">
+    module
+  </span> Memo::<wbr>Storage
+
+</h1>
+
+
+
+
+
+  <h2>
+    <a id="overview" class="anchor" href="#overview">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Overview
+  </h2>
+
+  <p>Low-level storage operations for embeddings and chunks</p>
+
+
+
+
+
+
+
+
+
+  <h2>
+    <a id="extended-modules" class="anchor" href="#extended-modules">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Extended Modules
+  </h2>
+  <ul class="other-types-list">
+    
+      <li class="other-type"><a href="../Memo/Storage.html">Memo::Storage</a></li>
+    
+  </ul>
+
+
+
+
+
+
+
+
+  <h2>
+    <a id="defined-in" class="anchor" href="#defined-in">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Defined in:
+  </h2>
+  
+    
+      memo/storage.cr
+    
+    <br/>
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <h2>
+    <a id="instance-method-summary" class="anchor" href="#instance-method-summary">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Instance Method Summary
+  </h2>
+  <ul class="list-summary">
+    
+      <li class="entry-summary">
+        <a href="#compute_hash%28text%3AString%29%3ABytes-instance-method" class="signature"><strong>#compute_hash</strong>(text : String) : Bytes</a>
+        
+          <div class="summary"><p>Compute SHA256 hash for text content</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#create_chunk%28db%3ADB%3A%3ADatabase%2Chash%3ABytes%2Csource_type%3AString%2Csource_id%3AInt64%2Coffset%3AInt32%7CNil%2Csize%3AInt32%2Cpair_id%3AInt64%7CNil%3Dnil%2Cparent_id%3AInt64%7CNil%3Dnil%29%3AInt64-instance-method" class="signature"><strong>#create_chunk</strong>(db : DB::Database, hash : Bytes, source_type : String, source_id : Int64, offset : Int32 | Nil, size : Int32, pair_id : Int64 | Nil = <span class="n">nil</span>, parent_id : Int64 | Nil = <span class="n">nil</span>) : Int64</a>
+        
+          <div class="summary"><p>Create chunk reference (or ignore if already exists)</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#deserialize_embedding%28blob%3ABytes%29%3AArray%28Float64%29-instance-method" class="signature"><strong>#deserialize_embedding</strong>(blob : Bytes) : Array(Float64)</a>
+        
+          <div class="summary"><p>Deserialize embedding from binary blob</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_rowid%28db%3ADB%3A%3ADatabase%2Chash%3ABytes%2Cservice_id%3AInt64%29%3AInt64%7CNil-instance-method" class="signature"><strong>#get_rowid</strong>(db : DB::Database, hash : Bytes, service_id : Int64) : Int64 | Nil</a>
+        
+          <div class="summary"><p>Get the rowid of an embedding by hash and service_id.</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_service_by_format_model%28db%3ADB%3A%3ADatabase%2Cformat%3AString%2Cmodel%3AString%29%3ATuple%28Int64%2CString%2CString%7CNil%2CString%2CInt32%2CInt32%2CFloat64%29%7CNil-instance-method" class="signature"><strong>#get_service_by_format_model</strong>(db : DB::Database, format : String, model : String) : Tuple(Int64, String, String | Nil, String, Int32, Int32, Float64) | Nil</a>
+        
+          <div class="summary"><p>Returns service record by format and model, or nil if not found</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_service_by_name%28db%3ADB%3A%3ADatabase%2Cname%3AString%29%3ATuple%28Int64%2CString%2CString%7CNil%2CString%2CInt32%2CInt32%2CFloat64%29%7CNil-instance-method" class="signature"><strong>#get_service_by_name</strong>(db : DB::Database, name : String) : Tuple(Int64, String, String | Nil, String, Int32, Int32, Float64) | Nil</a>
+        
+          <div class="summary"><p>Get service by name</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#increment_match_count%28db%3ADB%3A%3ADatabase%2Cchunk_ids%3AArray%28Int64%29%29-instance-method" class="signature"><strong>#increment_match_count</strong>(db : DB::Database, chunk_ids : Array(Int64))</a>
+        
+          <div class="summary"><p>Increment match_count for chunks</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#increment_read_count%28db%3ADB%3A%3ADatabase%2Cchunk_ids%3AArray%28Int64%29%29-instance-method" class="signature"><strong>#increment_read_count</strong>(db : DB::Database, chunk_ids : Array(Int64))</a>
+        
+          <div class="summary"><p>Increment read_count for chunks</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#register_service%28db%3ADB%3A%3ADatabase%2Cname%3AString%7CNil%2Cformat%3AString%2Cbase_url%3AString%7CNil%2Cmodel%3AString%2Cdimensions%3AInt32%2Cmax_tokens%3AInt32%29%3AInt64-instance-method" class="signature"><strong>#register_service</strong>(db : DB::Database, name : String | Nil, format : String, base_url : String | Nil, model : String, dimensions : Int32, max_tokens : Int32) : Int64</a>
+        
+          <div class="summary"><p>Register or get existing service by name</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#serialize_embedding%28embedding%3AArray%28Float64%29%29%3ABytes-instance-method" class="signature"><strong>#serialize_embedding</strong>(embedding : Array(Float64)) : Bytes</a>
+        
+          <div class="summary"><p>Serialize embedding to binary blob (Int16 for 50% storage reduction)</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#store_embedding%28db%3ADB%3A%3ADatabase%2Chash%3ABytes%2Ctoken_count%3AInt32%2Cservice_id%3AInt64%29%3ATuple%28Bool%2CInt64%29-instance-method" class="signature"><strong>#store_embedding</strong>(db : DB::Database, hash : Bytes, token_count : Int32, service_id : Int64) : Tuple(Bool, Int64)</a>
+        
+          <div class="summary"><p>Register embedding hash in database (deduplicated by hash + service_id)</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#update_tokens_per_byte%28db%3ADB%3A%3ADatabase%2Cservice_id%3AInt64%2Cobserved_ratio%3AFloat64%29-instance-method" class="signature"><strong>#update_tokens_per_byte</strong>(db : DB::Database, service_id : Int64, observed_ratio : Float64)</a>
+        
+          <div class="summary"><p>Update tokens_per_byte ratio for a service using exponential moving average</p></div>
+        
+      </li>
+    
+  </ul>
+
+
+
+  <div class="methods-inherited">
+    
+  </div>
+
+  
+
+  
+
+  
+
+  
+  <h2>
+    <a id="instance-method-detail" class="anchor" href="#instance-method-detail">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Instance Method Detail
+  </h2>
+  
+    <div class="entry-detail" id="compute_hash(text:String):Bytes-instance-method">
+      <div class="signature">
+        
+        def <strong>compute_hash</strong>(text : String) : Bytes
+
+        <a class="method-permalink" href="#compute_hash%28text%3AString%29%3ABytes-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Compute SHA256 hash for text content</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="create_chunk(db:DB::Database,hash:Bytes,source_type:String,source_id:Int64,offset:Int32|Nil,size:Int32,pair_id:Int64|Nil=nil,parent_id:Int64|Nil=nil):Int64-instance-method">
+      <div class="signature">
+        
+        def <strong>create_chunk</strong>(db : <a href="../DB/Database.html">DB::Database</a>, hash : Bytes, source_type : String, source_id : Int64, offset : Int32 | Nil, size : Int32, pair_id : Int64 | Nil = <span class="n">nil</span>, parent_id : Int64 | Nil = <span class="n">nil</span>) : Int64
+
+        <a class="method-permalink" href="#create_chunk%28db%3ADB%3A%3ADatabase%2Chash%3ABytes%2Csource_type%3AString%2Csource_id%3AInt64%2Coffset%3AInt32%7CNil%2Csize%3AInt32%2Cpair_id%3AInt64%7CNil%3Dnil%2Cparent_id%3AInt64%7CNil%3Dnil%29%3AInt64-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Create chunk reference (or ignore if already exists)</p>
+<p>Links a hash to a source with optional relationships.
+Uses INSERT OR IGNORE to safely handle re-indexing with different services.</p>
+<p>All IDs (source_id, pair_id, parent_id) are internal IDs (FK to sources table).
+source_type is denormalized for fast filtering.</p>
+<p>Returns chunk id if inserted, or 0 if chunk already existed (was ignored)</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="deserialize_embedding(blob:Bytes):Array(Float64)-instance-method">
+      <div class="signature">
+        
+        def <strong>deserialize_embedding</strong>(blob : Bytes) : Array(Float64)
+
+        <a class="method-permalink" href="#deserialize_embedding%28blob%3ABytes%29%3AArray%28Float64%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Deserialize embedding from binary blob</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_rowid(db:DB::Database,hash:Bytes,service_id:Int64):Int64|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>get_rowid</strong>(db : <a href="../DB/Database.html">DB::Database</a>, hash : Bytes, service_id : Int64) : Int64 | Nil
+
+        <a class="method-permalink" href="#get_rowid%28db%3ADB%3A%3ADatabase%2Chash%3ABytes%2Cservice_id%3AInt64%29%3AInt64%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get the rowid of an embedding by hash and service_id.</p>
+<p>Returns nil if not found. Used for USearch key lookup during deletion.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_service_by_format_model(db:DB::Database,format:String,model:String):Tuple(Int64,String,String|Nil,String,Int32,Int32,Float64)|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>get_service_by_format_model</strong>(db : <a href="../DB/Database.html">DB::Database</a>, format : String, model : String) : Tuple(Int64, String, String | Nil, String, Int32, Int32, Float64) | Nil
+
+        <a class="method-permalink" href="#get_service_by_format_model%28db%3ADB%3A%3ADatabase%2Cformat%3AString%2Cmodel%3AString%29%3ATuple%28Int64%2CString%2CString%7CNil%2CString%2CInt32%2CInt32%2CFloat64%29%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Returns service record by format and model, or nil if not found</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_service_by_name(db:DB::Database,name:String):Tuple(Int64,String,String|Nil,String,Int32,Int32,Float64)|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>get_service_by_name</strong>(db : <a href="../DB/Database.html">DB::Database</a>, name : String) : Tuple(Int64, String, String | Nil, String, Int32, Int32, Float64) | Nil
+
+        <a class="method-permalink" href="#get_service_by_name%28db%3ADB%3A%3ADatabase%2Cname%3AString%29%3ATuple%28Int64%2CString%2CString%7CNil%2CString%2CInt32%2CInt32%2CFloat64%29%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get service by name</p>
+<p>Returns service record or nil if not found</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="increment_match_count(db:DB::Database,chunk_ids:Array(Int64))-instance-method">
+      <div class="signature">
+        
+        def <strong>increment_match_count</strong>(db : <a href="../DB/Database.html">DB::Database</a>, chunk_ids : Array(Int64))
+
+        <a class="method-permalink" href="#increment_match_count%28db%3ADB%3A%3ADatabase%2Cchunk_ids%3AArray%28Int64%29%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Increment match_count for chunks</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="increment_read_count(db:DB::Database,chunk_ids:Array(Int64))-instance-method">
+      <div class="signature">
+        
+        def <strong>increment_read_count</strong>(db : <a href="../DB/Database.html">DB::Database</a>, chunk_ids : Array(Int64))
+
+        <a class="method-permalink" href="#increment_read_count%28db%3ADB%3A%3ADatabase%2Cchunk_ids%3AArray%28Int64%29%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Increment read_count for chunks</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="register_service(db:DB::Database,name:String|Nil,format:String,base_url:String|Nil,model:String,dimensions:Int32,max_tokens:Int32):Int64-instance-method">
+      <div class="signature">
+        
+        def <strong>register_service</strong>(db : <a href="../DB/Database.html">DB::Database</a>, name : String | Nil, format : String, base_url : String | Nil, model : String, dimensions : Int32, max_tokens : Int32) : Int64
+
+        <a class="method-permalink" href="#register_service%28db%3ADB%3A%3ADatabase%2Cname%3AString%7CNil%2Cformat%3AString%2Cbase_url%3AString%7CNil%2Cmodel%3AString%2Cdimensions%3AInt32%2Cmax_tokens%3AInt32%29%3AInt64-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Register or get existing service by name</p>
+<p>Returns service_id for the named service configuration.
+If name is nil, auto-generates from &quot;format/model&quot;.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="serialize_embedding(embedding:Array(Float64)):Bytes-instance-method">
+      <div class="signature">
+        
+        def <strong>serialize_embedding</strong>(embedding : Array(Float64)) : Bytes
+
+        <a class="method-permalink" href="#serialize_embedding%28embedding%3AArray%28Float64%29%29%3ABytes-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Serialize embedding to binary blob (Int16 for 50% storage reduction)</p>
+<p>Maps normalized float range [-1, 1] to Int16 range [-32768, 32767].
+Precision loss is ~0.003% for normalized vectors.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="store_embedding(db:DB::Database,hash:Bytes,token_count:Int32,service_id:Int64):Tuple(Bool,Int64)-instance-method">
+      <div class="signature">
+        
+        def <strong>store_embedding</strong>(db : <a href="../DB/Database.html">DB::Database</a>, hash : Bytes, token_count : Int32, service_id : Int64) : Tuple(Bool, Int64)
+
+        <a class="method-permalink" href="#store_embedding%28db%3ADB%3A%3ADatabase%2Chash%3ABytes%2Ctoken_count%3AInt32%2Cservice_id%3AInt64%29%3ATuple%28Bool%2CInt64%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Register embedding hash in database (deduplicated by hash + service_id)</p>
+<p>Vectors are stored in USearch; this table tracks what has been embedded
+for deduplication. The SQLite rowid serves as the USearch key.</p>
+<p>Returns {inserted, rowid} where inserted is true if new, rowid is the USearch key.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="update_tokens_per_byte(db:DB::Database,service_id:Int64,observed_ratio:Float64)-instance-method">
+      <div class="signature">
+        
+        def <strong>update_tokens_per_byte</strong>(db : <a href="../DB/Database.html">DB::Database</a>, service_id : Int64, observed_ratio : Float64)
+
+        <a class="method-permalink" href="#update_tokens_per_byte%28db%3ADB%3A%3ADatabase%2Cservice_id%3AInt64%2Cobserved_ratio%3AFloat64%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Update tokens_per_byte ratio for a service using exponential moving average</p>
+<p>Blends new observation with existing ratio: new = old * 0.9 + observed * 0.1</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+
+
+
+</div>
+
+</body>
+</html>

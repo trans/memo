@@ -1,0 +1,2208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Crystal Docs 1.19.1">
+<meta name="crystal_docs.project_version" content="main-dev">
+<meta name="crystal_docs.project_name" content="memo">
+
+
+
+<link href="../css/style.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript" src="../js/doc.js"></script>
+
+  <meta name="repository-name" content="memo">
+  <title>Memo::Service - memo main-dev</title>
+  <script type="text/javascript">
+    CrystalDocs.base_path = "../";
+  </script>
+</head>
+<body>
+
+<svg class="hidden">
+  <symbol id="octicon-link" viewBox="0 0 16 16">
+    <path fill="currentColor" fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path>
+  </symbol>
+</svg>
+<input type="checkbox" id="sidebar-btn">
+<label for="sidebar-btn" id="sidebar-btn-label">
+  <svg class="open" xmlns="http://www.w3.org/2000/svg" height="2em" width="2em" viewBox="0 0 512 512"><title>Open Sidebar</title><path fill="currentColor" d="M80 96v64h352V96H80zm0 112v64h352v-64H80zm0 112v64h352v-64H80z"></path></svg>
+  <svg class="close" xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 512 512"><title>Close Sidebar</title><path fill="currentColor" d="m118.6 73.4-45.2 45.2L210.7 256 73.4 393.4l45.2 45.2L256 301.3l137.4 137.3 45.2-45.2L301.3 256l137.3-137.4-45.2-45.2L256 210.7Z"></path></svg>
+</label>
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="search-box">
+      <input type="search" class="search-input" placeholder="Search..." spellcheck="false" aria-label="Search">
+    </div>
+
+    <div class="project-summary">
+      <h1 class="project-name">
+        <a href="../index.html">
+          memo
+        </a>
+      </h1>
+
+      <span class="project-version">
+        main-dev
+      </span>
+    </div>
+  </div>
+
+  <div class="search-results hidden">
+    <ul class="search-list"></ul>
+  </div>
+
+  <div class="types-list">
+    <ul>
+  
+  <li class="parent open current" data-id="memo/Memo" data-name="memo">
+      <a href="../Memo.html">Memo</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Chunking" data-name="memo::chunking">
+      <a href="../Memo/Chunking.html">Chunking</a>
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/CLI" data-name="memo::cli">
+      <a href="../Memo/CLI.html">CLI</a>
+      
+        <ul>
+  
+  <li class="parent " data-id="memo/Memo/CLI/Commands" data-name="memo::cli::commands">
+      <a href="../Memo/CLI/Commands.html">Commands</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/BuildVocab" data-name="memo::cli::commands::buildvocab">
+      <a href="../Memo/CLI/Commands/BuildVocab.html">BuildVocab</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Delete" data-name="memo::cli::commands::delete">
+      <a href="../Memo/CLI/Commands/Delete.html">Delete</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/IndexFiles" data-name="memo::cli::commands::indexfiles">
+      <a href="../Memo/CLI/Commands/IndexFiles.html">IndexFiles</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/IndexText" data-name="memo::cli::commands::indextext">
+      <a href="../Memo/CLI/Commands/IndexText.html">IndexText</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Search" data-name="memo::cli::commands::search">
+      <a href="../Memo/CLI/Commands/Search.html">Search</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceCreate" data-name="memo::cli::commands::servicecreate">
+      <a href="../Memo/CLI/Commands/ServiceCreate.html">ServiceCreate</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceDelete" data-name="memo::cli::commands::servicedelete">
+      <a href="../Memo/CLI/Commands/ServiceDelete.html">ServiceDelete</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Services" data-name="memo::cli::commands::services">
+      <a href="../Memo/CLI/Commands/Services.html">Services</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceUse" data-name="memo::cli::commands::serviceuse">
+      <a href="../Memo/CLI/Commands/ServiceUse.html">ServiceUse</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Stats" data-name="memo::cli::commands::stats">
+      <a href="../Memo/CLI/Commands/Stats.html">Stats</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Terms" data-name="memo::cli::commands::terms">
+      <a href="../Memo/CLI/Commands/Terms.html">Terms</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Input" data-name="memo::cli::input">
+      <a href="../Memo/CLI/Input.html">Input</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Clustering" data-name="memo::clustering">
+      <a href="../Memo/Clustering.html">Clustering</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Clustering/Cluster" data-name="memo::clustering::cluster">
+      <a href="../Memo/Clustering/Cluster.html">Cluster</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Config" data-name="memo::config">
+      <a href="../Memo/Config.html">Config</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Config/Chunking" data-name="memo::config::chunking">
+      <a href="../Memo/Config/Chunking.html">Chunking</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/EmbeddingService" data-name="memo::config::embeddingservice">
+      <a href="../Memo/Config/EmbeddingService.html">EmbeddingService</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/Queue" data-name="memo::config::queue">
+      <a href="../Memo/Config/Queue.html">Queue</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/Search" data-name="memo::config::search">
+      <a href="../Memo/Config/Search.html">Search</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Database" data-name="memo::database">
+      <a href="../Memo/Database.html">Database</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Document" data-name="memo::document">
+      <a href="../Memo/Document.html">Document</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/ExternalId" data-name="memo::externalid">
+      <a href="../Memo/ExternalId.html">ExternalId</a>
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Files" data-name="memo::files">
+      <a href="../Memo/Files.html">Files</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Files/FileInfo" data-name="memo::files::fileinfo">
+      <a href="../Memo/Files/FileInfo.html">FileInfo</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Files/FileRecord" data-name="memo::files::filerecord">
+      <a href="../Memo/Files/FileRecord.html">FileRecord</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Providers" data-name="memo::providers">
+      <a href="../Memo/Providers.html">Providers</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Providers/Base" data-name="memo::providers::base">
+      <a href="../Memo/Providers/Base.html">Base</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/EmbedResult" data-name="memo::providers::embedresult">
+      <a href="../Memo/Providers/EmbedResult.html">EmbedResult</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Mock" data-name="memo::providers::mock">
+      <a href="../Memo/Providers/Mock.html">Mock</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/OpenAI" data-name="memo::providers::openai">
+      <a href="../Memo/Providers/OpenAI.html">OpenAI</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Registry" data-name="memo::providers::registry">
+      <a href="../Memo/Providers/Registry.html">Registry</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Voyage" data-name="memo::providers::voyage">
+      <a href="../Memo/Providers/Voyage.html">Voyage</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/RRF" data-name="memo::rrf">
+      <a href="../Memo/RRF.html">RRF</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/RRF/Item" data-name="memo::rrf::item">
+      <a href="../Memo/RRF/Item.html">Item</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Search" data-name="memo::search">
+      <a href="../Memo/Search.html">Search</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Search/Filters" data-name="memo::search::filters">
+      <a href="../Memo/Search/Filters.html">Filters</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Search/Result" data-name="memo::search::result">
+      <a href="../Memo/Search/Result.html">Result</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent open current" data-id="memo/Memo/Service" data-name="memo::service">
+      <a href="../Memo/Service.html">Service</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Service/QueueStats" data-name="memo::service::queuestats">
+      <a href="../Memo/Service/QueueStats.html">QueueStats</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/ServiceProvider" data-name="memo::serviceprovider">
+      <a href="../Memo/ServiceProvider.html">ServiceProvider</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/ServiceProvider/Info" data-name="memo::serviceprovider::info">
+      <a href="../Memo/ServiceProvider/Info.html">Info</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/ServiceProvider/Stats" data-name="memo::serviceprovider::stats">
+      <a href="../Memo/ServiceProvider/Stats.html">Stats</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/SourceRegistry" data-name="memo::sourceregistry">
+      <a href="../Memo/SourceRegistry.html">SourceRegistry</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Stats" data-name="memo::stats">
+      <a href="../Memo/Stats.html">Stats</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Storage" data-name="memo::storage">
+      <a href="../Memo/Storage.html">Storage</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/USearchIndex" data-name="memo::usearchindex">
+      <a href="../Memo/USearchIndex.html">USearchIndex</a>
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Vocab" data-name="memo::vocab">
+      <a href="../Memo/Vocab.html">Vocab</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Vocab/Result" data-name="memo::vocab::result">
+      <a href="../Memo/Vocab/Result.html">Result</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Vocab/WordFrequency" data-name="memo::vocab::wordfrequency">
+      <a href="../Memo/Vocab/WordFrequency.html">WordFrequency</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+</ul>
+
+  </div>
+</div>
+
+
+<div class="main-content">
+<h1 class="type-name">
+
+  <span class="kind">
+    class
+  </span> Memo::<wbr>Service
+
+</h1>
+
+
+  <ul class="superclass-hierarchy"><li class="superclass"><a href="../Memo/Service.html">Memo::Service</a></li><li class="superclass">Reference</li><li class="superclass">Object</li></ul>
+
+
+
+
+  <h2>
+    <a id="overview" class="anchor" href="#overview">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Overview
+  </h2>
+
+  <p>Main service class for semantic search operations</p>
+<p>Encapsulates configuration and provides clean API for indexing and search.</p>
+<h2><a id="quick-start" class="anchor" href="#quick-start">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Quick Start</h2>
+<pre><code class="language-crystal"><span class="c"># Initialize with default service (mock, preloaded)</span>
+memo <span class="o">=</span> <span class="t">Memo</span><span class="t">::</span><span class="t">Service</span>.new(db_path: <span class="s">&quot;/var/data/memo.db&quot;</span>)
+
+<span class="c"># Configure a real service</span>
+memo.create_service(
+  name: <span class="s">&quot;openai&quot;</span>,
+  format: <span class="s">&quot;openai&quot;</span>,
+  model: <span class="s">&quot;text-embedding-3-small&quot;</span>,
+  dimensions: <span class="n">1536</span>,
+  max_tokens: <span class="n">8191</span>
+)
+memo.set_default_service(<span class="s">&quot;openai&quot;</span>)
+
+<span class="c"># Switch to it</span>
+memo.use_service(<span class="s">&quot;openai&quot;</span>, api_key: <span class="t">ENV</span>[<span class="s">&quot;OPENAI_API_KEY&quot;</span>])
+
+<span class="c"># Index documents</span>
+memo.index(source_type: <span class="s">&quot;event&quot;</span>, source_id: <span class="n">123</span>, text: <span class="s">&quot;Document text...&quot;</span>)
+
+<span class="c"># Search</span>
+results <span class="o">=</span> memo.search(query: <span class="s">&quot;search query&quot;</span>, limit: <span class="n">10</span>)
+
+<span class="c"># Clean up</span>
+memo.close</code></pre>
+<h2><a id="service-configuration" class="anchor" href="#service-configuration">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Service Configuration</h2>
+<p>Services are named configurations for embedding providers:</p>
+<pre><code class="language-crystal">memo.create_service(
+  name: <span class="s">&quot;azure-prod&quot;</span>,
+  format: <span class="s">&quot;openai&quot;</span>,
+  base_url: <span class="s">&quot;https://mycompany.openai.azure.com/&quot;</span>,
+  model: <span class="s">&quot;text-embedding-ada-002&quot;</span>,
+  dimensions: <span class="n">1536</span>,
+  max_tokens: <span class="n">8191</span>
+)
+
+<span class="c"># Switch services at runtime</span>
+memo.use_service(<span class="s">&quot;azure-prod&quot;</span>, api_key: <span class="t">ENV</span>[<span class="s">&quot;AZURE_API_KEY&quot;</span>])</code></pre>
+<h2><a id="database" class="anchor" href="#database">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>Database</h2>
+<p>Memo stores all data in a single SQLite file at the provided <code><a href="../Memo/Service.html#db_path%3AString%7CNil-instance-method">#db_path</a></code>.
+Contains: services, embeddings, chunks, texts, queue</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2>
+    <a id="defined-in" class="anchor" href="#defined-in">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Defined in:
+  </h2>
+  
+    
+      memo/service.cr
+    
+    <br/>
+  
+
+
+
+
+
+  
+  <h2>
+    <a id="constructors" class="anchor" href="#constructors">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Constructors
+  </h2>
+  <ul class="list-summary">
+    
+      <li class="entry-summary">
+        <a href="#new%28db_path%3AString%2Capi_key%3AString%7CNil%3Dnil%2Cservice%3AString%7CNil%3Dnil%2Cformat%3AString%7CNil%3Dnil%2Cbase_url%3AString%7CNil%3Dnil%2Cmodel%3AString%7CNil%3Dnil%2Cdimensions%3AInt32%7CNil%3Dnil%2Cmax_tokens%3AInt32%7CNil%3Dnil%2Cchunking_max_tokens%3AInt32%3D2000%2Cstore_text%3ABool%3Dtrue%2Cbuild_vocab%3ABool%3Dtrue%2Cbatch_size%3AInt32%3D100%2Cmax_retries%3AInt32%3D3%2Ctable_prefix%3AString%3D%22memo_%22%29-class-method" class="signature"><strong>.new</strong>(db_path : String, api_key : String | Nil = <span class="n">nil</span>, service : String | Nil = <span class="n">nil</span>, format : String | Nil = <span class="n">nil</span>, base_url : String | Nil = <span class="n">nil</span>, model : String | Nil = <span class="n">nil</span>, dimensions : Int32 | Nil = <span class="n">nil</span>, max_tokens : Int32 | Nil = <span class="n">nil</span>, chunking_max_tokens : Int32 = <span class="n">2000</span>, store_text : Bool = <span class="n">true</span>, build_vocab : Bool = <span class="n">true</span>, batch_size : Int32 = <span class="n">100</span>, max_retries : Int32 = <span class="n">3</span>, table_prefix : String = <span class="s">&quot;memo_&quot;</span>)</a>
+        
+          <div class="summary"><p>Initialize service with database path</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#new%28db%3ADB%3A%3ADatabase%2Capi_key%3AString%7CNil%3Dnil%2Cservice%3AString%7CNil%3Dnil%2Cformat%3AString%7CNil%3Dnil%2Cbase_url%3AString%7CNil%3Dnil%2Cmodel%3AString%7CNil%3Dnil%2Cdimensions%3AInt32%7CNil%3Dnil%2Cmax_tokens%3AInt32%7CNil%3Dnil%2Cchunking_max_tokens%3AInt32%3D2000%2Cstore_text%3ABool%3Dtrue%2Cbuild_vocab%3ABool%3Dtrue%2Cbatch_size%3AInt32%3D100%2Cmax_retries%3AInt32%3D3%2Cdb_path%3AString%7CNil%3Dnil%2Ctable_prefix%3AString%3D%22memo_%22%29-class-method" class="signature"><strong>.new</strong>(db : DB::Database, api_key : String | Nil = <span class="n">nil</span>, service : String | Nil = <span class="n">nil</span>, format : String | Nil = <span class="n">nil</span>, base_url : String | Nil = <span class="n">nil</span>, model : String | Nil = <span class="n">nil</span>, dimensions : Int32 | Nil = <span class="n">nil</span>, max_tokens : Int32 | Nil = <span class="n">nil</span>, chunking_max_tokens : Int32 = <span class="n">2000</span>, store_text : Bool = <span class="n">true</span>, build_vocab : Bool = <span class="n">true</span>, batch_size : Int32 = <span class="n">100</span>, max_retries : Int32 = <span class="n">3</span>, db_path : String | Nil = <span class="n">nil</span>, table_prefix : String = <span class="s">&quot;memo_&quot;</span>)</a>
+        
+          <div class="summary"><p>Initialize service with existing database connection</p></div>
+        
+      </li>
+    
+  </ul>
+
+
+  
+
+  
+
+  
+  <h2>
+    <a id="instance-method-summary" class="anchor" href="#instance-method-summary">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Instance Method Summary
+  </h2>
+  <ul class="list-summary">
+    
+      <li class="entry-summary">
+        <a href="#batch_size%3AInt32-instance-method" class="signature"><strong>#batch_size</strong> : Int32</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#build_vocab%28batch_size%3AInt32%3D2000%2Cclear_existing%3ABool%3Dtrue%29%3AInt32-instance-method" class="signature"><strong>#build_vocab</strong>(batch_size : Int32 = <span class="n">2000</span>, clear_existing : Bool = <span class="n">true</span>) : Int32</a>
+        
+          <div class="summary"><p>Build vocabulary from indexed content</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#build_vocab%3F%3ABool-instance-method" class="signature"><strong>#build_vocab?</strong> : Bool</a>
+        
+          <div class="summary"><p>Track whether vocab building is enabled</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#chunking_config%3AConfig%3A%3AChunking-instance-method" class="signature"><strong>#chunking_config</strong> : Config::Chunking</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#clear_completed_queue%3AInt32-instance-method" class="signature"><strong>#clear_completed_queue</strong> : Int32</a>
+        
+          <div class="summary"><p>Clear completed items from the queue</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#clear_queue%3AInt32-instance-method" class="signature"><strong>#clear_queue</strong> : Int32</a>
+        
+          <div class="summary"><p>Clear all items from the queue</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#clear_vocab-instance-method" class="signature"><strong>#clear_vocab</strong></a>
+        
+          <div class="summary"><p>Clear vocabulary for current service</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#close-instance-method" class="signature"><strong>#close</strong></a>
+        
+          <div class="summary"><p>Close database connection</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#create_service%28name%3AString%2Cformat%3AString%2Cmodel%3AString%2Cdimensions%3AInt32%2Cmax_tokens%3AInt32%2Cbase_url%3AString%7CNil%3Dnil%29%3AServiceProvider%3A%3AInfo-instance-method" class="signature"><strong>#create_service</strong>(name : String, format : String, model : String, dimensions : Int32, max_tokens : Int32, base_url : String | Nil = <span class="n">nil</span>) : ServiceProvider::Info</a>
+        
+          <div class="summary"><p>Create a new service configuration</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#db%3ADB%3A%3ADatabase-instance-method" class="signature"><strong>#db</strong> : DB::Database</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#db_path%3AString%7CNil-instance-method" class="signature"><strong>#db_path</strong> : String | Nil</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#default_service%3AServiceProvider%3A%3AInfo%7CNil-instance-method" class="signature"><strong>#default_service</strong> : ServiceProvider::Info | Nil</a>
+        
+          <div class="summary"><p>Get the default service configuration</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#delete%28source_id%3AExternalId%2Csource_type%3AString%7CNil%3Dnil%29%3AInt32-instance-method" class="signature"><strong>#delete</strong>(source_id : ExternalId, source_type : String | Nil = <span class="n">nil</span>) : Int32</a>
+        
+          <div class="summary"><p>Delete all chunks for a source</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#delete_service%28name%3AString%2Cforce%3ABool%3Dfalse%29%3ABool-instance-method" class="signature"><strong>#delete_service</strong>(name : String, force : Bool = <span class="n">false</span>) : Bool</a>
+        
+          <div class="summary"><p>Delete a service configuration</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#dimensions%3AInt32-instance-method" class="signature"><strong>#dimensions</strong> : Int32</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#enqueue%28source_type%3AString%2Csource_id%3AExternalId%2Ctext%3AString%2Cpair_id%3AExternalId%7CNil%3Dnil%2Cparent_id%3AExternalId%7CNil%3Dnil%29-instance-method" class="signature"><strong>#enqueue</strong>(source_type : String, source_id : ExternalId, text : String, pair_id : ExternalId | Nil = <span class="n">nil</span>, parent_id : ExternalId | Nil = <span class="n">nil</span>)</a>
+        
+          <div class="summary"><p>Enqueue a document for later embedding</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#enqueue%28doc%3ADocument%29-instance-method" class="signature"><strong>#enqueue</strong>(doc : Document)</a>
+        
+          <div class="summary"><p>Enqueue a document (Document overload)</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#enqueue_batch%28docs%3AArray%28Document%29%29-instance-method" class="signature"><strong>#enqueue_batch</strong>(docs : Array(Document))</a>
+        
+          <div class="summary"><p>Enqueue multiple documents for later embedding</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#file_count%3AInt64-instance-method" class="signature"><strong>#file_count</strong> : Int64</a>
+        
+          <div class="summary"><p>Count indexed files</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_file%28path%3AString%29%3AFiles%3A%3AFileRecord%7CNil-instance-method" class="signature"><strong>#get_file</strong>(path : String) : Files::FileRecord | Nil</a>
+        
+          <div class="summary"><p>Get file record by path</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_file_by_hash%28hash%3ABytes%29%3AFiles%3A%3AFileRecord%7CNil-instance-method" class="signature"><strong>#get_file_by_hash</strong>(hash : Bytes) : Files::FileRecord | Nil</a>
+        
+          <div class="summary"><p>Get file record by content hash</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_file_by_source%28source_id%3AInt64%29%3AFiles%3A%3AFileRecord%7CNil-instance-method" class="signature"><strong>#get_file_by_source</strong>(source_id : Int64) : Files::FileRecord | Nil</a>
+        
+          <div class="summary"><p>Get file record by source ID</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_service%28name%3AString%29%3AServiceProvider%3A%3AInfo%7CNil-instance-method" class="signature"><strong>#get_service</strong>(name : String) : ServiceProvider::Info | Nil</a>
+        
+          <div class="summary"><p>Get a service configuration by name</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#get_source_text%28internal_source_id%3AInt64%29%3AString%7CNil-instance-method" class="signature"><strong>#get_source_text</strong>(internal_source_id : Int64) : String | Nil</a>
+        
+          <div class="summary"><p>Get source text by internal source_id</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#index%28source_type%3AString%2Csource_id%3AExternalId%7CNil%2Ctext%3AString%2Cpair_id%3AExternalId%7CNil%3Dnil%2Cparent_id%3AExternalId%7CNil%3Dnil%29%3AInt32-instance-method" class="signature"><strong>#index</strong>(source_type : String, source_id : ExternalId | Nil, text : String, pair_id : ExternalId | Nil = <span class="n">nil</span>, parent_id : ExternalId | Nil = <span class="n">nil</span>) : Int32</a>
+        
+          <div class="summary"><p>Index a document</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#index%28doc%3ADocument%29%3AInt32-instance-method" class="signature"><strong>#index</strong>(doc : Document) : Int32</a>
+        
+          <div class="summary"><p>Index a document (Document overload)</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#index_batch%28docs%3AArray%28Document%29%29%3AInt32-instance-method" class="signature"><strong>#index_batch</strong>(docs : Array(Document)) : Int32</a>
+        
+          <div class="summary"><p>Index multiple documents in a batch</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#index_file_list%28paths%3AArray%28String%29%2Croot%3AString%3DDir.current%2Cincremental%3ABool%3Dtrue%2Cdry_run%3ABool%3Dfalse%2C%26block%3AString%2CSymbol-%3E%29%3ATuple%28Int32%2CInt32%2CInt32%29-instance-method" class="signature"><strong>#index_file_list</strong>(paths : Array(String), root : String = <span class="t">Dir</span>.current, incremental : Bool = <span class="n">true</span>, dry_run : Bool = <span class="n">false</span>, &block : String, Symbol -> ) : Tuple(Int32, Int32, Int32)</a>
+        
+          <div class="summary"><p>Index an explicit list of file paths</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#index_file_list%28paths%3AArray%28String%29%2Croot%3AString%3DDir.current%2Cincremental%3ABool%3Dtrue%2Cdry_run%3ABool%3Dfalse%29%3ATuple%28Int32%2CInt32%2CInt32%29-instance-method" class="signature"><strong>#index_file_list</strong>(paths : Array(String), root : String = <span class="t">Dir</span>.current, incremental : Bool = <span class="n">true</span>, dry_run : Bool = <span class="n">false</span>) : Tuple(Int32, Int32, Int32)</a>
+        
+          <div class="summary"><p>Index file list without progress callback</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#index_files%28root%3AString%2Cignore_file%3AString%3D%22.gitignore%22%2Cincremental%3ABool%3Dtrue%2Cdry_run%3ABool%3Dfalse%2C%26block%3AString%2CSymbol-%3E%29%3ATuple%28Int32%2CInt32%2CInt32%29-instance-method" class="signature"><strong>#index_files</strong>(root : String, ignore_file : String = <span class="s">&quot;.gitignore&quot;</span>, incremental : Bool = <span class="n">true</span>, dry_run : Bool = <span class="n">false</span>, &block : String, Symbol -> ) : Tuple(Int32, Int32, Int32)</a>
+        
+          <div class="summary"><p>Index files from a directory</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#index_files%28root%3AString%2Cignore_file%3AString%3D%22.gitignore%22%2Cincremental%3ABool%3Dtrue%2Cdry_run%3ABool%3Dfalse%29%3ATuple%28Int32%2CInt32%2CInt32%29-instance-method" class="signature"><strong>#index_files</strong>(root : String, ignore_file : String = <span class="s">&quot;.gitignore&quot;</span>, incremental : Bool = <span class="n">true</span>, dry_run : Bool = <span class="n">false</span>) : Tuple(Int32, Int32, Int32)</a>
+        
+          <div class="summary"><p>Index files without progress callback</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#like%28query%3AString%2Climit%3AInt32%3D10%2Cmin_score%3AFloat64%3D0.5%29%3AArray%28Vocab%3A%3AResult%29-instance-method" class="signature"><strong>#like</strong>(query : String, limit : Int32 = <span class="n">10</span>, min_score : Float64 = <span class="n">0.5</span>) : Array(Vocab::Result)</a>
+        
+          <div class="summary"><p>Find words semantically similar to the query</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#list_files%28limit%3AInt32%3D100%2Coffset%3AInt32%3D0%29%3AArray%28Files%3A%3AFileRecord%29-instance-method" class="signature"><strong>#list_files</strong>(limit : Int32 = <span class="n">100</span>, offset : Int32 = <span class="n">0</span>) : Array(Files::FileRecord)</a>
+        
+          <div class="summary"><p>List indexed files</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#list_services%3AArray%28ServiceProvider%3A%3AInfo%29-instance-method" class="signature"><strong>#list_services</strong> : Array(ServiceProvider::Info)</a>
+        
+          <div class="summary"><p>List all service configurations</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#list_services_by_format%28format%3AString%29%3AArray%28ServiceProvider%3A%3AInfo%29-instance-method" class="signature"><strong>#list_services_by_format</strong>(format : String) : Array(ServiceProvider::Info)</a>
+        
+          <div class="summary"><p>List service configurations by format</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#mark_as_read%28chunk_ids%3AArray%28Int64%29%29-instance-method" class="signature"><strong>#mark_as_read</strong>(chunk_ids : Array(Int64))</a>
+        
+          <div class="summary"><p>Mark chunks as read (increment read_count)</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#process_queue%3AInt32-instance-method" class="signature"><strong>#process_queue</strong> : Int32</a>
+        
+          <div class="summary"><p>Process queued items</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#process_queue_async-instance-method" class="signature"><strong>#process_queue_async</strong></a>
+        
+          <div class="summary"><p>Process queued items asynchronously</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#provider%3AProviders%3A%3ABase-instance-method" class="signature"><strong>#provider</strong> : Providers::Base</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#queue_config%3AConfig%3A%3AQueue-instance-method" class="signature"><strong>#queue_config</strong> : Config::Queue</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#queue_stats%3AQueueStats-instance-method" class="signature"><strong>#queue_stats</strong> : QueueStats</a>
+        
+          <div class="summary"><p>Get queue statistics</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#reindex%28source_type%3AString%29%3AInt32-instance-method" class="signature"><strong>#reindex</strong>(source_type : String) : Int32</a>
+        
+          <div class="summary"><p>Re-index all content of a given source type</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#reindex%28source_type%3AString%2C%26block%3AExternalId-%3EString%29%3AInt32-instance-method" class="signature"><strong>#reindex</strong>(source_type : String, &block : ExternalId -> String) : Int32</a>
+        
+          <div class="summary"><p>Re-index all content of a given source type using a block to fetch text</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#search%28query%3AString%2Climit%3AInt32%3D10%2Cmin_score%3AFloat64%3D0.7%2Csource_type%3AString%7CNil%3Dnil%2Csource_id%3AExternalId%7CNil%3Dnil%2Cpair_id%3AExternalId%7CNil%3Dnil%2Cparent_id%3AExternalId%7CNil%3Dnil%2Clike%3AString%7CArray%28String%29%7CNil%3Dnil%2Cmatch%3AString%7CNil%3Dnil%2Csql_where%3AString%7CNil%3Dnil%2Cinclude_text%3ABool%3Dtrue%29%3AArray%28Search%3A%3AResult%29-instance-method" class="signature"><strong>#search</strong>(query : String, limit : Int32 = <span class="n">10</span>, min_score : Float64 = <span class="n">0.7</span>, source_type : String | Nil = <span class="n">nil</span>, source_id : ExternalId | Nil = <span class="n">nil</span>, pair_id : ExternalId | Nil = <span class="n">nil</span>, parent_id : ExternalId | Nil = <span class="n">nil</span>, like : String | Array(String) | Nil = <span class="n">nil</span>, match : String | Nil = <span class="n">nil</span>, sql_where : String | Nil = <span class="n">nil</span>, include_text : Bool = <span class="n">true</span>) : Array(Search::Result)</a>
+        
+          <div class="summary"><p>Search for semantically similar chunks</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#service_format%3AString-instance-method" class="signature"><strong>#service_format</strong> : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#service_id%3AInt64-instance-method" class="signature"><strong>#service_id</strong> : Int64</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#service_model%3AString-instance-method" class="signature"><strong>#service_model</strong> : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#service_name%3AString-instance-method" class="signature"><strong>#service_name</strong> : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#service_stats%28name%3AString%29%3AServiceProvider%3A%3AStats%7CNil-instance-method" class="signature"><strong>#service_stats</strong>(name : String) : ServiceProvider::Stats | Nil</a>
+        
+          <div class="summary"><p>Get usage statistics for a service</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#set_default_service%28name%3AString%29%3ABool-instance-method" class="signature"><strong>#set_default_service</strong>(name : String) : Bool</a>
+        
+          <div class="summary"><p>Set a service as the default</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#stats%3AStats-instance-method" class="signature"><strong>#stats</strong> : Stats</a>
+        
+          <div class="summary"><p>Get statistics about indexed content</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#table_prefix%3AString-instance-method" class="signature"><strong>#table_prefix</strong> : String</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#text_storage%3F%3ABool-instance-method" class="signature"><strong>#text_storage?</strong> : Bool</a>
+        
+          <div class="summary"><p>Track whether text storage is enabled</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#update_service%28name%3AString%2Cbase_url%3AString%7CNil%3Dnil%2Cmax_tokens%3AInt32%7CNil%3Dnil%29%3AServiceProvider%3A%3AInfo%7CNil-instance-method" class="signature"><strong>#update_service</strong>(name : String, base_url : String | Nil = <span class="n">nil</span>, max_tokens : Int32 | Nil = <span class="n">nil</span>) : ServiceProvider::Info | Nil</a>
+        
+          <div class="summary"><p>Update a service configuration</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#use_service%28name%3AString%2Capi_key%3AString%7CNil%3Dnil%29-instance-method" class="signature"><strong>#use_service</strong>(name : String, api_key : String | Nil = <span class="n">nil</span>)</a>
+        
+          <div class="summary"><p>Switch to a different service</p></div>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#usearch_index%3AUSearch%3A%3AIndex-instance-method" class="signature"><strong>#usearch_index</strong> : USearch::Index</a>
+        
+      </li>
+    
+      <li class="entry-summary">
+        <a href="#vocab_stats%3AInt64-instance-method" class="signature"><strong>#vocab_stats</strong> : Int64</a>
+        
+          <div class="summary"><p>Get vocabulary statistics</p></div>
+        
+      </li>
+    
+  </ul>
+
+
+
+  <div class="methods-inherited">
+    
+      
+
+
+      
+
+
+      
+
+
+      
+
+
+    
+      
+
+
+      
+
+
+      
+
+
+      
+
+
+    
+  </div>
+
+  
+  <h2>
+    <a id="constructor-detail" class="anchor" href="#constructor-detail">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Constructor Detail
+  </h2>
+  
+    <div class="entry-detail" id="new(db_path:String,api_key:String|Nil=nil,service:String|Nil=nil,format:String|Nil=nil,base_url:String|Nil=nil,model:String|Nil=nil,dimensions:Int32|Nil=nil,max_tokens:Int32|Nil=nil,chunking_max_tokens:Int32=2000,store_text:Bool=true,build_vocab:Bool=true,batch_size:Int32=100,max_retries:Int32=3,table_prefix:String=&quot;memo_&quot;)-class-method">
+      <div class="signature">
+        
+        def self.<strong>new</strong>(db_path : String, api_key : String | Nil = <span class="n">nil</span>, service : String | Nil = <span class="n">nil</span>, format : String | Nil = <span class="n">nil</span>, base_url : String | Nil = <span class="n">nil</span>, model : String | Nil = <span class="n">nil</span>, dimensions : Int32 | Nil = <span class="n">nil</span>, max_tokens : Int32 | Nil = <span class="n">nil</span>, chunking_max_tokens : Int32 = <span class="n">2000</span>, store_text : Bool = <span class="n">true</span>, build_vocab : Bool = <span class="n">true</span>, batch_size : Int32 = <span class="n">100</span>, max_retries : Int32 = <span class="n">3</span>, table_prefix : String = <span class="s">&quot;memo_&quot;</span>)
+
+        <a class="method-permalink" href="#new%28db_path%3AString%2Capi_key%3AString%7CNil%3Dnil%2Cservice%3AString%7CNil%3Dnil%2Cformat%3AString%7CNil%3Dnil%2Cbase_url%3AString%7CNil%3Dnil%2Cmodel%3AString%7CNil%3Dnil%2Cdimensions%3AInt32%7CNil%3Dnil%2Cmax_tokens%3AInt32%7CNil%3Dnil%2Cchunking_max_tokens%3AInt32%3D2000%2Cstore_text%3ABool%3Dtrue%2Cbuild_vocab%3ABool%3Dtrue%2Cbatch_size%3AInt32%3D100%2Cmax_retries%3AInt32%3D3%2Ctable_prefix%3AString%3D%22memo_%22%29-class-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Initialize service with database path</p>
+<p>Use EITHER:</p>
+<ul>
+<li>service: Name of pre-configured service (from ServiceProvider.create)</li>
+<li>format: API format (&quot;openai&quot;, &quot;mock&quot;) to configure inline</li>
+</ul>
+<p>Required:</p>
+<ul>
+<li>db_path: Full path to database file (e.g., &quot;/var/data/memo.db&quot;)</li>
+<li>api_key: API key (not needed for mock format)</li>
+</ul>
+<p>Optional:</p>
+<ul>
+<li>service: Name of pre-configured service to use</li>
+<li>format: API format for inline configuration (default &quot;openai&quot;)</li>
+<li>base_url: Custom API endpoint (for OpenAI-compatible APIs)</li>
+<li>model: Embedding model (default depends on format)</li>
+<li>dimensions: Vector dimensions (auto-detected from model)</li>
+<li>max_tokens: Token limit (auto-detected from model)</li>
+<li>store_text: Enable text storage in texts table (default true)</li>
+<li>build_vocab: Enable incremental vocabulary building (default true, requires store_text)</li>
+<li>chunking_max_tokens: Max tokens per chunk (default 2000)</li>
+</ul>
+<p>Example:</p>
+<pre><code class="language-crystal">memo <span class="o">=</span> <span class="t">Memo</span><span class="t">::</span><span class="t">Service</span>.new(
+  db_path: <span class="s">&quot;/var/data/memo.db&quot;</span>,
+  format: <span class="s">&quot;openai&quot;</span>,
+  api_key: <span class="t">ENV</span>[<span class="s">&quot;OPENAI_API_KEY&quot;</span>]
+)</code></pre>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="new(db:DB::Database,api_key:String|Nil=nil,service:String|Nil=nil,format:String|Nil=nil,base_url:String|Nil=nil,model:String|Nil=nil,dimensions:Int32|Nil=nil,max_tokens:Int32|Nil=nil,chunking_max_tokens:Int32=2000,store_text:Bool=true,build_vocab:Bool=true,batch_size:Int32=100,max_retries:Int32=3,db_path:String|Nil=nil,table_prefix:String=&quot;memo_&quot;)-class-method">
+      <div class="signature">
+        
+        def self.<strong>new</strong>(db : <a href="../DB/Database.html">DB::Database</a>, api_key : String | Nil = <span class="n">nil</span>, service : String | Nil = <span class="n">nil</span>, format : String | Nil = <span class="n">nil</span>, base_url : String | Nil = <span class="n">nil</span>, model : String | Nil = <span class="n">nil</span>, dimensions : Int32 | Nil = <span class="n">nil</span>, max_tokens : Int32 | Nil = <span class="n">nil</span>, chunking_max_tokens : Int32 = <span class="n">2000</span>, store_text : Bool = <span class="n">true</span>, build_vocab : Bool = <span class="n">true</span>, batch_size : Int32 = <span class="n">100</span>, max_retries : Int32 = <span class="n">3</span>, db_path : String | Nil = <span class="n">nil</span>, table_prefix : String = <span class="s">&quot;memo_&quot;</span>)
+
+        <a class="method-permalink" href="#new%28db%3ADB%3A%3ADatabase%2Capi_key%3AString%7CNil%3Dnil%2Cservice%3AString%7CNil%3Dnil%2Cformat%3AString%7CNil%3Dnil%2Cbase_url%3AString%7CNil%3Dnil%2Cmodel%3AString%7CNil%3Dnil%2Cdimensions%3AInt32%7CNil%3Dnil%2Cmax_tokens%3AInt32%7CNil%3Dnil%2Cchunking_max_tokens%3AInt32%3D2000%2Cstore_text%3ABool%3Dtrue%2Cbuild_vocab%3ABool%3Dtrue%2Cbatch_size%3AInt32%3D100%2Cmax_retries%3AInt32%3D3%2Cdb_path%3AString%7CNil%3Dnil%2Ctable_prefix%3AString%3D%22memo_%22%29-class-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Initialize service with existing database connection</p>
+<p>Use this when caller manages the connection lifecycle.
+Caller is responsible for closing the connection.</p>
+<p>The db_path is queried from the database for CLI use. Pass db_path
+explicitly if the pragma query doesn't work for your setup.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+
+
+  
+
+  
+
+  
+  <h2>
+    <a id="instance-method-detail" class="anchor" href="#instance-method-detail">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Instance Method Detail
+  </h2>
+  
+    <div class="entry-detail" id="batch_size:Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>batch_size</strong> : Int32
+
+        <a class="method-permalink" href="#batch_size%3AInt32-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="build_vocab(batch_size:Int32=2000,clear_existing:Bool=true):Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>build_vocab</strong>(batch_size : Int32 = <span class="n">2000</span>, clear_existing : Bool = <span class="n">true</span>) : Int32
+
+        <a class="method-permalink" href="#build_vocab%28batch_size%3AInt32%3D2000%2Cclear_existing%3ABool%3Dtrue%29%3AInt32-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Build vocabulary from indexed content</p>
+<p>Extracts unique words from all stored texts, embeds them in batches,
+and stores in the vocab table for word-level similarity search.</p>
+<p>Requires text storage to be enabled.</p>
+<p>Options:</p>
+<ul>
+<li>batch_size: Number of words to embed per API call (default 2000)</li>
+<li>clear_existing: Whether to clear existing vocab first (default true)</li>
+</ul>
+<p>Returns number of words stored</p>
+<p>Example:</p>
+<pre><code class="language-crystal">memo.build_vocab()
+results <span class="o">=</span> memo.like(<span class="s">&quot;database&quot;</span>)</code></pre>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="build_vocab?:Bool-instance-method">
+      <div class="signature">
+        
+        def <strong>build_vocab?</strong> : Bool
+
+        <a class="method-permalink" href="#build_vocab%3F%3ABool-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Track whether vocab building is enabled</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="chunking_config:Config::Chunking-instance-method">
+      <div class="signature">
+        
+        def <strong>chunking_config</strong> : <a href="../Memo/Config/Chunking.html">Config::Chunking</a>
+
+        <a class="method-permalink" href="#chunking_config%3AConfig%3A%3AChunking-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="clear_completed_queue:Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>clear_completed_queue</strong> : Int32
+
+        <a class="method-permalink" href="#clear_completed_queue%3AInt32-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Clear completed items from the queue</p>
+<p>Removes successfully processed items (status = 0).
+Returns number of items removed.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="clear_queue:Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>clear_queue</strong> : Int32
+
+        <a class="method-permalink" href="#clear_queue%3AInt32-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Clear all items from the queue</p>
+<p>Removes all items regardless of status.
+Returns number of items removed.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="clear_vocab-instance-method">
+      <div class="signature">
+        
+        def <strong>clear_vocab</strong>
+
+        <a class="method-permalink" href="#clear_vocab-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Clear vocabulary for current service</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="close-instance-method">
+      <div class="signature">
+        
+        def <strong>close</strong>
+
+        <a class="method-permalink" href="#close-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Close database connection</p>
+<p>Should be called when done with service to free resources.
+Safe to call multiple times.</p>
+<p>Note: If service was initialized with an existing db connection,
+close is a no-op (caller owns the connection).</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="create_service(name:String,format:String,model:String,dimensions:Int32,max_tokens:Int32,base_url:String|Nil=nil):ServiceProvider::Info-instance-method">
+      <div class="signature">
+        
+        def <strong>create_service</strong>(name : String, format : String, model : String, dimensions : Int32, max_tokens : Int32, base_url : String | Nil = <span class="n">nil</span>) : <a href="../Memo/ServiceProvider/Info.html">ServiceProvider::Info</a>
+
+        <a class="method-permalink" href="#create_service%28name%3AString%2Cformat%3AString%2Cmodel%3AString%2Cdimensions%3AInt32%2Cmax_tokens%3AInt32%2Cbase_url%3AString%7CNil%3Dnil%29%3AServiceProvider%3A%3AInfo-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Create a new service configuration</p>
+<p>Creates a named service configuration that can be used later with
+Service.new(service: &quot;name&quot;, ...).</p>
+<p>Example:</p>
+<pre><code class="language-crystal">memo.create_service(
+  name: <span class="s">&quot;azure-prod&quot;</span>,
+  format: <span class="s">&quot;openai&quot;</span>,
+  base_url: <span class="s">&quot;https://mycompany.openai.azure.com/&quot;</span>,
+  model: <span class="s">&quot;text-embedding-ada-002&quot;</span>,
+  dimensions: <span class="n">1536</span>,
+  max_tokens: <span class="n">8191</span>
+)</code></pre>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="db:DB::Database-instance-method">
+      <div class="signature">
+        
+        def <strong>db</strong> : <a href="../DB/Database.html">DB::Database</a>
+
+        <a class="method-permalink" href="#db%3ADB%3A%3ADatabase-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="db_path:String|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>db_path</strong> : String | Nil
+
+        <a class="method-permalink" href="#db_path%3AString%7CNil-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="default_service:ServiceProvider::Info|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>default_service</strong> : <a href="../Memo/ServiceProvider/Info.html">ServiceProvider::Info</a> | Nil
+
+        <a class="method-permalink" href="#default_service%3AServiceProvider%3A%3AInfo%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get the default service configuration</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="delete(source_id:ExternalId,source_type:String|Nil=nil):Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>delete</strong>(source_id : <a href="../Memo/ExternalId.html">ExternalId</a>, source_type : String | Nil = <span class="n">nil</span>) : Int32
+
+        <a class="method-permalink" href="#delete%28source_id%3AExternalId%2Csource_type%3AString%7CNil%3Dnil%29%3AInt32-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Delete all chunks for a source</p>
+<p>Removes all chunks with the given source_id (and optionally source_type).
+Orphaned embeddings (not referenced by any chunk) are also cleaned up.</p>
+<p>Returns number of chunks deleted.</p>
+<p>source_id: External source ID (Int64 or String).
+source_type: Optional filter to only delete chunks with matching source_type.
+If nil and source_id is Int64, searches integer IDs across all types.
+If nil and source_id is String, searches string IDs across all types.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="delete_service(name:String,force:Bool=false):Bool-instance-method">
+      <div class="signature">
+        
+        def <strong>delete_service</strong>(name : String, force : Bool = <span class="n">false</span>) : Bool
+
+        <a class="method-permalink" href="#delete_service%28name%3AString%2Cforce%3ABool%3Dfalse%29%3ABool-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Delete a service configuration</p>
+<p>By default, fails if the service has any associated embeddings.
+Use force: true to delete the service and all associated data.</p>
+<p>Returns true if deleted, false if not found.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="dimensions:Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>dimensions</strong> : Int32
+
+        <a class="method-permalink" href="#dimensions%3AInt32-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="enqueue(source_type:String,source_id:ExternalId,text:String,pair_id:ExternalId|Nil=nil,parent_id:ExternalId|Nil=nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>enqueue</strong>(source_type : String, source_id : <a href="../Memo/ExternalId.html">ExternalId</a>, text : String, pair_id : <a href="../Memo/ExternalId.html">ExternalId</a> | Nil = <span class="n">nil</span>, parent_id : <a href="../Memo/ExternalId.html">ExternalId</a> | Nil = <span class="n">nil</span>)
+
+        <a class="method-permalink" href="#enqueue%28source_type%3AString%2Csource_id%3AExternalId%2Ctext%3AString%2Cpair_id%3AExternalId%7CNil%3Dnil%2Cparent_id%3AExternalId%7CNil%3Dnil%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Enqueue a document for later embedding</p>
+<p>Adds the document to the embed_queue table without embedding it.
+Use process_queue to embed queued items.</p>
+<p>If the source is already in the queue, the text is updated.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="enqueue(doc:Document)-instance-method">
+      <div class="signature">
+        
+        def <strong>enqueue</strong>(doc : <a href="../Memo/Document.html">Document</a>)
+
+        <a class="method-permalink" href="#enqueue%28doc%3ADocument%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Enqueue a document (Document overload)</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="enqueue_batch(docs:Array(Document))-instance-method">
+      <div class="signature">
+        
+        def <strong>enqueue_batch</strong>(docs : Array(<a href="../Memo/Document.html">Document</a>))
+
+        <a class="method-permalink" href="#enqueue_batch%28docs%3AArray%28Document%29%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Enqueue multiple documents for later embedding</p>
+<p>More efficient than calling enqueue() multiple times.
+Resolves all external IDs to internal IDs in a single transaction.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="file_count:Int64-instance-method">
+      <div class="signature">
+        
+        def <strong>file_count</strong> : Int64
+
+        <a class="method-permalink" href="#file_count%3AInt64-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Count indexed files</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_file(path:String):Files::FileRecord|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>get_file</strong>(path : String) : <a href="../Memo/Files/FileRecord.html">Files::FileRecord</a> | Nil
+
+        <a class="method-permalink" href="#get_file%28path%3AString%29%3AFiles%3A%3AFileRecord%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get file record by path</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_file_by_hash(hash:Bytes):Files::FileRecord|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>get_file_by_hash</strong>(hash : Bytes) : <a href="../Memo/Files/FileRecord.html">Files::FileRecord</a> | Nil
+
+        <a class="method-permalink" href="#get_file_by_hash%28hash%3ABytes%29%3AFiles%3A%3AFileRecord%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get file record by content hash</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_file_by_source(source_id:Int64):Files::FileRecord|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>get_file_by_source</strong>(source_id : Int64) : <a href="../Memo/Files/FileRecord.html">Files::FileRecord</a> | Nil
+
+        <a class="method-permalink" href="#get_file_by_source%28source_id%3AInt64%29%3AFiles%3A%3AFileRecord%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get file record by source ID</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_service(name:String):ServiceProvider::Info|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>get_service</strong>(name : String) : <a href="../Memo/ServiceProvider/Info.html">ServiceProvider::Info</a> | Nil
+
+        <a class="method-permalink" href="#get_service%28name%3AString%29%3AServiceProvider%3A%3AInfo%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get a service configuration by name</p>
+<p>Returns nil if not found.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="get_source_text(internal_source_id:Int64):String|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>get_source_text</strong>(internal_source_id : Int64) : String | Nil
+
+        <a class="method-permalink" href="#get_source_text%28internal_source_id%3AInt64%29%3AString%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get source text by internal source_id</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="index(source_type:String,source_id:ExternalId|Nil,text:String,pair_id:ExternalId|Nil=nil,parent_id:ExternalId|Nil=nil):Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>index</strong>(source_type : String, source_id : <a href="../Memo/ExternalId.html">ExternalId</a> | Nil, text : String, pair_id : <a href="../Memo/ExternalId.html">ExternalId</a> | Nil = <span class="n">nil</span>, parent_id : <a href="../Memo/ExternalId.html">ExternalId</a> | Nil = <span class="n">nil</span>) : Int32
+
+        <a class="method-permalink" href="#index%28source_type%3AString%2Csource_id%3AExternalId%7CNil%2Ctext%3AString%2Cpair_id%3AExternalId%7CNil%3Dnil%2Cparent_id%3AExternalId%7CNil%3Dnil%29%3AInt32-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Index a document</p>
+<p>Enqueues the document and processes it immediately with retry support.
+Returns number of chunks successfully stored.</p>
+<p>Supports both integer and string source IDs:</p>
+<ul>
+<li>Int64: Time-based, sortable IDs (e.g., Unix timestamps)</li>
+<li>String: UUIDs and other text identifiers</li>
+</ul>
+<p>When source_id is nil, memo creates and manages the source internally.
+Useful for CLI and cases where external ID correlation isn't needed.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="index(doc:Document):Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>index</strong>(doc : <a href="../Memo/Document.html">Document</a>) : Int32
+
+        <a class="method-permalink" href="#index%28doc%3ADocument%29%3AInt32-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Index a document (Document overload)</p>
+<p>Convenience method that accepts a Document struct.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="index_batch(docs:Array(Document)):Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>index_batch</strong>(docs : Array(<a href="../Memo/Document.html">Document</a>)) : Int32
+
+        <a class="method-permalink" href="#index_batch%28docs%3AArray%28Document%29%29%3AInt32-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Index multiple documents in a batch</p>
+<p>Enqueues all documents and processes them with retry support.
+More efficient than calling index() multiple times.</p>
+<p>Returns total number of documents successfully processed.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="index_file_list(paths:Array(String),root:String=Dir.current,incremental:Bool=true,dry_run:Bool=false,&amp;block:String,Symbol-&gt;):Tuple(Int32,Int32,Int32)-instance-method">
+      <div class="signature">
+        
+        def <strong>index_file_list</strong>(paths : Array(String), root : String = <span class="t">Dir</span>.current, incremental : Bool = <span class="n">true</span>, dry_run : Bool = <span class="n">false</span>, &block : String, Symbol -> ) : Tuple(Int32, Int32, Int32)
+
+        <a class="method-permalink" href="#index_file_list%28paths%3AArray%28String%29%2Croot%3AString%3DDir.current%2Cincremental%3ABool%3Dtrue%2Cdry_run%3ABool%3Dfalse%2C%26block%3AString%2CSymbol-%3E%29%3ATuple%28Int32%2CInt32%2CInt32%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Index an explicit list of file paths</p>
+<p>Unlike index_files, this does not walk directories or use ignore files.
+Relative paths are resolved from <code>root</code> (defaults to Dir.current).
+Binary files are still skipped.</p>
+<p>Returns tuple of (indexed_count, skipped_count, total_files)</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="index_file_list(paths:Array(String),root:String=Dir.current,incremental:Bool=true,dry_run:Bool=false):Tuple(Int32,Int32,Int32)-instance-method">
+      <div class="signature">
+        
+        def <strong>index_file_list</strong>(paths : Array(String), root : String = <span class="t">Dir</span>.current, incremental : Bool = <span class="n">true</span>, dry_run : Bool = <span class="n">false</span>) : Tuple(Int32, Int32, Int32)
+
+        <a class="method-permalink" href="#index_file_list%28paths%3AArray%28String%29%2Croot%3AString%3DDir.current%2Cincremental%3ABool%3Dtrue%2Cdry_run%3ABool%3Dfalse%29%3ATuple%28Int32%2CInt32%2CInt32%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Index file list without progress callback</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="index_files(root:String,ignore_file:String=&quot;.gitignore&quot;,incremental:Bool=true,dry_run:Bool=false,&amp;block:String,Symbol-&gt;):Tuple(Int32,Int32,Int32)-instance-method">
+      <div class="signature">
+        
+        def <strong>index_files</strong>(root : String, ignore_file : String = <span class="s">&quot;.gitignore&quot;</span>, incremental : Bool = <span class="n">true</span>, dry_run : Bool = <span class="n">false</span>, &block : String, Symbol -> ) : Tuple(Int32, Int32, Int32)
+
+        <a class="method-permalink" href="#index_files%28root%3AString%2Cignore_file%3AString%3D%22.gitignore%22%2Cincremental%3ABool%3Dtrue%2Cdry_run%3ABool%3Dfalse%2C%26block%3AString%2CSymbol-%3E%29%3ATuple%28Int32%2CInt32%2CInt32%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Index files from a directory</p>
+<p>Walks directory, respects ignore files, skips binary files,
+and indexes text content. Tracks file metadata for incremental updates.</p>
+<p>Options:</p>
+<ul>
+<li>root: Directory to index</li>
+<li>ignore_file: Ignore file name (default &quot;.gitignore&quot;)</li>
+<li>incremental: Skip unchanged files based on mtime (default true)</li>
+<li>dry_run: List files without indexing (default false)</li>
+</ul>
+<p>Returns tuple of (indexed_count, skipped_count, total_files)</p>
+<p>Example:</p>
+<pre><code class="language-crystal">indexed, skipped, total <span class="o">=</span> memo.index_files(<span class="s">&quot;/path/to/project&quot;</span>)</code></pre>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="index_files(root:String,ignore_file:String=&quot;.gitignore&quot;,incremental:Bool=true,dry_run:Bool=false):Tuple(Int32,Int32,Int32)-instance-method">
+      <div class="signature">
+        
+        def <strong>index_files</strong>(root : String, ignore_file : String = <span class="s">&quot;.gitignore&quot;</span>, incremental : Bool = <span class="n">true</span>, dry_run : Bool = <span class="n">false</span>) : Tuple(Int32, Int32, Int32)
+
+        <a class="method-permalink" href="#index_files%28root%3AString%2Cignore_file%3AString%3D%22.gitignore%22%2Cincremental%3ABool%3Dtrue%2Cdry_run%3ABool%3Dfalse%29%3ATuple%28Int32%2CInt32%2CInt32%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Index files without progress callback</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="like(query:String,limit:Int32=10,min_score:Float64=0.5):Array(Vocab::Result)-instance-method">
+      <div class="signature">
+        
+        def <strong>like</strong>(query : String, limit : Int32 = <span class="n">10</span>, min_score : Float64 = <span class="n">0.5</span>) : Array(<a href="../Memo/Vocab/Result.html">Vocab::Result</a>)
+
+        <a class="method-permalink" href="#like%28query%3AString%2Climit%3AInt32%3D10%2Cmin_score%3AFloat64%3D0.5%29%3AArray%28Vocab%3A%3AResult%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Find words semantically similar to the query</p>
+<p>Searches the vocabulary table for words with similar embeddings.
+Requires vocabulary to be built first with build_vocab().</p>
+<p>Returns array of VocabResult with word, score, and frequency.</p>
+<p>Example:</p>
+<pre><code class="language-crystal">results <span class="o">=</span> memo.like(<span class="s">&quot;database&quot;</span>)
+results.each <span class="k">do</span> <span class="o">|</span>r<span class="o">|</span>
+  puts <span class="s">&quot;</span><span class="i">#{</span>r.word<span class="i">}</span><span class="s">: </span><span class="i">#{</span>r.score<span class="i">}</span><span class="s">&quot;</span>
+<span class="k">end</span></code></pre>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="list_files(limit:Int32=100,offset:Int32=0):Array(Files::FileRecord)-instance-method">
+      <div class="signature">
+        
+        def <strong>list_files</strong>(limit : Int32 = <span class="n">100</span>, offset : Int32 = <span class="n">0</span>) : Array(<a href="../Memo/Files/FileRecord.html">Files::FileRecord</a>)
+
+        <a class="method-permalink" href="#list_files%28limit%3AInt32%3D100%2Coffset%3AInt32%3D0%29%3AArray%28Files%3A%3AFileRecord%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>List indexed files</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="list_services:Array(ServiceProvider::Info)-instance-method">
+      <div class="signature">
+        
+        def <strong>list_services</strong> : Array(<a href="../Memo/ServiceProvider/Info.html">ServiceProvider::Info</a>)
+
+        <a class="method-permalink" href="#list_services%3AArray%28ServiceProvider%3A%3AInfo%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>List all service configurations</p>
+<p>Returns array of service info, ordered by creation time (newest first).</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="list_services_by_format(format:String):Array(ServiceProvider::Info)-instance-method">
+      <div class="signature">
+        
+        def <strong>list_services_by_format</strong>(format : String) : Array(<a href="../Memo/ServiceProvider/Info.html">ServiceProvider::Info</a>)
+
+        <a class="method-permalink" href="#list_services_by_format%28format%3AString%29%3AArray%28ServiceProvider%3A%3AInfo%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>List service configurations by format</p>
+<p>Returns array of service info for the specified API format.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="mark_as_read(chunk_ids:Array(Int64))-instance-method">
+      <div class="signature">
+        
+        def <strong>mark_as_read</strong>(chunk_ids : Array(Int64))
+
+        <a class="method-permalink" href="#mark_as_read%28chunk_ids%3AArray%28Int64%29%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Mark chunks as read (increment read_count)</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="process_queue:Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>process_queue</strong> : Int32
+
+        <a class="method-permalink" href="#process_queue%3AInt32-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Process queued items</p>
+<p>Embeds pending items from the queue using the service's batch_size.
+Returns number of items successfully processed.</p>
+<p>Failed items have their status set to the error code and can be retried
+up to max_retries times.</p>
+<p><span class="flag purple">NOTE</span>  Queue items are not atomically claimed. This is intentional -
+single-worker processing is the expected use case since we're hitting
+one API endpoint with batched requests. Parallel workers would hit
+rate limits and add complexity without benefit.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="process_queue_async-instance-method">
+      <div class="signature">
+        
+        def <strong>process_queue_async</strong>
+
+        <a class="method-permalink" href="#process_queue_async-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Process queued items asynchronously</p>
+<p>Spawns a fiber to process the queue and returns immediately.
+Use queue_stats to check progress.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="provider:Providers::Base-instance-method">
+      <div class="signature">
+        
+        def <strong>provider</strong> : <a href="../Memo/Providers/Base.html">Providers::Base</a>
+
+        <a class="method-permalink" href="#provider%3AProviders%3A%3ABase-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="queue_config:Config::Queue-instance-method">
+      <div class="signature">
+        
+        def <strong>queue_config</strong> : <a href="../Memo/Config/Queue.html">Config::Queue</a>
+
+        <a class="method-permalink" href="#queue_config%3AConfig%3A%3AQueue-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="queue_stats:QueueStats-instance-method">
+      <div class="signature">
+        
+        def <strong>queue_stats</strong> : <a href="../Memo/Service/QueueStats.html">QueueStats</a>
+
+        <a class="method-permalink" href="#queue_stats%3AQueueStats-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get queue statistics</p>
+<p>Returns counts of pending and failed items.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="reindex(source_type:String):Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>reindex</strong>(source_type : String) : Int32
+
+        <a class="method-permalink" href="#reindex%28source_type%3AString%29%3AInt32-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Re-index all content of a given source type</p>
+<p>Deletes existing embeddings and queues text for re-embedding.
+Requires text storage to be enabled.</p>
+<p>Returns number of items queued for re-indexing.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="reindex(source_type:String,&amp;block:ExternalId-&gt;String):Int32-instance-method">
+      <div class="signature">
+        
+        def <strong>reindex</strong>(source_type : String, &block : <a href="../Memo/ExternalId.html">ExternalId</a> -> String) : Int32
+
+        <a class="method-permalink" href="#reindex%28source_type%3AString%2C%26block%3AExternalId-%3EString%29%3AInt32-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Re-index all content of a given source type using a block to fetch text</p>
+<p>Use this when text storage is disabled. The block receives the external
+source_id and should return the text to embed.</p>
+<p>Returns number of items queued for re-indexing.</p>
+<p>Example:</p>
+<pre><code class="language-crystal">memo.reindex(<span class="s">&quot;article&quot;</span>) <span class="k">do</span> <span class="o">|</span>source_id<span class="o">|</span>
+  app.get_article_text(source_id)
+<span class="k">end</span>
+memo.process_queue</code></pre>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="search(query:String,limit:Int32=10,min_score:Float64=0.7,source_type:String|Nil=nil,source_id:ExternalId|Nil=nil,pair_id:ExternalId|Nil=nil,parent_id:ExternalId|Nil=nil,like:String|Array(String)|Nil=nil,match:String|Nil=nil,sql_where:String|Nil=nil,include_text:Bool=true):Array(Search::Result)-instance-method">
+      <div class="signature">
+        
+        def <strong>search</strong>(query : String, limit : Int32 = <span class="n">10</span>, min_score : Float64 = <span class="n">0.7</span>, source_type : String | Nil = <span class="n">nil</span>, source_id : <a href="../Memo/ExternalId.html">ExternalId</a> | Nil = <span class="n">nil</span>, pair_id : <a href="../Memo/ExternalId.html">ExternalId</a> | Nil = <span class="n">nil</span>, parent_id : <a href="../Memo/ExternalId.html">ExternalId</a> | Nil = <span class="n">nil</span>, like : String | Array(String) | Nil = <span class="n">nil</span>, match : String | Nil = <span class="n">nil</span>, sql_where : String | Nil = <span class="n">nil</span>, include_text : Bool = <span class="n">true</span>) : Array(<a href="../Memo/Search/Result.html">Search::Result</a>)
+
+        <a class="method-permalink" href="#search%28query%3AString%2Climit%3AInt32%3D10%2Cmin_score%3AFloat64%3D0.7%2Csource_type%3AString%7CNil%3Dnil%2Csource_id%3AExternalId%7CNil%3Dnil%2Cpair_id%3AExternalId%7CNil%3Dnil%2Cparent_id%3AExternalId%7CNil%3Dnil%2Clike%3AString%7CArray%28String%29%7CNil%3Dnil%2Cmatch%3AString%7CNil%3Dnil%2Csql_where%3AString%7CNil%3Dnil%2Cinclude_text%3ABool%3Dtrue%29%3AArray%28Search%3A%3AResult%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Search for semantically similar chunks</p>
+<p>Automatically generates query embedding and searches.</p>
+<p>Returns array of search results ranked by similarity.</p>
+<p>source_id: Filter by external source ID (Int64 or String).</p>
+<p>like: LIKE pattern(s) to filter by text content.
+Single string or array of strings for AND filtering.
+Example: like: &quot;%cats%&quot; or like: [&quot;%cats%&quot;, &quot;%dogs%&quot;]
+Only works when text storage is enabled.</p>
+<p>match: FTS5 full-text search query.
+Supports AND, OR, NOT, prefix*, &quot;phrases&quot;.
+Example: match: &quot;cats OR dogs&quot;, match: &quot;quick brown*&quot;
+Only works when text storage is enabled.</p>
+<p>sql_where: Raw SQL fragment for filtering chunks. Used with ATTACH
+to filter by external database tables.
+Example: &quot;c.source_id IN (SELECT id FROM main.artifact WHERE kind = 'goal')&quot;
+Note: c.source_id here is the internal ID, not external.</p>
+<p>include_text: If true, includes text content in search results.
+Only works when text storage is enabled.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="service_format:String-instance-method">
+      <div class="signature">
+        
+        def <strong>service_format</strong> : String
+
+        <a class="method-permalink" href="#service_format%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="service_id:Int64-instance-method">
+      <div class="signature">
+        
+        def <strong>service_id</strong> : Int64
+
+        <a class="method-permalink" href="#service_id%3AInt64-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="service_model:String-instance-method">
+      <div class="signature">
+        
+        def <strong>service_model</strong> : String
+
+        <a class="method-permalink" href="#service_model%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="service_name:String-instance-method">
+      <div class="signature">
+        
+        def <strong>service_name</strong> : String
+
+        <a class="method-permalink" href="#service_name%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="service_stats(name:String):ServiceProvider::Stats|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>service_stats</strong>(name : String) : <a href="../Memo/ServiceProvider/Stats.html">ServiceProvider::Stats</a> | Nil
+
+        <a class="method-permalink" href="#service_stats%28name%3AString%29%3AServiceProvider%3A%3AStats%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get usage statistics for a service</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="set_default_service(name:String):Bool-instance-method">
+      <div class="signature">
+        
+        def <strong>set_default_service</strong>(name : String) : Bool
+
+        <a class="method-permalink" href="#set_default_service%28name%3AString%29%3ABool-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Set a service as the default</p>
+<p>Returns true if successful, false if service not found.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="stats:Stats-instance-method">
+      <div class="signature">
+        
+        def <strong>stats</strong> : <a href="../Memo/Stats.html">Stats</a>
+
+        <a class="method-permalink" href="#stats%3AStats-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get statistics about indexed content</p>
+<p>Returns counts of embeddings, chunks, and unique sources.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="table_prefix:String-instance-method">
+      <div class="signature">
+        
+        def <strong>table_prefix</strong> : String
+
+        <a class="method-permalink" href="#table_prefix%3AString-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="text_storage?:Bool-instance-method">
+      <div class="signature">
+        
+        def <strong>text_storage?</strong> : Bool
+
+        <a class="method-permalink" href="#text_storage%3F%3ABool-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Track whether text storage is enabled</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="update_service(name:String,base_url:String|Nil=nil,max_tokens:Int32|Nil=nil):ServiceProvider::Info|Nil-instance-method">
+      <div class="signature">
+        
+        def <strong>update_service</strong>(name : String, base_url : String | Nil = <span class="n">nil</span>, max_tokens : Int32 | Nil = <span class="n">nil</span>) : <a href="../Memo/ServiceProvider/Info.html">ServiceProvider::Info</a> | Nil
+
+        <a class="method-permalink" href="#update_service%28name%3AString%2Cbase_url%3AString%7CNil%3Dnil%2Cmax_tokens%3AInt32%7CNil%3Dnil%29%3AServiceProvider%3A%3AInfo%7CNil-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Update a service configuration</p>
+<p>Can update base_url and max_tokens.
+Returns the updated service info, or nil if not found.</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="use_service(name:String,api_key:String|Nil=nil)-instance-method">
+      <div class="signature">
+        
+        def <strong>use_service</strong>(name : String, api_key : String | Nil = <span class="n">nil</span>)
+
+        <a class="method-permalink" href="#use_service%28name%3AString%2Capi_key%3AString%7CNil%3Dnil%29-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Switch to a different service</p>
+<p>Changes the current provider and service configuration.
+The api_key is required for non-mock services.</p>
+<p>Example:</p>
+<pre><code class="language-crystal">memo.use_service(<span class="s">&quot;azure-prod&quot;</span>, api_key: <span class="t">ENV</span>[<span class="s">&quot;AZURE_API_KEY&quot;</span>])</code></pre>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="usearch_index:USearch::Index-instance-method">
+      <div class="signature">
+        
+        def <strong>usearch_index</strong> : USearch::Index
+
+        <a class="method-permalink" href="#usearch_index%3AUSearch%3A%3AIndex-instance-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+    <div class="entry-detail" id="vocab_stats:Int64-instance-method">
+      <div class="signature">
+        
+        def <strong>vocab_stats</strong> : Int64
+
+        <a class="method-permalink" href="#vocab_stats%3AInt64-instance-method">#</a>
+      </div>
+      
+        <div class="doc">
+          
+          <p>Get vocabulary statistics</p>
+        </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+
+
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="generator" content="Crystal Docs 1.19.1">
+<meta name="crystal_docs.project_version" content="main-dev">
+<meta name="crystal_docs.project_name" content="memo">
+
+
+
+<link href="../css/style.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript" src="../js/doc.js"></script>
+
+  <meta name="repository-name" content="memo">
+  <title>Memo::CLI - memo main-dev</title>
+  <script type="text/javascript">
+    CrystalDocs.base_path = "../";
+  </script>
+</head>
+<body>
+
+<svg class="hidden">
+  <symbol id="octicon-link" viewBox="0 0 16 16">
+    <path fill="currentColor" fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path>
+  </symbol>
+</svg>
+<input type="checkbox" id="sidebar-btn">
+<label for="sidebar-btn" id="sidebar-btn-label">
+  <svg class="open" xmlns="http://www.w3.org/2000/svg" height="2em" width="2em" viewBox="0 0 512 512"><title>Open Sidebar</title><path fill="currentColor" d="M80 96v64h352V96H80zm0 112v64h352v-64H80zm0 112v64h352v-64H80z"></path></svg>
+  <svg class="close" xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 512 512"><title>Close Sidebar</title><path fill="currentColor" d="m118.6 73.4-45.2 45.2L210.7 256 73.4 393.4l45.2 45.2L256 301.3l137.4 137.3 45.2-45.2L301.3 256l137.3-137.4-45.2-45.2L256 210.7Z"></path></svg>
+</label>
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="search-box">
+      <input type="search" class="search-input" placeholder="Search..." spellcheck="false" aria-label="Search">
+    </div>
+
+    <div class="project-summary">
+      <h1 class="project-name">
+        <a href="../index.html">
+          memo
+        </a>
+      </h1>
+
+      <span class="project-version">
+        main-dev
+      </span>
+    </div>
+  </div>
+
+  <div class="search-results hidden">
+    <ul class="search-list"></ul>
+  </div>
+
+  <div class="types-list">
+    <ul>
+  
+  <li class="parent open current" data-id="memo/Memo" data-name="memo">
+      <a href="../Memo.html">Memo</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Chunking" data-name="memo::chunking">
+      <a href="../Memo/Chunking.html">Chunking</a>
+      
+    </li>
+  
+  <li class="parent open current" data-id="memo/Memo/CLI" data-name="memo::cli">
+      <a href="../Memo/CLI.html">CLI</a>
+      
+        <ul>
+  
+  <li class="parent " data-id="memo/Memo/CLI/Commands" data-name="memo::cli::commands">
+      <a href="../Memo/CLI/Commands.html">Commands</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/BuildVocab" data-name="memo::cli::commands::buildvocab">
+      <a href="../Memo/CLI/Commands/BuildVocab.html">BuildVocab</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Delete" data-name="memo::cli::commands::delete">
+      <a href="../Memo/CLI/Commands/Delete.html">Delete</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/IndexFiles" data-name="memo::cli::commands::indexfiles">
+      <a href="../Memo/CLI/Commands/IndexFiles.html">IndexFiles</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/IndexText" data-name="memo::cli::commands::indextext">
+      <a href="../Memo/CLI/Commands/IndexText.html">IndexText</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Search" data-name="memo::cli::commands::search">
+      <a href="../Memo/CLI/Commands/Search.html">Search</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceCreate" data-name="memo::cli::commands::servicecreate">
+      <a href="../Memo/CLI/Commands/ServiceCreate.html">ServiceCreate</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceDelete" data-name="memo::cli::commands::servicedelete">
+      <a href="../Memo/CLI/Commands/ServiceDelete.html">ServiceDelete</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Services" data-name="memo::cli::commands::services">
+      <a href="../Memo/CLI/Commands/Services.html">Services</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/ServiceUse" data-name="memo::cli::commands::serviceuse">
+      <a href="../Memo/CLI/Commands/ServiceUse.html">ServiceUse</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Stats" data-name="memo::cli::commands::stats">
+      <a href="../Memo/CLI/Commands/Stats.html">Stats</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Commands/Terms" data-name="memo::cli::commands::terms">
+      <a href="../Memo/CLI/Commands/Terms.html">Terms</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/CLI/Input" data-name="memo::cli::input">
+      <a href="../Memo/CLI/Input.html">Input</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Clustering" data-name="memo::clustering">
+      <a href="../Memo/Clustering.html">Clustering</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Clustering/Cluster" data-name="memo::clustering::cluster">
+      <a href="../Memo/Clustering/Cluster.html">Cluster</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Config" data-name="memo::config">
+      <a href="../Memo/Config.html">Config</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Config/Chunking" data-name="memo::config::chunking">
+      <a href="../Memo/Config/Chunking.html">Chunking</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/EmbeddingService" data-name="memo::config::embeddingservice">
+      <a href="../Memo/Config/EmbeddingService.html">EmbeddingService</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/Queue" data-name="memo::config::queue">
+      <a href="../Memo/Config/Queue.html">Queue</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Config/Search" data-name="memo::config::search">
+      <a href="../Memo/Config/Search.html">Search</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Database" data-name="memo::database">
+      <a href="../Memo/Database.html">Database</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Document" data-name="memo::document">
+      <a href="../Memo/Document.html">Document</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/ExternalId" data-name="memo::externalid">
+      <a href="../Memo/ExternalId.html">ExternalId</a>
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Files" data-name="memo::files">
+      <a href="../Memo/Files.html">Files</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Files/FileInfo" data-name="memo::files::fileinfo">
+      <a href="../Memo/Files/FileInfo.html">FileInfo</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Files/FileRecord" data-name="memo::files::filerecord">
+      <a href="../Memo/Files/FileRecord.html">FileRecord</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Providers" data-name="memo::providers">
+      <a href="../Memo/Providers.html">Providers</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Providers/Base" data-name="memo::providers::base">
+      <a href="../Memo/Providers/Base.html">Base</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/EmbedResult" data-name="memo::providers::embedresult">
+      <a href="../Memo/Providers/EmbedResult.html">EmbedResult</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Mock" data-name="memo::providers::mock">
+      <a href="../Memo/Providers/Mock.html">Mock</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/OpenAI" data-name="memo::providers::openai">
+      <a href="../Memo/Providers/OpenAI.html">OpenAI</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Registry" data-name="memo::providers::registry">
+      <a href="../Memo/Providers/Registry.html">Registry</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Providers/Voyage" data-name="memo::providers::voyage">
+      <a href="../Memo/Providers/Voyage.html">Voyage</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/RRF" data-name="memo::rrf">
+      <a href="../Memo/RRF.html">RRF</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/RRF/Item" data-name="memo::rrf::item">
+      <a href="../Memo/RRF/Item.html">Item</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Search" data-name="memo::search">
+      <a href="../Memo/Search.html">Search</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Search/Filters" data-name="memo::search::filters">
+      <a href="../Memo/Search/Filters.html">Filters</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Search/Result" data-name="memo::search::result">
+      <a href="../Memo/Search/Result.html">Result</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Service" data-name="memo::service">
+      <a href="../Memo/Service.html">Service</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Service/QueueStats" data-name="memo::service::queuestats">
+      <a href="../Memo/Service/QueueStats.html">QueueStats</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/ServiceProvider" data-name="memo::serviceprovider">
+      <a href="../Memo/ServiceProvider.html">ServiceProvider</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/ServiceProvider/Info" data-name="memo::serviceprovider::info">
+      <a href="../Memo/ServiceProvider/Info.html">Info</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/ServiceProvider/Stats" data-name="memo::serviceprovider::stats">
+      <a href="../Memo/ServiceProvider/Stats.html">Stats</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/SourceRegistry" data-name="memo::sourceregistry">
+      <a href="../Memo/SourceRegistry.html">SourceRegistry</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Stats" data-name="memo::stats">
+      <a href="../Memo/Stats.html">Stats</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Storage" data-name="memo::storage">
+      <a href="../Memo/Storage.html">Storage</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/USearchIndex" data-name="memo::usearchindex">
+      <a href="../Memo/USearchIndex.html">USearchIndex</a>
+      
+    </li>
+  
+  <li class="parent " data-id="memo/Memo/Vocab" data-name="memo::vocab">
+      <a href="../Memo/Vocab.html">Vocab</a>
+      
+        <ul>
+  
+  <li class=" " data-id="memo/Memo/Vocab/Result" data-name="memo::vocab::result">
+      <a href="../Memo/Vocab/Result.html">Result</a>
+      
+    </li>
+  
+  <li class=" " data-id="memo/Memo/Vocab/WordFrequency" data-name="memo::vocab::wordfrequency">
+      <a href="../Memo/Vocab/WordFrequency.html">WordFrequency</a>
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+</ul>
+
+      
+    </li>
+  
+</ul>
+
+  </div>
+</div>
+
+
+<div class="main-content">
+<h1 class="type-name">
+
+  <span class="kind">
+    module
+  </span> Memo::<wbr>CLI
+
+</h1>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <h2>
+    <a id="defined-in" class="anchor" href="#defined-in">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Defined in:
+  </h2>
+  
+    
+      cli/input.cr
+    
+    <br/>
+  
+    
+      cli/main.cr
+    
+    <br/>
+  
+    
+      cli/schema.cr
+    
+    <br/>
+  
+
+
+
+  
+    <h2>
+      <a id="constant-summary" class="anchor" href="#constant-summary">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+      Constant Summary
+    </h2>
+  
+  <dl>
+    
+      <dt class="entry-const" id="BUILD_VOCAB_SCHEMA">
+        <strong>BUILD_VOCAB_SCHEMA</strong> = <code><span class="s">&quot;{\n    \&quot;type\&quot;: \&quot;object\&quot;,\n    \&quot;properties\&quot;: {\n      \&quot;batch-size\&quot;: {\&quot;type\&quot;: \&quot;integer\&quot;, \&quot;default\&quot;: 2000, \&quot;description\&quot;: \&quot;Words per API batch\&quot;},\n      \&quot;no-clear\&quot;:   {\&quot;type\&quot;: \&quot;boolean\&quot;, \&quot;default\&quot;: false, \&quot;description\&quot;: \&quot;Don&#39;t clear existing vocab\&quot;}\n    }\n  }&quot;</span></code>
+      </dt>
+      
+    
+      <dt class="entry-const" id="DELETE_SCHEMA">
+        <strong>DELETE_SCHEMA</strong> = <code><span class="s">&quot;{\n    \&quot;type\&quot;: \&quot;object\&quot;,\n    \&quot;properties\&quot;: {\n      \&quot;source-id\&quot;:   {\&quot;oneOf\&quot;: [{\&quot;type\&quot;: \&quot;integer\&quot;}, {\&quot;type\&quot;: \&quot;string\&quot;}], \&quot;description\&quot;: \&quot;Source ID to delete (integer or string/UUID)\&quot;},\n      \&quot;source-type\&quot;: {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;description\&quot;: \&quot;Filter deletion by source type\&quot;}\n    },\n    \&quot;required\&quot;: [\&quot;source-id\&quot;]\n  }&quot;</span></code>
+      </dt>
+      
+    
+      <dt class="entry-const" id="GLOBAL_SCHEMA">
+        <strong>GLOBAL_SCHEMA</strong> = <code><span class="s">&quot;{\n    \&quot;type\&quot;: \&quot;object\&quot;,\n    \&quot;properties\&quot;: {\n      \&quot;db\&quot;:       {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;short\&quot;: \&quot;d\&quot;, \&quot;description\&quot;: \&quot;Database path\&quot;, \&quot;default\&quot;: \&quot;memo.db\&quot;},\n      \&quot;service\&quot;:  {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;short\&quot;: \&quot;s\&quot;, \&quot;description\&quot;: \&quot;Service name\&quot;},\n      \&quot;api-key\&quot;:  {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;short\&quot;: \&quot;k\&quot;, \&quot;description\&quot;: \&quot;API key\&quot;},\n      \&quot;json\&quot;:     {\&quot;type\&quot;: \&quot;boolean\&quot;, \&quot;short\&quot;: \&quot;j\&quot;, \&quot;description\&quot;: \&quot;Output as JSON\&quot;},\n      \&quot;no-vocab\&quot;: {\&quot;type\&quot;: \&quot;boolean\&quot;, \&quot;description\&quot;: \&quot;Disable vocabulary building during index\&quot;}\n    }\n  }&quot;</span></code>
+      </dt>
+      
+      <dd class="entry-const-doc">
+        <p>Global options merged into all command schemas via CLJ.merge</p>
+      </dd>
+      
+    
+      <dt class="entry-const" id="INDEX_SCHEMA">
+        <strong>INDEX_SCHEMA</strong> = <code><span class="s">&quot;{\n    \&quot;type\&quot;: \&quot;object\&quot;,\n    \&quot;positional\&quot;: [\&quot;files\&quot;],\n    \&quot;properties\&quot;: {\n      \&quot;files\&quot;:       {\&quot;type\&quot;: \&quot;array\&quot;, \&quot;items\&quot;: {\&quot;type\&quot;: \&quot;string\&quot;}, \&quot;description\&quot;: \&quot;Files to index\&quot;},\n      \&quot;recursive\&quot;:   {\&quot;type\&quot;: \&quot;boolean\&quot;, \&quot;short\&quot;: \&quot;r\&quot;, \&quot;default\&quot;: false, \&quot;description\&quot;: \&quot;Recursively index directories\&quot;},\n      \&quot;full\&quot;:        {\&quot;type\&quot;: \&quot;boolean\&quot;, \&quot;default\&quot;: false, \&quot;description\&quot;: \&quot;Re-index all files (ignore mtime)\&quot;},\n      \&quot;dry-run\&quot;:     {\&quot;type\&quot;: \&quot;boolean\&quot;, \&quot;default\&quot;: false, \&quot;description\&quot;: \&quot;List files without indexing\&quot;},\n      \&quot;ignore-file\&quot;: {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;default\&quot;: \&quot;.gitignore\&quot;, \&quot;description\&quot;: \&quot;Ignore file name (used with -r)\&quot;},\n      \&quot;source-type\&quot;: {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;default\&quot;: \&quot;text\&quot;, \&quot;description\&quot;: \&quot;Source type for stdin text\&quot;},\n      \&quot;source-id\&quot;:   {\&quot;oneOf\&quot;: [{\&quot;type\&quot;: \&quot;integer\&quot;}, {\&quot;type\&quot;: \&quot;string\&quot;}], \&quot;description\&quot;: \&quot;Source ID for stdin text\&quot;},\n      \&quot;pair-id\&quot;:     {\&quot;oneOf\&quot;: [{\&quot;type\&quot;: \&quot;integer\&quot;}, {\&quot;type\&quot;: \&quot;string\&quot;}], \&quot;description\&quot;: \&quot;Related source ID\&quot;},\n      \&quot;parent-id\&quot;:   {\&quot;oneOf\&quot;: [{\&quot;type\&quot;: \&quot;integer\&quot;}, {\&quot;type\&quot;: \&quot;string\&quot;}], \&quot;description\&quot;: \&quot;Parent source ID\&quot;}\n    }\n  }&quot;</span></code>
+      </dt>
+      
+      <dd class="entry-const-doc">
+        <p>Command schemas</p>
+      </dd>
+      
+    
+      <dt class="entry-const" id="SEARCH_SCHEMA">
+        <strong>SEARCH_SCHEMA</strong> = <code><span class="s">&quot;{\n    \&quot;type\&quot;: \&quot;object\&quot;,\n    \&quot;positional\&quot;: [\&quot;query\&quot;],\n    \&quot;properties\&quot;: {\n      \&quot;query\&quot;:        {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;description\&quot;: \&quot;Search query text\&quot;},\n      \&quot;limit\&quot;:        {\&quot;type\&quot;: \&quot;integer\&quot;, \&quot;default\&quot;: 10, \&quot;description\&quot;: \&quot;Maximum number of results\&quot;},\n      \&quot;min-score\&quot;:    {\&quot;type\&quot;: \&quot;number\&quot;,  \&quot;default\&quot;: 0.3, \&quot;description\&quot;: \&quot;Minimum similarity score (0.0-1.0)\&quot;},\n      \&quot;source-type\&quot;:  {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;description\&quot;: \&quot;Filter by source type\&quot;},\n      \&quot;source-id\&quot;:    {\&quot;oneOf\&quot;: [{\&quot;type\&quot;: \&quot;integer\&quot;}, {\&quot;type\&quot;: \&quot;string\&quot;}], \&quot;description\&quot;: \&quot;Filter by source ID (integer or string/UUID)\&quot;},\n      \&quot;include-text\&quot;: {\&quot;type\&quot;: \&quot;boolean\&quot;, \&quot;default\&quot;: true, \&quot;description\&quot;: \&quot;Include chunk text in results\&quot;},\n      \&quot;like\&quot;:         {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;short\&quot;: \&quot;l\&quot;, \&quot;description\&quot;: \&quot;LIKE pattern to filter text (e.g. %cats%)\&quot;},\n      \&quot;match\&quot;:        {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;short\&quot;: \&quot;m\&quot;, \&quot;description\&quot;: \&quot;FTS5 full-text query (supports AND, OR, NOT, prefix*)\&quot;}\n    },\n    \&quot;required\&quot;: [\&quot;query\&quot;]\n  }&quot;</span></code>
+      </dt>
+      
+    
+      <dt class="entry-const" id="SERVICE_CREATE_SCHEMA">
+        <strong>SERVICE_CREATE_SCHEMA</strong> = <code><span class="s">&quot;{\n    \&quot;type\&quot;: \&quot;object\&quot;,\n    \&quot;properties\&quot;: {\n      \&quot;name\&quot;:       {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;description\&quot;: \&quot;Unique service name\&quot;},\n      \&quot;format\&quot;:     {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;description\&quot;: \&quot;Provider format (openai, voyage)\&quot;},\n      \&quot;model\&quot;:      {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;description\&quot;: \&quot;Model name (e.g., text-embedding-3-small)\&quot;},\n      \&quot;dimensions\&quot;: {\&quot;type\&quot;: \&quot;integer\&quot;, \&quot;description\&quot;: \&quot;Embedding dimensions (e.g., 1536)\&quot;},\n      \&quot;max-tokens\&quot;: {\&quot;type\&quot;: \&quot;integer\&quot;, \&quot;description\&quot;: \&quot;Max tokens per chunk (e.g., 8191)\&quot;},\n      \&quot;endpoint\&quot;:   {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;description\&quot;: \&quot;Custom API endpoint URL\&quot;},\n      \&quot;default\&quot;:    {\&quot;type\&quot;: \&quot;boolean\&quot;, \&quot;default\&quot;: false, \&quot;description\&quot;: \&quot;Set as default service\&quot;}\n    },\n    \&quot;required\&quot;: [\&quot;name\&quot;, \&quot;format\&quot;, \&quot;model\&quot;, \&quot;dimensions\&quot;, \&quot;max-tokens\&quot;]\n  }&quot;</span></code>
+      </dt>
+      
+    
+      <dt class="entry-const" id="SERVICE_DELETE_SCHEMA">
+        <strong>SERVICE_DELETE_SCHEMA</strong> = <code><span class="s">&quot;{\n    \&quot;type\&quot;: \&quot;object\&quot;,\n    \&quot;positional\&quot;: [\&quot;name\&quot;],\n    \&quot;properties\&quot;: {\n      \&quot;name\&quot;:  {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;description\&quot;: \&quot;Service name to delete\&quot;},\n      \&quot;force\&quot;: {\&quot;type\&quot;: \&quot;boolean\&quot;, \&quot;default\&quot;: false, \&quot;description\&quot;: \&quot;Delete even if service has embeddings\&quot;}\n    },\n    \&quot;required\&quot;: [\&quot;name\&quot;]\n  }&quot;</span></code>
+      </dt>
+      
+    
+      <dt class="entry-const" id="SERVICE_LIST_SCHEMA">
+        <strong>SERVICE_LIST_SCHEMA</strong> = <code><span class="s">&quot;{\n    \&quot;type\&quot;: \&quot;object\&quot;,\n    \&quot;properties\&quot;: {}\n  }&quot;</span></code>
+      </dt>
+      
+      <dd class="entry-const-doc">
+        <p>Service subcommand schemas</p>
+      </dd>
+      
+    
+      <dt class="entry-const" id="SERVICE_USE_SCHEMA">
+        <strong>SERVICE_USE_SCHEMA</strong> = <code><span class="s">&quot;{\n    \&quot;type\&quot;: \&quot;object\&quot;,\n    \&quot;positional\&quot;: [\&quot;name\&quot;],\n    \&quot;properties\&quot;: {\n      \&quot;name\&quot;: {\&quot;type\&quot;: \&quot;string\&quot;, \&quot;description\&quot;: \&quot;Service name to set as default\&quot;}\n    },\n    \&quot;required\&quot;: [\&quot;name\&quot;]\n  }&quot;</span></code>
+      </dt>
+      
+    
+      <dt class="entry-const" id="STATS_SCHEMA">
+        <strong>STATS_SCHEMA</strong> = <code><span class="s">&quot;{\n    \&quot;type\&quot;: \&quot;object\&quot;,\n    \&quot;properties\&quot;: {}\n  }&quot;</span></code>
+      </dt>
+      
+    
+      <dt class="entry-const" id="TERMS_SCHEMA">
+        <strong>TERMS_SCHEMA</strong> = <code><span class="s">&quot;{\n    \&quot;type\&quot;: \&quot;object\&quot;,\n    \&quot;positional\&quot;: [\&quot;query\&quot;],\n    \&quot;properties\&quot;: {\n      \&quot;query\&quot;:     {\&quot;type\&quot;: \&quot;string\&quot;,  \&quot;description\&quot;: \&quot;Word or phrase to find similar concepts\&quot;},\n      \&quot;limit\&quot;:     {\&quot;type\&quot;: \&quot;integer\&quot;, \&quot;default\&quot;: 10, \&quot;description\&quot;: \&quot;Maximum number of results\&quot;},\n      \&quot;min-score\&quot;: {\&quot;type\&quot;: \&quot;number\&quot;,  \&quot;default\&quot;: 0.5, \&quot;description\&quot;: \&quot;Minimum similarity score (0.0-1.0)\&quot;}\n    },\n    \&quot;required\&quot;: [\&quot;query\&quot;]\n  }&quot;</span></code>
+      </dt>
+      
+    
+      <dt class="entry-const" id="VERSION">
+        <strong>VERSION</strong> = <code><span class="t">Memo</span><span class="t">::</span><span class="t">VERSION</span></code>
+      </dt>
+      
+    
+  </dl>
+
+
+
+  
+
+  
+  <h2>
+    <a id="class-method-summary" class="anchor" href="#class-method-summary">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Class Method Summary
+  </h2>
+  <ul class="list-summary">
+    
+      <li class="entry-summary">
+        <a href="#run%28args%3DARGV%29-class-method" class="signature"><strong>.run</strong>(args = <span class="t">ARGV</span>)</a>
+        
+      </li>
+    
+  </ul>
+
+
+  
+
+  
+
+
+  <div class="methods-inherited">
+    
+  </div>
+
+  
+
+  
+  <h2>
+    <a id="class-method-detail" class="anchor" href="#class-method-detail">
+  <svg class="octicon-link" aria-hidden="true">
+    <use href="#octicon-link"/>
+  </svg>
+</a>
+    Class Method Detail
+  </h2>
+  
+    <div class="entry-detail" id="run(args=ARGV)-class-method">
+      <div class="signature">
+        
+        def self.<strong>run</strong>(args = <span class="t">ARGV</span>)
+
+        <a class="method-permalink" href="#run%28args%3DARGV%29-class-method">#</a>
+      </div>
+      
+      <br/>
+      <div>
+        
+      </div>
+    </div>
+  
+
+
+  
+
+  
+
+
+</div>
+
+</body>
+</html>
