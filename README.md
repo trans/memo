@@ -387,10 +387,6 @@ Currently supported:
 - `voyage` - Voyage AI voyage-3 (default), voyage-3-lite, voyage-code-3
 - `mock` - Deterministic embeddings for testing
 
-## Architecture
-
-See [DESIGN.md](DESIGN.md) for detailed architecture documentation.
-
 ## License
 
 MIT
