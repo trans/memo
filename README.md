@@ -54,20 +54,22 @@ export VOYAGE_API_KEY=pa-...    # Fallback
 
 ### Commands
 
-**Index text:**
+**Index files:**
 
 ```bash
-memo index text "Your document text"
-memo index text "Document" --source-type=article --source-id=1
+memo index file1.cr file2.cr       # Index specific files
+memo index src/*.cr                # Index files matching a glob
+memo index -r .                    # Recursively index current directory
+memo index -r /path/to/project     # Recursively index specific path
+memo index -r . --dry-run          # Preview without indexing
+memo index -r . --full             # Force re-index all files
 ```
 
-**Index files from directory:**
+**Index text from stdin:**
 
 ```bash
-memo index dir .                    # Index current directory
-memo index dir /path/to/project     # Index specific path
-memo index dir . --dry-run          # Preview without indexing
-memo index dir . --full             # Force re-index all files
+echo "Your document text" | memo index
+echo "Document" | memo index --source-type=article --source-id=1
 ```
 
 **Search:**

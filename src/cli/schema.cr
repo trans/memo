@@ -12,17 +12,20 @@ module Memo::CLI
   })
 
   # Command schemas
-  INDEX_TEXT_SCHEMA = %({
+  INDEX_SCHEMA = %({
     "type": "object",
-    "positional": ["text"],
+    "positional": ["files"],
     "properties": {
-      "text":        {"type": "string",  "description": "Text content to index"},
-      "source-type": {"type": "string",  "default": "text", "description": "Source type identifier (e.g., article, note)"},
-      "source-id":   {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Unique source ID (integer or string/UUID)"},
+      "files":       {"type": "array", "items": {"type": "string"}, "description": "Files to index"},
+      "recursive":   {"type": "boolean", "short": "r", "default": false, "description": "Recursively index directories"},
+      "full":        {"type": "boolean", "default": false, "description": "Re-index all files (ignore mtime)"},
+      "dry-run":     {"type": "boolean", "default": false, "description": "List files without indexing"},
+      "ignore-file": {"type": "string",  "default": ".gitignore", "description": "Ignore file name (used with -r)"},
+      "source-type": {"type": "string",  "default": "text", "description": "Source type for stdin text"},
+      "source-id":   {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Source ID for stdin text"},
       "pair-id":     {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Related source ID"},
-      "parent-id":   {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Parent source ID for hierarchies"}
-    },
-    "required": ["text"]
+      "parent-id":   {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Parent source ID"}
+    }
   })
 
   SEARCH_SCHEMA = %({
@@ -70,18 +73,6 @@ module Memo::CLI
       "batch-size": {"type": "integer", "default": 2000, "description": "Words per API batch"},
       "no-clear":   {"type": "boolean", "default": false, "description": "Don't clear existing vocab"}
     }
-  })
-
-  INDEX_DIR_SCHEMA = %({
-    "type": "object",
-    "positional": ["path"],
-    "properties": {
-      "path":        {"type": "string",  "description": "Directory to index"},
-      "ignore-file": {"type": "string",  "default": ".gitignore", "description": "Ignore file name"},
-      "full":        {"type": "boolean", "default": false, "description": "Re-index all files (ignore mtime)"},
-      "dry-run":     {"type": "boolean", "default": false, "description": "List files without indexing"}
-    },
-    "required": ["path"]
   })
 
   # Service subcommand schemas

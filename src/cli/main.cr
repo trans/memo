@@ -8,28 +8,22 @@ module Memo::CLI
   VERSION = Memo::VERSION
 
   def self.run(args = ARGV)
-    # Nested CLI for index subcommands
-    index_cli = Jargon.new("index")
-    index_cli.subcommand("text", Jargon.merge(INDEX_TEXT_SCHEMA, GLOBAL_SCHEMA))
-    index_cli.subcommand("dir", Jargon.merge(INDEX_DIR_SCHEMA, GLOBAL_SCHEMA))
-    index_cli.default_subcommand("text")
-
     # Nested CLI for service subcommands
     service_cli = Jargon.new("service")
-    service_cli.subcommand("list", Jargon.merge(SERVICE_LIST_SCHEMA, GLOBAL_SCHEMA))
-    service_cli.subcommand("use", Jargon.merge(SERVICE_USE_SCHEMA, GLOBAL_SCHEMA))
-    service_cli.subcommand("create", Jargon.merge(SERVICE_CREATE_SCHEMA, GLOBAL_SCHEMA))
-    service_cli.subcommand("delete", Jargon.merge(SERVICE_DELETE_SCHEMA, GLOBAL_SCHEMA))
+    service_cli.subcommand("list", json: Jargon.merge(SERVICE_LIST_SCHEMA, GLOBAL_SCHEMA))
+    service_cli.subcommand("use", json: Jargon.merge(SERVICE_USE_SCHEMA, GLOBAL_SCHEMA))
+    service_cli.subcommand("create", json: Jargon.merge(SERVICE_CREATE_SCHEMA, GLOBAL_SCHEMA))
+    service_cli.subcommand("delete", json: Jargon.merge(SERVICE_DELETE_SCHEMA, GLOBAL_SCHEMA))
     service_cli.default_subcommand("list")
 
     # Main CLI
     cli = Jargon.new("memo")
-    cli.subcommand("index", index_cli)
-    cli.subcommand("search", Jargon.merge(SEARCH_SCHEMA, GLOBAL_SCHEMA))
-    cli.subcommand("terms", Jargon.merge(TERMS_SCHEMA, GLOBAL_SCHEMA))
-    cli.subcommand("build-vocab", Jargon.merge(BUILD_VOCAB_SCHEMA, GLOBAL_SCHEMA))
-    cli.subcommand("delete", Jargon.merge(DELETE_SCHEMA, GLOBAL_SCHEMA))
-    cli.subcommand("stats", Jargon.merge(STATS_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("index", json: Jargon.merge(INDEX_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("search", json: Jargon.merge(SEARCH_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("terms", json: Jargon.merge(TERMS_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("build-vocab", json: Jargon.merge(BUILD_VOCAB_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("delete", json: Jargon.merge(DELETE_SCHEMA, GLOBAL_SCHEMA))
+    cli.subcommand("stats", json: Jargon.merge(STATS_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("service", service_cli)
 
     # Handle --help and --version before parsing
@@ -97,7 +91,40 @@ module Memo::CLI
       ensure
         db.close
       end
-    when "index text", "index dir", "search", "terms", "build-vocab", "delete", "stats"
+    when "index"
+      files = input["files"]?.try(&.as_a?.try(&.map(&.as_s))) || [] of String
+      stdin_text = nil
+      if files.empty? && !STDIN.tty?
+        stdin_text = STDIN.gets_to_end
+        if stdin_text.empty?
+          STDERR.puts "Error: No input provided on stdin."
+          exit 1
+        end
+      elsif files.empty?
+        STDERR.puts "Error: No files specified."
+        STDERR.puts
+        STDERR.puts "Usage: memo index <files>... [options]"
+        STDERR.puts "       memo index -r <dir>     Recursively index directory"
+        STDERR.puts "       echo \"text\" | memo index  Index text from stdin"
+        exit 1
+      end
+
+      memo = Memo::Service.new(
+        db_path: db_path,
+        service: service_name,
+        api_key: api_key,
+        build_vocab: !no_vocab
+      )
+      begin
+        if text = stdin_text
+          Commands::IndexText.run(memo, text, input, json_output)
+        else
+          Commands::IndexFiles.run(memo, files, input, json_output)
+        end
+      ensure
+        memo.close
+      end
+    when "search", "terms", "build-vocab", "delete", "stats"
       memo = Memo::Service.new(
         db_path: db_path,
         service: service_name,
@@ -106,8 +133,6 @@ module Memo::CLI
       )
       begin
         case result.subcommand
-        when "index text"  then Commands::IndexText.run(memo, input, json_output)
-        when "index dir"   then Commands::IndexDir.run(memo, input, json_output)
         when "search"      then Commands::Search.run(memo, input, json_output)
         when "terms"       then Commands::Terms.run(memo, input, json_output)
         when "build-vocab" then Commands::BuildVocab.run(memo, input, json_output)
@@ -134,14 +159,18 @@ module Memo::CLI
     Semantic search CLI for Memo.
 
     Commands:
-      index text    Index text content
-      index dir     Index files from directory
+      index         Index files or text from stdin
       search        Search indexed content
       terms         Find similar words
       build-vocab   Build vocabulary from indexed content
       delete        Delete indexed content
       stats         Show statistics
       service       Manage embedding services
+
+    Index Usage:
+      memo index <files>...          Index specific files
+      memo index -r <dir>            Recursively index a directory
+      echo "text" | memo index       Index text from stdin
 
     Global Options:
       -d, --db=PATH       Database path (default: memo.db)

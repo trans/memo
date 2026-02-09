@@ -1,10 +1,9 @@
 module Memo::CLI::Commands::IndexText
   extend self
 
-  def run(memo : Memo::Service, input : Hash(String, JSON::Any), json : Bool)
+  def run(memo : Memo::Service, text : String, input : Hash(String, JSON::Any), json : Bool)
     source_type = Input.string(input, "source-type") || "text"
     source_id = Input.external_id(input, "source-id")
-    text = input["text"].as_s
 
     count = memo.index(
       source_type: source_type,

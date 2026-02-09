@@ -1484,6 +1484,84 @@ module Memo
       index_files(root, ignore_file, incremental, dry_run) { |_, _| }
     end
 
+    # Index an explicit list of file paths
+    #
+    # Unlike index_files, this does not walk directories or use ignore files.
+    # Relative paths are resolved from `root` (defaults to Dir.current).
+    # Binary files are still skipped.
+    #
+    # Returns tuple of (indexed_count, skipped_count, total_files)
+    def index_file_list(
+      paths : Array(String),
+      root : String = Dir.current,
+      incremental : Bool = true,
+      dry_run : Bool = false,
+      &block : String, Symbol ->
+    ) : {Int32, Int32, Int32}
+      root_path = Path.new(root).expand.to_s
+      indexed = 0
+      skipped = 0
+      total = 0
+
+      files_to_index = [] of {Int64, String, Files::FileInfo}
+
+      paths.each do |file_path|
+        expanded = Path.new(file_path).expand.to_s
+
+        # Skip binary files
+        if Files.binary?(expanded)
+          block.call(file_path, :skipped)
+          skipped += 1
+          total += 1
+          next
+        end
+
+        total += 1
+        info = Files.file_info(expanded, root_path)
+
+        existing = Files.get_by_path(@db, info.path)
+
+        if existing && incremental && !Files.needs_update?(existing, info.mtime)
+          skipped += 1
+          block.call(info.path, :skipped)
+          next
+        end
+
+        if dry_run
+          block.call(info.path, :would_index)
+          next
+        end
+
+        content = File.read(expanded)
+
+        source_id = if existing
+                      existing.source_id
+                    else
+                      SourceRegistry.create(@db, "file")
+                    end
+
+        files_to_index << {source_id, content, info}
+        block.call(info.path, :indexed)
+      end
+
+      return {0, skipped, total} if files_to_index.empty?
+
+      index_files_batched(files_to_index)
+      indexed = files_to_index.size
+
+      {indexed, skipped, total}
+    end
+
+    # Index file list without progress callback
+    def index_file_list(
+      paths : Array(String),
+      root : String = Dir.current,
+      incremental : Bool = true,
+      dry_run : Bool = false
+    ) : {Int32, Int32, Int32}
+      index_file_list(paths, root, incremental, dry_run) { |_, _| }
+    end
+
     # Get file record by path
     def get_file(path : String) : Files::FileRecord?
       Files.get_by_path(@db, path)
