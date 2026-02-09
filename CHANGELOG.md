@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-02-08
+
+### Fixed
+- **Embedding API batch size limits** - `index_files_batched` and `embed_and_store_internal` now split texts into `@batch_size` chunks before calling the provider API, fixing `'$.input' is invalid` errors when indexing many files at once
+
 ## [0.7.0] - 2026-02-08
 
 ### Changed
