@@ -9,7 +9,15 @@
 .idea/
 *.swp
 
+# Tools
+.claude/
+.ctags
+.playwright-cli/
+
 # macOS
 .DS_Store
+
+# App
 memo.db
 memo_cli
+.env
