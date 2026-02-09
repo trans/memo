@@ -153,16 +153,18 @@ module Memo::CLI::Commands::IndexFiles
     puts "Dry run - files that would be indexed:"
     puts
 
+    cwd = Dir.current
+
     file_paths.each do |path|
-      expanded = File.expand_path(path)
-      next if Memo::Files.binary?(expanded)
-      puts "  #{path}"
+      next if Memo::Files.binary?(path)
+      relative = Path.new(path).relative_to(cwd).to_s
+      puts "  #{relative}"
       total += 1
     end
 
     dir_paths.each do |dir|
       Memo::Files.walk(dir, ignore_file) do |file_path|
-        relative = Path.new(file_path).relative_to(dir).to_s
+        relative = Path.new(file_path).relative_to(cwd).to_s
         puts "  #{relative}"
         total += 1
       end
@@ -175,12 +177,13 @@ module Memo::CLI::Commands::IndexFiles
   private def dry_run_json(file_paths, dir_paths, ignore_file)
     results = [] of Hash(String, JSON::Any)
     total = 0
+    cwd = Dir.current
 
     file_paths.each do |path|
-      expanded = File.expand_path(path)
-      next if Memo::Files.binary?(expanded)
+      next if Memo::Files.binary?(path)
+      relative = Path.new(path).relative_to(cwd).to_s
       results << {
-        "path"   => JSON::Any.new(path),
+        "path"   => JSON::Any.new(relative),
         "status" => JSON::Any.new("would_index"),
       }
       total += 1
@@ -188,7 +191,7 @@ module Memo::CLI::Commands::IndexFiles
 
     dir_paths.each do |dir|
       Memo::Files.walk(dir, ignore_file) do |file_path|
-        relative = Path.new(file_path).relative_to(dir).to_s
+        relative = Path.new(file_path).relative_to(cwd).to_s
         results << {
           "path"   => JSON::Any.new(relative),
           "status" => JSON::Any.new("would_index"),
