@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEMO - Semantic Search &amp; Vector Storage for Crystal</title>
-<link href="https://fonts.cdnfonts.com/css/underwood-champion" rel="stylesheet">
+<title>Memo - Semantic Search &amp; Vector Storage for Crystal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after {
     box-sizing: border-box;
@@ -15,387 +14,636 @@
     padding: 0;
   }
 
+  :root {
+    --bg-primary: #000000;
+    --bg-secondary: #0f0f2a;
+    --bg-card: #141430;
+    --bg-code: #000000;
+    --border: #2a2a5a;
+    --border-glow: #4a4aff33;
+    --text-primary: #e8e8f0;
+    --text-secondary: #9898c8;
+    --text-muted: #6868a0;
+    --accent-blue: #6c8cff;
+    --accent-purple: #a855f7;
+    --accent-pink: #ec4899;
+    --accent-orange: #f97316;
+    --gradient-1: linear-gradient(135deg, #6c8cff, #a855f7);
+    --gradient-2: linear-gradient(135deg, #a855f7, #ec4899);
+  }
+
   body {
-    font-family: 'Underwood Champion', 'Courier Prime', 'Courier New', Courier, monospace;
-    background: #e8e8ee;
-    color: #5858a8;
-    line-height: 1.4;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
     min-height: 100vh;
   }
 
-  .page {
-    max-width: 860px;
-    margin: 2rem auto;
-    padding: 3rem 3.5rem;
-    background: #f2f4fb;
-    border: 1px solid #b0b0cc;
-    box-shadow: 4px 4px 0 #b0b0cc, 1px 1px 0 #9a9abb;
+  /* Hero */
+  .hero {
     position: relative;
   }
 
-  /* Company header */
-  .company-header {
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, transparent 75%, #000 100%);
+    pointer-events: none;
+  }
+
+  .hero-image {
+    width: 100%;
+    display: block;
+    margin-top: -6rem;
+  }
+
+  .intro-section {
     text-align: center;
-    border-bottom: none;
-    padding-bottom: 0;
-    margin-bottom: 2rem;
+    padding-bottom: 2.5rem;
   }
 
-  .company-header h1 {
-    font-size: 1.6rem;
-    letter-spacing: 0.5em;
-    text-transform: uppercase;
-    font-weight: bold;
+  .hero-tagline {
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
   }
 
-  .company-header .subtitle {
-    font-size: 1rem;
-    text-transform: uppercase;
-    margin-top: 0.25rem;
-    color: #5858a8;
-  }
-
-
-  /* Memo form header */
-  .memo-header {
-    margin-bottom: 2rem;
-    border-bottom: none;
-    padding-bottom: 0;
-  }
-
-  .memo-field {
+  .hero-buttons {
     display: flex;
-    margin-bottom: 0.35rem;
-    font-size: 1rem;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
   }
 
-  .memo-label {
-    font-weight: bold;
-    min-width: 70px;
-    text-transform: uppercase;
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+    font-family: inherit;
   }
 
-  .memo-value {
-    flex: 1;
-    padding-left: 0.5rem;
-    padding-bottom: 2px;
+  .btn-primary {
+    background: var(--gradient-1);
+    color: #fff;
   }
 
-  /* Stamp */
-  .stamp {
-    float: right;
-    border: 3px solid #4040a0;
-    color: #5858a8;
-    padding: 0.3rem 0.8rem;
-    font-size: 1rem;
-    font-weight: bold;
-    text-transform: uppercase;
-    transform: rotate(-4deg);
-    margin-top: -1rem;
-    opacity: 0.85;
+  .btn-primary:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
   }
 
-  /* Section headings */
-  h2 {
-    font-size: 1rem;
-    text-transform: uppercase;
-    border-bottom: none;
-    padding-bottom: 0;
-    margin: 2rem 0 1rem;
+  .btn-secondary {
+    background: rgba(168, 85, 247, 0.25);
+    color: var(--text-primary);
+    border: 1px solid rgba(168, 85, 247, 0.4);
   }
 
-  h2:first-of-type {
+  .btn-secondary:hover {
+    background: rgba(168, 85, 247, 0.35);
+    border-color: var(--accent-purple);
+  }
+
+  /* Main content */
+  .container {
+    max-width: 960px;
+    margin: -32rem auto 0;
+    padding: 0 1.5rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Features section with icons */
+  .features-section {
+    padding: 0 2.5rem 2.5rem;
+    margin-top: 14rem;
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+  }
+
+  .section-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.15em;
     margin-top: 1rem;
   }
 
-  /* Body text */
-  p {
-    margin: 0.75rem 0;
-    font-size: 1rem;
+  .caps-title {
+    text-shadow:
+      -2px -2px 0 #000, 0 -2px 0 #000, 2px -2px 0 #000,
+      -2px  0   0 #000,                  2px  0   0 #000,
+      -2px  2px 0 #000, 0  2px 0 #000, 2px  2px 0 #000;
   }
 
-  .tagline {
-    font-size: 1rem;
-    font-style: italic;
+  .section-subtitle {
     text-align: center;
-    margin: 1.5rem 0;
-    color: #5858a8;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+    font-size: 0.95rem;
   }
 
-  /* Features list */
-  .features {
-    list-style: none;
-    margin: 1rem 0;
+  .features-icons {
+    display: block;
+    max-width: 560px;
+    margin: 0 auto 3rem;
+    border-radius: 12px;
   }
 
-  .features li {
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .feature-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .feature-card:hover {
+    border-color: var(--accent-blue);
+  }
+
+  .feature-name {
+    font-weight: 600;
     font-size: 1rem;
-    padding: 0.25rem 0;
-    padding-left: 1.5rem;
-    position: relative;
-    display: flex;
+    margin-bottom: 0.35rem;
+    color: var(--accent-blue);
   }
 
-  .features li::before {
-    content: '>';
-    position: absolute;
-    left: 0.25rem;
-    color: #5858a8;
+  .feature-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
   }
 
-  .features .feat-name {
-    font-weight: bold;
-    display: inline-block;
-    min-width: 20ch;
+  /* CLI section */
+  .cli-section {
+    padding: 3rem 0 4rem;
+    margin-top: 4rem;
   }
 
-  /* Code blocks */
-  pre {
-    font-family: 'Underwood Champion', 'Courier Prime', 'Courier New', Courier, monospace;
-    background: #f2f4fb;
-    border: 2px solid #8888cc;
-    border-radius: 3px;
-    padding: 0.75rem 1rem;
-    margin: 0.75rem 0;
-    font-size: 1rem;
-    overflow-x: auto;
-    line-height: 1.4;
-  }
 
-  code {
-    font-family: 'Underwood Champion', 'Courier Prime', 'Courier New', Courier, monospace;
-    font-size: 1rem;
-  }
-
-  .prompt::before {
-    content: '$ ';
-    color: #5858a8;
-  }
-
-  .output {
-    color: #5858a8;
-  }
-
-  /* Crystal code */
-  .crystal-block {
-    background: #f2f4fb;
-    border: 2px solid #8888cc;
-    border-radius: 3px;
-    padding: 0.75rem 1rem;
-    margin: 0.75rem 0;
-    font-size: 1rem;
+  .code-block {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin: 1.25rem 0;
     overflow-x: auto;
     white-space: pre;
-    line-height: 1.4;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    line-height: 1.7;
   }
 
-  .comment { color: #5858a8; }
-  .string { color: #5858a8; }
-  .keyword { font-weight: bold; }
-
-  /* Links */
-  a {
-    color: #5858a8;
-    text-decoration: underline;
-    text-decoration-style: dotted;
-    text-underline-offset: 3px;
+  .code-block .prompt {
+    color: var(--text-muted);
   }
 
-  a:hover {
-    color: #4040a0;
+  .code-block .prompt::before {
+    content: '$ ';
+    color: var(--accent-purple);
+  }
+
+  .code-block .output {
+    color: var(--text-secondary);
+  }
+
+  .code-block .highlight {
+    color: var(--accent-orange);
+  }
+
+  /* Quick start section */
+  .quickstart-section {
+    padding: 3rem 0 4rem;
+  }
+
+  .install-box {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .install-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .install-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    white-space: pre;
+    color: var(--text-primary);
+  }
+
+  .crystal-block {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    white-space: pre;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--text-primary);
+  }
+
+  .crystal-block .kw { color: var(--accent-purple); font-weight: 500; }
+  .crystal-block .str { color: #34d399; }
+  .crystal-block .cmt { color: var(--text-muted); font-style: italic; }
+  .crystal-block .type { color: var(--accent-blue); }
+  .crystal-block .sym { color: var(--accent-orange); }
+
+  /* Providers */
+  .providers-section {
+    padding: 3rem 0 4rem;
+  }
+
+  .providers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .provider-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .provider-card:hover {
+    border-color: var(--accent-purple);
+  }
+
+  .provider-name {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .provider-name a {
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+
+  .provider-name a:hover {
+    color: var(--accent-blue);
+  }
+
+  .provider-models {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Divider */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0;
   }
 
   /* Footer */
   .footer {
-    margin-top: 2.5rem;
-    padding-top: 1rem;
-    border-top: none;
+    padding: 3rem 0 6rem;
     text-align: center;
-    font-size: 1rem;
-    color: #5858a8;
   }
 
   .footer-links {
-    margin-top: 0.5rem;
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
   }
 
   .footer-links a {
-    margin: 0 1rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
   }
 
-  .cc-line {
-    margin-top: 1.5rem;
-    font-size: 1rem;
-    color: #5858a8;
-    text-align: center;
+  .footer-links a:hover {
+    color: var(--accent-blue);
   }
 
-  .cc-line span {
-    text-transform: uppercase;
-    font-weight: bold;
-  }
-
-
-  .indented {
-    padding-left: 1.5rem;
-  }
-
-  /* Install block */
-  .install-block {
-    border: 2px solid #8888cc;
-    border-radius: 3px;
-    padding: 0.75rem 1rem;
-    margin: 0.75rem 0;
-    font-size: 1rem;
-    background: #f2f4fb;
-  }
-
-  .install-block .label {
-    font-weight: bold;
-    text-transform: uppercase;
-    font-size: 1rem;
-    color: #5858a8;
-    margin-bottom: 0.35rem;
+  .footer-copy {
+    color: var(--text-muted);
+    font-size: 0.8rem;
   }
 
   /* Responsive */
-  @media (max-width: 600px) {
-    .page {
-      margin: 0;
-      padding: 2rem 1.5rem;
-      border: none;
-      box-shadow: none;
+  @media (max-width: 640px) {
+    .hero-content {
+      bottom: 1.5rem;
     }
 
-    .stamp {
-      float: none;
-      display: inline-block;
-      margin: 0.5rem 0;
+    .hero-tagline {
+      font-size: 1rem;
     }
+
+    .section-title {
+      font-size: 1.25rem;
+    }
+
+    .features-grid,
+    .providers-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .code-block,
+    .crystal-block {
+      font-size: 0.78rem;
+      padding: 1rem;
+    }
+  }
+  #particles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .hero, .container {
+    position: relative;
+    z-index: 1;
   }
 </style>
 </head>
 <body>
+<canvas id="particles"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('particles');
+  const ctx = canvas.getContext('2d');
+  let w, h, particles, mouse;
+  const PARTICLE_COUNT = 80;
+  const CONNECTION_DIST = 150;
+  const MOUSE_DIST = 200;
+  const colors = ['#6c8cff', '#a855f7', '#ec4899', '#f97316', '#34d399'];
 
-<div class="page">
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
 
-  <!-- Company Heading -->
-  <div class="company-header">
-    <h1>Memo</h1>
-    <div class="subtitle">Technical Bulletin</div>
-  </div>
+  function init() {
+    mouse = { x: -1000, y: -1000 };
+    particles = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: (Math.random() - 0.5) * 0.5,
+        r: Math.random() * 2 + 1,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: Math.random() * 0.5 + 0.3
+      });
+    }
+  }
 
-  <!-- Memo Form Header -->
-  <div class="memo-header">
-    <span class="stamp">v0.8.1</span>
-    <div class="memo-field">
-      <span class="memo-label">To:</span>
-      <span class="memo-value">All Engineering Personnel</span>
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < 0) p.x = w;
+      if (p.x > w) p.x = 0;
+      if (p.y < 0) p.y = h;
+      if (p.y > h) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.alpha;
+      ctx.fill();
+
+      for (let j = i + 1; j < particles.length; j++) {
+        const q = particles[j];
+        const dx = p.x - q.x;
+        const dy = p.y - q.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < CONNECTION_DIST) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(q.x, q.y);
+          ctx.strokeStyle = p.color;
+          ctx.globalAlpha = (1 - dist / CONNECTION_DIST) * 0.15;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+
+      const mdx = p.x - mouse.x;
+      const mdy = p.y - mouse.y;
+      const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+      if (mdist < MOUSE_DIST) {
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.strokeStyle = '#6c8cff';
+        ctx.globalAlpha = (1 - mdist / MOUSE_DIST) * 0.3;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+    }
+
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', function() { resize(); });
+  window.addEventListener('mousemove', function(e) {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+  });
+
+  resize();
+  init();
+  draw();
+})();
+</script>
+
+<!-- Hero -->
+<section class="hero">
+  <img src="header.png" alt="Memo - Semantic Search" class="hero-image">
+  <div class="hero-overlay"></div>
+</section>
+
+<div class="container">
+
+  <!-- Tagline + Buttons -->
+  <section class="intro-section">
+    <p class="hero-tagline">Semantic Vector Storage and Search</p>
+    <div class="hero-buttons">
+      <a href="https://github.com/trans/memo" class="btn btn-primary">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+      <a href="api/" class="btn btn-secondary"><strong>API Docs</strong></a>
     </div>
-    <div class="memo-field">
-      <span class="memo-label">From:</span>
-      <span class="memo-value">Dept. of Semantic Search</span>
-    </div>
-    <div class="memo-field">
-      <span class="memo-label">Re:</span>
-      <span class="memo-value">Embed Storage &amp; Semantic Search Library for Crystal</span>
-    </div>
-    <div class="memo-field">
-      <span class="memo-label">Date:</span>
-      <span class="memo-value">Filed Electronically</span>
-    </div>
-    <div class="memo-field">
-      <span class="memo-label">See:</span>
-      <span class="memo-value"><a href="https://github.com/trans/memo">GitHub Repository</a> | <a href="https://trans.github.io/memo/api/">API Documentation</a></span>
-    </div>
-  </div>
+  </section>
 
   <!-- Features -->
-  <h2>Capabilities</h2>
-  <ul class="features">
-    <li><span class="feat-name">Text chunking</span> &mdash; Smart segmentation into optimal-sized pieces</li>
-    <li><span class="feat-name">Text storage</span> &mdash; Persistent text with LIKE and FTS5 full-text search</li>
-    <li><span class="feat-name">Embedding storage</span> &mdash; Deduplication by content hash</li>
-    <li><span class="feat-name">HNSW search</span> &mdash; Fast approximate nearest neighbor via USearch</li>
-    <li><span class="feat-name">Vocabulary</span> &mdash; Word-level semantic similarity from indexed content</li>
-    <li><span class="feat-name">CLI tool</span> &mdash; Index, search, and manage from the command line</li>
-  </ul>
+  <section class="features-section">
+    <h2 class="section-title caps-title">CAPABILITIES</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-name">Text Chunking</div>
+        <div class="feature-desc">Smart segmentation of documents into optimal-sized pieces for embedding</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-name">Embedding Storage</div>
+        <div class="feature-desc">Content-hash deduplication with SQLite registry and persistent vector store</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-name">HNSW Search</div>
+        <div class="feature-desc">Fast approximate nearest neighbor search powered by USearch</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-name">Text Storage</div>
+        <div class="feature-desc">Optional persistent text with LIKE pattern and FTS5 full-text search</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-name">Vocabulary</div>
+        <div class="feature-desc">Word-level semantic similarity built from indexed content</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-name">CLI Tool</div>
+        <div class="feature-desc">Index, search, and manage everything from the command line</div>
+      </div>
+    </div>
+  </section>
+
 
   <!-- CLI Usage -->
-  <h2>CLI Usage</h2>
+  <section class="cli-section">
+    <h2 class="section-title">CLI USAGE</h2>
+    <p class="section-subtitle">Build the tool, then index, search, and explore.</p>
 
-  <div class="indented">
-    <p>Build the tool, then index, search, and explore:</p>
-
-    <pre><span class="prompt">shards build</span>
+    <div class="code-block">
 <span class="prompt">cd my-project</span>
 <span class="prompt">memo index *</span>
+
 <span class="prompt">memo search "database connection pooling"</span>
-<span class="output">[F3] src/db/pool.cr (score: 0.823)</span>
+<span class="output">[F3] src/db/pool.cr (<span class="highlight">score: 0.823</span>)</span>
 <span class="output">  12 | def connect(config : DBConfig)</span>
 <span class="output">  13 |   pool = ConnectionPool.new(config)</span>
-<span class="output">[F7] src/db/query.cr (score: 0.781)</span>
+<span class="output">[F7] src/db/query.cr (<span class="highlight">score: 0.781</span>)</span>
 <span class="output">  45 | # Reuse pooled database connections</span>
 <span class="output">  46 |   conn = pool.checkout</span>
 <span class="output">2 result(s)</span>
+
 <span class="prompt">memo terms "database"</span>
 <span class="output">0.70  data</span>
 <span class="output">0.70  databases</span>
-<span class="output">0.57  sqlite</span></pre>
-  </div>
+<span class="output">0.57  sqlite</span>
+    </div>
+  </section>
 
-  <!-- Library Quick Start -->
-  <h2>Library Quick Start</h2>
 
-  <div class="indented">
-    <div class="install-block">
-      <div class="label">shard.yml:</div>
-      <code>dependencies:<br>&nbsp;&nbsp;memo:<br>&nbsp;&nbsp;&nbsp;&nbsp;github: trans/memo</code>
+  <!-- Quick Start -->
+  <section class="quickstart-section">
+    <h2 class="section-title">QUICK START</h2>
+    <p class="section-subtitle">Add Memo to your Crystal project in minutes.</p>
+
+    <div class="install-box">
+      <div class="install-label">shard.yml</div>
+      <div class="install-code">dependencies:
+  memo:
+    github: trans/memo</div>
     </div>
 
-    <div class="crystal-block"><span class="keyword">require</span> <span class="string">"memo"</span>
+    <div class="crystal-block"><span class="kw">require</span> <span class="str">"memo"</span>
 
-<span class="comment"># Create service with database path</span>
-memo = <span class="keyword">Memo::Service</span>.new(
-  db_path: <span class="string">"/var/data/memo.db"</span>,
-  format:  <span class="string">"openai"</span>,
-  api_key: ENV[<span class="string">"OPENAI_API_KEY"</span>]
+<span class="cmt"># Create service with database path</span>
+memo = <span class="type">Memo::Service</span>.new(
+  <span class="sym">db_path:</span> <span class="str">"/var/data/memo.db"</span>,
+  <span class="sym">format:</span>  <span class="str">"openai"</span>,
+  <span class="sym">api_key:</span> ENV[<span class="str">"OPENAI_API_KEY"</span>]
 )
 
-<span class="comment"># Index a document</span>
+<span class="cmt"># Index a document</span>
 memo.index(
-  source_type: <span class="string">"article"</span>,
-  source_id:   42_i64,
-  text:        <span class="string">"Your document text here..."</span>
+  <span class="sym">source_type:</span> <span class="str">"article"</span>,
+  <span class="sym">source_id:</span>   42_i64,
+  <span class="sym">text:</span>        <span class="str">"Your document text here..."</span>
 )
 
-<span class="comment"># Search</span>
-results = memo.search(query: <span class="string">"search query"</span>, limit: 10)
-results.each <span class="keyword">do</span> |r|
-  puts <span class="string">"#{r.source_type}:#{r.source_id} (score: #{r.score})"</span>
-<span class="keyword">end</span>
+<span class="cmt"># Search</span>
+results = memo.search(<span class="sym">query:</span> <span class="str">"search query"</span>, <span class="sym">limit:</span> 10)
+results.each <span class="kw">do</span> |r|
+  puts <span class="str">"#{r.source_type}:#{r.source_id} (score: #{r.score})"</span>
+<span class="kw">end</span>
 
-<span class="comment"># Clean up</span>
+<span class="cmt"># Clean up</span>
 memo.close</div>
-  </div>
+  </section>
+
 
   <!-- Providers -->
-  <h2>Supported Providers</h2>
-  <ul class="features">
-    <li><span class="feat-name"><a href="https://platform.openai.com/">OpenAI</a></span> &mdash; text-embedding-3-small, text-embedding-3-large</li>
-    <li><span class="feat-name"><a href="https://www.voyageai.com/">Voyage AI</a></span> &mdash; voyage-3, voyage-3-lite, voyage-code-3</li>
-    <li><span class="feat-name"><a href="https://github.com/trans/memo">Mock</a></span> &mdash; Deterministic embeddings for testing</li>
-  </ul>
+  <section class="providers-section">
+    <h2 class="section-title">SUPPORTED PROVIDERS</h2>
+    <p class="section-subtitle">Plug in your preferred embedding service.</p>
+
+    <div class="providers-grid">
+      <div class="provider-card">
+        <div class="provider-name"><a href="https://platform.openai.com/">OpenAI</a></div>
+        <div class="provider-models">text-embedding-3-small<br>text-embedding-3-large</div>
+      </div>
+      <div class="provider-card">
+        <div class="provider-name"><a href="https://www.voyageai.com/">Voyage AI</a></div>
+        <div class="provider-models">voyage-3, voyage-3-lite<br>voyage-code-3</div>
+      </div>
+      <div class="provider-card">
+        <div class="provider-name"><a href="https://github.com/trans/memo">Mock</a></div>
+        <div class="provider-models">Deterministic embeddings<br>for testing</div>
+      </div>
+    </div>
+  </section>
+
 
   <!-- Footer -->
-  <div class="footer">
-    <div class="cc-line">
-      File copy retained by Dept. of Semantic Search
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="https://github.com/trans/memo">GitHub</a>
+      <a href="api/">API Documentation</a>
+      <a href="https://github.com/trans/memo/blob/main/LICENSE">MIT License</a>
     </div>
-    <div class="cc-line">
-      Copyright 2026 Thomas Sawyer : MIT License
-    </div>
-  </div>
+    <div class="footer-copy">Copyright 2026 Thomas Sawyer</div>
+  </footer>
 
 </div>
 

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MEMO - Semantic Search &amp; Vector Storage for Crystal</title>
+<link href="https://fonts.cdnfonts.com/css/underwood-champion" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Underwood Champion', 'Courier Prime', 'Courier New', Courier, monospace;
+    background: #e8e8ee;
+    color: #5858a8;
+    line-height: 1.4;
+    min-height: 100vh;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 2rem auto;
+    padding: 3rem 3.5rem;
+    background: #f2f4fb;
+    border: 1px solid #b0b0cc;
+    box-shadow: 4px 4px 0 #b0b0cc, 1px 1px 0 #9a9abb;
+    position: relative;
+  }
+
+  /* Company header */
+  .company-header {
+    text-align: center;
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 2rem;
+  }
+
+  .company-header h1 {
+    font-size: 1.6rem;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+
+  .company-header .subtitle {
+    font-size: 1rem;
+    text-transform: uppercase;
+    margin-top: 0.25rem;
+    color: #5858a8;
+  }
+
+
+  /* Memo form header */
+  .memo-header {
+    margin-bottom: 2rem;
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .memo-field {
+    display: flex;
+    margin-bottom: 0.35rem;
+    font-size: 1rem;
+  }
+
+  .memo-label {
+    font-weight: bold;
+    min-width: 70px;
+    text-transform: uppercase;
+  }
+
+  .memo-value {
+    flex: 1;
+    padding-left: 0.5rem;
+    padding-bottom: 2px;
+  }
+
+  /* Stamp */
+  .stamp {
+    float: right;
+    border: 3px solid #4040a0;
+    color: #5858a8;
+    padding: 0.3rem 0.8rem;
+    font-size: 1rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    transform: rotate(-4deg);
+    margin-top: -1rem;
+    opacity: 0.85;
+  }
+
+  /* Section headings */
+  h2 {
+    font-size: 1rem;
+    text-transform: uppercase;
+    border-bottom: none;
+    padding-bottom: 0;
+    margin: 2rem 0 1rem;
+  }
+
+  h2:first-of-type {
+    margin-top: 1rem;
+  }
+
+  /* Body text */
+  p {
+    margin: 0.75rem 0;
+    font-size: 1rem;
+  }
+
+  .tagline {
+    font-size: 1rem;
+    font-style: italic;
+    text-align: center;
+    margin: 1.5rem 0;
+    color: #5858a8;
+  }
+
+  /* Features list */
+  .features {
+    list-style: none;
+    margin: 1rem 0;
+  }
+
+  .features li {
+    font-size: 1rem;
+    padding: 0.25rem 0;
+    padding-left: 1.5rem;
+    position: relative;
+    display: flex;
+  }
+
+  .features li::before {
+    content: '>';
+    position: absolute;
+    left: 0.25rem;
+    color: #5858a8;
+  }
+
+  .features .feat-name {
+    font-weight: bold;
+    display: inline-block;
+    min-width: 20ch;
+  }
+
+  /* Code blocks */
+  pre {
+    font-family: 'Underwood Champion', 'Courier Prime', 'Courier New', Courier, monospace;
+    background: #f2f4fb;
+    border: 2px solid #8888cc;
+    border-radius: 3px;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+    font-size: 1rem;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+
+  code {
+    font-family: 'Underwood Champion', 'Courier Prime', 'Courier New', Courier, monospace;
+    font-size: 1rem;
+  }
+
+  .prompt::before {
+    content: '$ ';
+    color: #5858a8;
+  }
+
+  .output {
+    color: #5858a8;
+  }
+
+  /* Crystal code */
+  .crystal-block {
+    background: #f2f4fb;
+    border: 2px solid #8888cc;
+    border-radius: 3px;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+    font-size: 1rem;
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.4;
+  }
+
+  .comment { color: #5858a8; }
+  .string { color: #5858a8; }
+  .keyword { font-weight: bold; }
+
+  /* Links */
+  a {
+    color: #5858a8;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+  }
+
+  a:hover {
+    color: #4040a0;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: none;
+    text-align: center;
+    font-size: 1rem;
+    color: #5858a8;
+  }
+
+  .footer-links {
+    margin-top: 0.5rem;
+  }
+
+  .footer-links a {
+    margin: 0 1rem;
+  }
+
+  .cc-line {
+    margin-top: 1.5rem;
+    font-size: 1rem;
+    color: #5858a8;
+    text-align: center;
+  }
+
+  .cc-line span {
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+
+
+  .indented {
+    padding-left: 1.5rem;
+  }
+
+  /* Install block */
+  .install-block {
+    border: 2px solid #8888cc;
+    border-radius: 3px;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+    font-size: 1rem;
+    background: #f2f4fb;
+  }
+
+  .install-block .label {
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 1rem;
+    color: #5858a8;
+    margin-bottom: 0.35rem;
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .page {
+      margin: 0;
+      padding: 2rem 1.5rem;
+      border: none;
+      box-shadow: none;
+    }
+
+    .stamp {
+      float: none;
+      display: inline-block;
+      margin: 0.5rem 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Company Heading -->
+  <div class="company-header">
+    <h1>Memo</h1>
+    <div class="subtitle">Technical Bulletin</div>
+  </div>
+
+  <!-- Memo Form Header -->
+  <div class="memo-header">
+    <span class="stamp">v0.8.1</span>
+    <div class="memo-field">
+      <span class="memo-label">To:</span>
+      <span class="memo-value">All Engineering Personnel</span>
+    </div>
+    <div class="memo-field">
+      <span class="memo-label">From:</span>
+      <span class="memo-value">Dept. of Semantic Search</span>
+    </div>
+    <div class="memo-field">
+      <span class="memo-label">Re:</span>
+      <span class="memo-value">Embed Storage &amp; Semantic Search Library for Crystal</span>
+    </div>
+    <div class="memo-field">
+      <span class="memo-label">Date:</span>
+      <span class="memo-value">Filed Electronically</span>
+    </div>
+    <div class="memo-field">
+      <span class="memo-label">See:</span>
+      <span class="memo-value"><a href="https://github.com/trans/memo">GitHub Repository</a> | <a href="https://trans.github.io/memo/api/">API Documentation</a></span>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <h2>Capabilities</h2>
+  <ul class="features">
+    <li><span class="feat-name">Text chunking</span> &mdash; Smart segmentation into optimal-sized pieces</li>
+    <li><span class="feat-name">Text storage</span> &mdash; Persistent text with LIKE and FTS5 full-text search</li>
+    <li><span class="feat-name">Embedding storage</span> &mdash; Deduplication by content hash</li>
+    <li><span class="feat-name">HNSW search</span> &mdash; Fast approximate nearest neighbor via USearch</li>
+    <li><span class="feat-name">Vocabulary</span> &mdash; Word-level semantic similarity from indexed content</li>
+    <li><span class="feat-name">CLI tool</span> &mdash; Index, search, and manage from the command line</li>
+  </ul>
+
+  <!-- CLI Usage -->
+  <h2>CLI Usage</h2>
+
+  <div class="indented">
+    <p>Build the tool, then index, search, and explore:</p>
+
+    <pre><span class="prompt">shards build</span>
+<span class="prompt">cd my-project</span>
+<span class="prompt">memo index *</span>
+<span class="prompt">memo search "database connection pooling"</span>
+<span class="output">[F3] src/db/pool.cr (score: 0.823)</span>
+<span class="output">  12 | def connect(config : DBConfig)</span>
+<span class="output">  13 |   pool = ConnectionPool.new(config)</span>
+<span class="output">[F7] src/db/query.cr (score: 0.781)</span>
+<span class="output">  45 | # Reuse pooled database connections</span>
+<span class="output">  46 |   conn = pool.checkout</span>
+<span class="output">2 result(s)</span>
+<span class="prompt">memo terms "database"</span>
+<span class="output">0.70  data</span>
+<span class="output">0.70  databases</span>
+<span class="output">0.57  sqlite</span></pre>
+  </div>
+
+  <!-- Library Quick Start -->
+  <h2>Library Quick Start</h2>
+
+  <div class="indented">
+    <div class="install-block">
+      <div class="label">shard.yml:</div>
+      <code>dependencies:<br>&nbsp;&nbsp;memo:<br>&nbsp;&nbsp;&nbsp;&nbsp;github: trans/memo</code>
+    </div>
+
+    <div class="crystal-block"><span class="keyword">require</span> <span class="string">"memo"</span>
+
+<span class="comment"># Create service with database path</span>
+memo = <span class="keyword">Memo::Service</span>.new(
+  db_path: <span class="string">"/var/data/memo.db"</span>,
+  format:  <span class="string">"openai"</span>,
+  api_key: ENV[<span class="string">"OPENAI_API_KEY"</span>]
+)
+
+<span class="comment"># Index a document</span>
+memo.index(
+  source_type: <span class="string">"article"</span>,
+  source_id:   42_i64,
+  text:        <span class="string">"Your document text here..."</span>
+)
+
+<span class="comment"># Search</span>
+results = memo.search(query: <span class="string">"search query"</span>, limit: 10)
+results.each <span class="keyword">do</span> |r|
+  puts <span class="string">"#{r.source_type}:#{r.source_id} (score: #{r.score})"</span>
+<span class="keyword">end</span>
+
+<span class="comment"># Clean up</span>
+memo.close</div>
+  </div>
+
+  <!-- Providers -->
+  <h2>Supported Providers</h2>
+  <ul class="features">
+    <li><span class="feat-name"><a href="https://platform.openai.com/">OpenAI</a></span> &mdash; text-embedding-3-small, text-embedding-3-large</li>
+    <li><span class="feat-name"><a href="https://www.voyageai.com/">Voyage AI</a></span> &mdash; voyage-3, voyage-3-lite, voyage-code-3</li>
+    <li><span class="feat-name"><a href="https://github.com/trans/memo">Mock</a></span> &mdash; Deterministic embeddings for testing</li>
+  </ul>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="cc-line">
+      File copy retained by Dept. of Semantic Search
+    </div>
+    <div class="cc-line">
+      Copyright 2026 Thomas Sawyer : MIT License
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
