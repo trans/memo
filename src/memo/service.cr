@@ -1419,7 +1419,7 @@ module Memo
 
       return if texts_to_embed.empty?
 
-      embed_result = @provider.embed_texts(texts_to_embed)
+      embed_result = embed_texts_batched(texts_to_embed)
 
       # Phase 3: Store everything in a transaction
       @db.transaction do
@@ -1646,6 +1646,24 @@ module Memo
       )
     end
 
+    # Embed texts in batches of @batch_size to avoid API input limits
+    private def embed_texts_batched(texts : Array(String)) : Providers::EmbedResult
+      return @provider.embed_texts(texts) if texts.size <= @batch_size
+
+      all_embeddings = [] of Array(Float64)
+      all_token_counts = [] of Int32
+      total_tokens = 0
+
+      texts.each_slice(@batch_size) do |batch|
+        result = @provider.embed_texts(batch)
+        all_embeddings.concat(result.embeddings)
+        all_token_counts.concat(result.token_counts)
+        total_tokens += result.total_tokens
+      end
+
+      Providers::EmbedResult.new(all_embeddings, all_token_counts, total_tokens)
+    end
+
     # Check if source text has changed by comparing content hash
     private def source_text_changed?(internal_source_id : Int64, content_hash : Bytes) : Bool
       prefix = @table_prefix
@@ -1763,7 +1781,7 @@ module Memo
       texts_to_embed = chunk_texts + new_words
 
       # Embed all texts (API call - outside transaction so failure is safe)
-      embed_result = @provider.embed_texts(texts_to_embed)
+      embed_result = embed_texts_batched(texts_to_embed)
 
       # Update tokens_per_byte ratio based on actual API results (chunks only)
       total_bytes = chunk_texts.sum(&.bytesize)
