@@ -93,7 +93,9 @@ module Memo::CLI
       end
     when "index"
       files = input["files"]?.try(&.as_a?.try(&.map(&.as_s))) || [] of String
+      dry_run = Input.bool(input, "dry-run", false)
       stdin_text = nil
+
       if files.empty? && !STDIN.tty?
         stdin_text = STDIN.gets_to_end
         if stdin_text.empty?
@@ -107,6 +109,12 @@ module Memo::CLI
         STDERR.puts "       memo index -r <dir>     Recursively index directory"
         STDERR.puts "       echo \"text\" | memo index  Index text from stdin"
         exit 1
+      end
+
+      # Dry run doesn't need an API connection
+      if dry_run && stdin_text.nil?
+        Commands::IndexFiles.dry_run(files, input, json_output)
+        return
       end
 
       memo = Memo::Service.new(

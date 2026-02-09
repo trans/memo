@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-02-09
+
+### Changed
+- **Redesigned `memo index` CLI** - simpler, Unix-y interface
+  - `memo index <files>...` indexes specific files (variadic positional args)
+  - `memo index -r <dir>` recursively indexes a directory (replaces `memo index dir`)
+  - `echo "text" | memo index` indexes text from stdin (replaces `memo index text`)
+  - Directories in args require `-r` flag, otherwise error (like `grep -r`)
+  - `--dry-run` no longer requires an API key
+- **Updated to Jargon 0.15.0** for variadic positional argument support
+
+### Added
+- `Memo::Service#index_file_list` - index an explicit list of file paths without directory walking
+
+### Removed
+- `memo index text` and `memo index dir` subcommands (replaced by flat `memo index`)
+
 ## [0.7.1] - 2026-02-08
 
 ### Fixed

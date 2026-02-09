@@ -7,9 +7,30 @@ module Memo::CLI::Commands::IndexFiles
     recursive = Input.bool(input, "recursive", false)
     ignore_file = Input.string(input, "ignore-file") || ".gitignore"
     full = Input.bool(input, "full", false)
-    dry_run = Input.bool(input, "dry-run", false)
 
-    # Separate files from directories
+    file_paths, dir_paths = resolve_paths(files, recursive)
+
+    if json
+      run_json(memo, file_paths, dir_paths, ignore_file, full)
+    else
+      run_text(memo, file_paths, dir_paths, ignore_file, full)
+    end
+  end
+
+  def dry_run(files : Array(String), input : Hash(String, JSON::Any), json : Bool)
+    recursive = Input.bool(input, "recursive", false)
+    ignore_file = Input.string(input, "ignore-file") || ".gitignore"
+
+    file_paths, dir_paths = resolve_paths(files, recursive)
+
+    if json
+      dry_run_json(file_paths, dir_paths, ignore_file)
+    else
+      dry_run_text(file_paths, dir_paths, ignore_file)
+    end
+  end
+
+  private def resolve_paths(files : Array(String), recursive : Bool) : {Array(String), Array(String)}
     file_paths = [] of String
     dir_paths = [] of String
 
@@ -25,7 +46,6 @@ module Memo::CLI::Commands::IndexFiles
       end
     end
 
-    # Directories require -r flag
     unless dir_paths.empty? || recursive
       dir_paths.each do |d|
         STDERR.puts "Error: '#{d}' is a directory. Use -r to index recursively."
@@ -33,36 +53,24 @@ module Memo::CLI::Commands::IndexFiles
       exit 1
     end
 
-    if json
-      run_json(memo, file_paths, dir_paths, recursive, ignore_file, full, dry_run)
-    else
-      run_text(memo, file_paths, dir_paths, recursive, ignore_file, full, dry_run)
-    end
+    {file_paths, dir_paths}
   end
 
-  private def run_text(memo, file_paths, dir_paths, recursive, ignore_file, full, dry_run)
+  private def run_text(memo, file_paths, dir_paths, ignore_file, full)
     indexed = 0
     skipped = 0
     total = 0
 
-    if dry_run
-      puts "Dry run - files that would be indexed:"
-      puts
-    end
-
-    # Index explicit files
     unless file_paths.empty?
       root = Dir.current
       i, s, t = memo.index_file_list(
         paths: file_paths,
         root: root,
         incremental: !full,
-        dry_run: dry_run
       ) do |file_path, status|
         case status
-        when :indexed    then puts "  + #{file_path}"
-        when :skipped    then nil # too noisy
-        when :would_index then puts "  #{file_path}"
+        when :indexed then puts "  + #{file_path}"
+        when :skipped then nil
         end
       end
       indexed += i
@@ -70,18 +78,15 @@ module Memo::CLI::Commands::IndexFiles
       total += t
     end
 
-    # Recursively index directories
     dir_paths.each do |dir|
       i, s, t = memo.index_files(
         root: dir,
         ignore_file: ignore_file,
         incremental: !full,
-        dry_run: dry_run
       ) do |file_path, status|
         case status
-        when :indexed     then puts "  + #{file_path}"
-        when :skipped     then nil # too noisy
-        when :would_index then puts "  #{file_path}"
+        when :indexed then puts "  + #{file_path}"
+        when :skipped then nil
         end
       end
       indexed += i
@@ -90,27 +95,21 @@ module Memo::CLI::Commands::IndexFiles
     end
 
     puts
-    if dry_run
-      puts "Would index: #{total} files"
-    else
-      puts "Indexed: #{indexed}, Skipped: #{skipped}, Total: #{total}"
-    end
+    puts "Indexed: #{indexed}, Skipped: #{skipped}, Total: #{total}"
   end
 
-  private def run_json(memo, file_paths, dir_paths, recursive, ignore_file, full, dry_run)
+  private def run_json(memo, file_paths, dir_paths, ignore_file, full)
     results = [] of Hash(String, JSON::Any)
     indexed = 0
     skipped = 0
     total = 0
 
-    # Index explicit files
     unless file_paths.empty?
       root = Dir.current
       i, s, t = memo.index_file_list(
         paths: file_paths,
         root: root,
         incremental: !full,
-        dry_run: dry_run
       ) do |file_path, status|
         results << {
           "path"   => JSON::Any.new(file_path),
@@ -122,13 +121,11 @@ module Memo::CLI::Commands::IndexFiles
       total += t
     end
 
-    # Recursively index directories
     dir_paths.each do |dir|
       i, s, t = memo.index_files(
         root: dir,
         ignore_file: ignore_file,
         incremental: !full,
-        dry_run: dry_run
       ) do |file_path, status|
         results << {
           "path"   => JSON::Any.new(file_path),
@@ -144,7 +141,67 @@ module Memo::CLI::Commands::IndexFiles
       "indexed" => JSON::Any.new(indexed.to_i64),
       "skipped" => JSON::Any.new(skipped.to_i64),
       "total"   => JSON::Any.new(total.to_i64),
-      "dry_run" => JSON::Any.new(dry_run),
+      "dry_run" => JSON::Any.new(false),
+      "files"   => JSON::Any.new(results.map { |h| JSON::Any.new(h) }),
+    }
+    puts output.to_pretty_json
+  end
+
+  private def dry_run_text(file_paths, dir_paths, ignore_file)
+    total = 0
+
+    puts "Dry run - files that would be indexed:"
+    puts
+
+    file_paths.each do |path|
+      expanded = File.expand_path(path)
+      next if Memo::Files.binary?(expanded)
+      puts "  #{path}"
+      total += 1
+    end
+
+    dir_paths.each do |dir|
+      Memo::Files.walk(dir, ignore_file) do |file_path|
+        relative = Path.new(file_path).relative_to(dir).to_s
+        puts "  #{relative}"
+        total += 1
+      end
+    end
+
+    puts
+    puts "Would index: #{total} files"
+  end
+
+  private def dry_run_json(file_paths, dir_paths, ignore_file)
+    results = [] of Hash(String, JSON::Any)
+    total = 0
+
+    file_paths.each do |path|
+      expanded = File.expand_path(path)
+      next if Memo::Files.binary?(expanded)
+      results << {
+        "path"   => JSON::Any.new(path),
+        "status" => JSON::Any.new("would_index"),
+      }
+      total += 1
+    end
+
+    dir_paths.each do |dir|
+      Memo::Files.walk(dir, ignore_file) do |file_path|
+        relative = Path.new(file_path).relative_to(dir).to_s
+        results << {
+          "path"   => JSON::Any.new(relative),
+          "status" => JSON::Any.new("would_index"),
+        }
+        total += 1
+      end
+    end
+
+    output = {
+      "indexed" => JSON::Any.new(0_i64),
+      "skipped" => JSON::Any.new(0_i64),
+      "total"   => JSON::Any.new(total.to_i64),
+      "dry_run" => JSON::Any.new(true),
       "files"   => JSON::Any.new(results.map { |h| JSON::Any.new(h) }),
     }
     puts output.to_pretty_json
