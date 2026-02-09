@@ -37,7 +37,9 @@ module Memo::CLI
       "min-score":    {"type": "number",  "default": 0.3, "description": "Minimum similarity score (0.0-1.0)"},
       "source-type":  {"type": "string",  "description": "Filter by source type"},
       "source-id":    {"oneOf": [{"type": "integer"}, {"type": "string"}], "description": "Filter by source ID (integer or string/UUID)"},
-      "include-text": {"type": "boolean", "default": true, "description": "Include chunk text in results"}
+      "include-text": {"type": "boolean", "default": true, "description": "Include chunk text in results"},
+      "like":         {"type": "string",  "short": "l", "description": "LIKE pattern to filter text (e.g. %cats%)"},
+      "match":        {"type": "string",  "short": "m", "description": "FTS5 full-text query (supports AND, OR, NOT, prefix*)"}
     },
     "required": ["query"]
   })

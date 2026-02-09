@@ -26,14 +26,7 @@ module Memo::CLI
     cli.subcommand("stats", json: Jargon.merge(STATS_SCHEMA, GLOBAL_SCHEMA))
     cli.subcommand("service", service_cli)
 
-    # Handle --help and --version before parsing
-    if args.includes?("--help") || args.includes?("-h")
-      if args.size == 1 || (args.size == 2 && args[0].starts_with?("-"))
-        puts help_text
-        return
-      end
-    end
-
+    # Handle --version before parsing
     if args.includes?("--version") || args.includes?("-v")
       puts "memo #{VERSION}"
       return
@@ -42,9 +35,13 @@ module Memo::CLI
     # Parse arguments
     result = cli.parse(args)
 
-    # Handle subcommand-specific help
-    if args.includes?("--help") || args.includes?("-h")
-      puts cli.help
+    # Handle help (Jargon detects --help/-h during parse)
+    if result.help_requested?
+      if subcmd = result.help_subcommand
+        puts cli.help(subcmd)
+      else
+        puts help_text
+      end
       return
     end
 

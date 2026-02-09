@@ -8,7 +8,9 @@ module Memo::CLI::Commands::Search
       min_score: Input.float(input, "min-score") || 0.7,
       source_type: Input.string(input, "source-type"),
       source_id: Input.external_id(input, "source-id"),
-      include_text: Input.bool(input, "include-text", true)
+      include_text: Input.bool(input, "include-text", true),
+      like: Input.string(input, "like"),
+      match: Input.string(input, "match"),
     )
 
     if json
