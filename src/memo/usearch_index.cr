@@ -7,20 +7,21 @@ module Memo
   # and vector operations. All Float64↔Float32 conversion happens here.
   #
   # One index per service (isolated vector spaces). Index files are stored
-  # alongside the SQLite database, named by format, model, and dimensions:
-  #   openai--text-embedding-3-small--1536.usearch
+  # alongside the SQLite database, prefixed with the DB filename stem:
+  #   memo.openai--text-embedding-3-small--1536.usearch
   module USearchIndex
     extend self
 
     # Build the index file path for a service.
     #
-    # Path: {db_dir}/{format}--{model}--{dimensions}.usearch
+    # Path: {db_dir}/{db_stem}.{format}--{model}--{dimensions}.usearch
     # Path-unsafe characters in format/model are replaced with hyphens.
     def index_path(db_path : String, format : String, model : String, dimensions : Int32) : String
       dir = File.dirname(db_path)
+      stem = File.basename(db_path, File.extname(db_path))
       safe_format = format.gsub(/[^a-zA-Z0-9\-\.]/, "-")
       safe_model = model.gsub(/[^a-zA-Z0-9\-\.]/, "-")
-      File.join(dir, "#{safe_format}--#{safe_model}--#{dimensions}.usearch")
+      File.join(dir, "#{stem}.#{safe_format}--#{safe_model}--#{dimensions}.usearch")
     end
 
     # Open or create a USearch index for a service.
