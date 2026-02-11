@@ -10,11 +10,11 @@ shards:
 
   ignore:
     git: https://github.com/trans/ignore.git
-    version: 0.4.1+git.commit.ef7ac3011284dfd6aa21d2289a1eaf437ecd29bc
+    version: 0.4.1
 
   jargon:
     git: https://github.com/trans/jargon.git
-    version: 0.16.0+git.commit.962f11c2b6b9b4bad00513641006a2296946af3e
+    version: 0.16.0
 
   magic:
     git: https://github.com/naqvis/magic.cr.git
@@ -26,5 +26,5 @@ shards:
 
   usearch:
     git: https://github.com/trans/usearch.cr.git
-    version: 0.1.0+git.commit.5b53e3f6bb954a024d5da61b2874d82c1f3d7238
+    version: 0.1.1
 

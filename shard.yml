@@ -1,5 +1,5 @@
 name: memo
-version: 0.8.2
+version: 0.8.3
 
 description: |
   Memo - Semantic search and vector storage library for Crystal.
@@ -19,15 +19,15 @@ dependencies:
     github: crystal-lang/crystal-sqlite3
   jargon:
     github: trans/jargon
-    branch: main
+    version: ~> 0.16
   ignore:
     github: trans/ignore
-    branch: main
+    version: ~> 0.4
   magic:
     github: naqvis/magic.cr
   usearch:
     github: trans/usearch.cr
-    branch: main
+    version: ~> 0.1
 
 targets:
   memo:
