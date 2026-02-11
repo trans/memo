@@ -8,13 +8,13 @@ shards:
     git: https://github.com/crystal-lang/crystal-db.git
     version: 0.14.0
 
-  ignoreme:
-    git: https://github.com/trans/ignoreme.git
-    version: 0.3.0+git.commit.719ac1d43e6681c74b55761f1bf3bb4abf3ff42d
+  ignore:
+    git: https://github.com/trans/ignore.git
+    version: 0.4.1+git.commit.ef7ac3011284dfd6aa21d2289a1eaf437ecd29bc
 
   jargon:
     git: https://github.com/trans/jargon.git
-    version: 0.15.0+git.commit.62d08709fcc9ce0783e0b2f4b90ed28601c313ce
+    version: 0.16.0+git.commit.962f11c2b6b9b4bad00513641006a2296946af3e
 
   magic:
     git: https://github.com/naqvis/magic.cr.git

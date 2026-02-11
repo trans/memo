@@ -1,5 +1,5 @@
 name: memo
-version: 0.8.1
+version: 0.8.2
 
 description: |
   Memo - Semantic search and vector storage library for Crystal.
@@ -20,8 +20,8 @@ dependencies:
   jargon:
     github: trans/jargon
     branch: main
-  ignoreme:
-    github: trans/ignoreme
+  ignore:
+    github: trans/ignore
     branch: main
   magic:
     github: naqvis/magic.cr

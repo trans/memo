@@ -1,4 +1,4 @@
-# IPCK - Intelligent Project Construction Kit
+# MEMO - Memory for Agents and Humans
 
 # Default task
 default: check
@@ -13,15 +13,15 @@ update:
 
 # Check syntax (fast, no codegen)
 check:
-  crystal build --no-codegen src/ipck.cr
+  crystal build --no-codegen src/memo.cr
 
 # Build the binary
 build:
-  crystal build src/cli.cr -o bin/ipck
+  crystal build src/cli.cr -o bin/memo
 
 # Build release binary
 release:
-  crystal build --release src/cli.cr -o bin/ipck
+  crystal build --release src/cli.cr -o bin/memo
 
 # Run the REPL
 run:

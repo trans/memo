@@ -1,4 +1,4 @@
-require "ignoreme"
+require "ignore"
 require "magic"
 require "digest/sha256"
 
@@ -51,9 +51,9 @@ module Memo
       # Build ignore matcher from root
       ignore_path = root_path / ignore_file
       matcher = if File.exists?(ignore_path)
-                  Ignoreme.parse(File.read(ignore_path))
+                  Ignore.parse(File.read(ignore_path))
                 else
-                  Ignoreme::Matcher.new
+                  Ignore::Matcher.new
                 end
 
       walk_recursive(root_path, root_path, matcher, &block)
@@ -231,7 +231,7 @@ module Memo
     private def walk_recursive(
       current : Path,
       root : Path,
-      matcher : Ignoreme::Matcher,
+      matcher : Ignore::Matcher,
       &block : String ->
     )
       Dir.each_child(current.to_s) do |entry|
