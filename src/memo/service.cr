@@ -802,6 +802,14 @@ module Memo
            processed_at = NULL",
         internal_source_id, stored_text, now
       )
+
+      # Store text immediately so it's available for retrieval
+      # before embedding runs. Embedding is deferred, text is not.
+      # skip_hash: source_text_changed? treats NULL hash as "changed",
+      # so process_queue will still embed this text later.
+      if @text_storage
+        store_source_text_internal(internal_source_id, text, skip_hash: true)
+      end
     end
 
     # Enqueue a document (Document overload)
@@ -1699,10 +1707,10 @@ module Memo
     #
     # Stores the original un-chunked text. Chunk text is extracted
     # using offset/size from the chunks table.
-    private def store_source_text_internal(internal_source_id : Int64, content : String, content_hash : Bytes? = nil)
+    private def store_source_text_internal(internal_source_id : Int64, content : String, content_hash : Bytes? = nil, skip_hash : Bool = false)
       prefix = @table_prefix
       now = Time.utc.to_unix_ms
-      hash = content_hash || Storage.compute_hash(content)
+      hash = skip_hash ? nil : (content_hash || Storage.compute_hash(content))
 
       # Insert or replace source text (keyed by internal source_id)
       @db.exec(
