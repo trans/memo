@@ -18,6 +18,7 @@ require "./memo/providers/base"
 require "./memo/providers/openai"
 require "./memo/providers/voyage"
 require "./memo/providers/mock"
+require "./memo/providers/arcana"
 require "./memo/providers/registry"
 require "./memo/source_registry"
 require "./memo/storage"
@@ -73,5 +74,5 @@ require "./memo/service"
 # Internal modules (Storage, Search, Chunking, RRF) remain accessible
 # for advanced use cases but Service is the recommended entry point.
 module Memo
-  VERSION = "0.8.1"
+  VERSION = "0.9.0"
 end
