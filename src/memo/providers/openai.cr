@@ -23,20 +23,20 @@ module Memo
       )
       end
 
-      def embed_text(text : String) : {Array(Float64), Int32}
-        result = embed_texts([text])
+      def embed_text(text : String, input_type : String? = nil) : {Array(Float64), Int32}
+        result = embed_texts([text], input_type)
         {result.embeddings.first, result.token_counts.first}
       end
 
-      def embed_texts(texts : Array(String)) : EmbedResult
+      def embed_texts(texts : Array(String), input_type : String? = nil) : EmbedResult
         return EmbedResult.new([] of Array(Float64), [] of Int32, 0) if texts.empty?
 
         uri = URI.parse("#{@base_url}/embeddings")
-        body = {
-          "model"           => @model,
-          "input"           => texts,
-          "encoding_format" => "float",
-        }
+        body = Hash(String, String | Array(String)).new
+        body["model"] = @model
+        body["input"] = texts
+        body["encoding_format"] = "float"
+        body["input_type"] = input_type if input_type
 
         client = HTTP::Client.new(uri)
         client.connect_timeout = 30.seconds

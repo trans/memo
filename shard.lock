@@ -4,6 +4,10 @@ shards:
     git: https://github.com/crystal-ameba/ameba.git
     version: 1.6.4
 
+  arcana:
+    git: https://github.com/trans/arcana.git
+    version: 0.2.1
+
   db:
     git: https://github.com/crystal-lang/crystal-db.git
     version: 0.14.0

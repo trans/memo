@@ -9,13 +9,13 @@ module Memo
     class Mock
       include Base
 
-      def embed_text(text : String) : {Array(Float64), Int32}
+      def embed_text(text : String, input_type : String? = nil) : {Array(Float64), Int32}
         embedding = generate_deterministic_embedding(text)
         token_count = estimate_tokens(text)
         {embedding, token_count}
       end
 
-      def embed_texts(texts : Array(String)) : EmbedResult
+      def embed_texts(texts : Array(String), input_type : String? = nil) : EmbedResult
         embeddings = texts.map { |t| generate_deterministic_embedding(t) }
         token_counts = texts.map { |t| estimate_tokens(t) }
         total = token_counts.sum

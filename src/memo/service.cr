@@ -408,7 +408,7 @@ module Memo
       include_text : Bool = true
     ) : Array(Search::Result)
       # Generate query embedding
-      query_embedding, _tokens = @provider.embed_text(query)
+      query_embedding, _tokens = @provider.embed_text(query, "query")
 
       # Resolve external IDs to internal IDs for filtering
       internal_source_id = source_id && source_type ? SourceRegistry.get_internal(@db, source_type, source_id) : nil
@@ -1254,7 +1254,7 @@ module Memo
         frequencies = batch.map(&.count)
 
         # Embed the batch
-        result = @provider.embed_texts(words)
+        result = @provider.embed_texts(words, "document")
 
         # Store embeddings
         Vocab.store_batch(@db, words, result.embeddings, frequencies, @service_id)
@@ -1284,7 +1284,7 @@ module Memo
       min_score : Float64 = 0.5
     ) : Array(Vocab::Result)
       # Generate query embedding
-      query_embedding, _tokens = @provider.embed_text(query)
+      query_embedding, _tokens = @provider.embed_text(query, "query")
 
       # Search vocab
       Vocab.search(@db, query_embedding, @service_id, limit, min_score)
@@ -1733,15 +1733,15 @@ module Memo
     end
 
     # Embed texts in batches of @batch_size to avoid API input limits
-    private def embed_texts_batched(texts : Array(String)) : Providers::EmbedResult
-      return @provider.embed_texts(texts) if texts.size <= @batch_size
+    private def embed_texts_batched(texts : Array(String), input_type : String? = "document") : Providers::EmbedResult
+      return @provider.embed_texts(texts, input_type) if texts.size <= @batch_size
 
       all_embeddings = [] of Array(Float64)
       all_token_counts = [] of Int32
       total_tokens = 0
 
       texts.each_slice(@batch_size) do |batch|
-        result = @provider.embed_texts(batch)
+        result = @provider.embed_texts(batch, input_type)
         all_embeddings.concat(result.embeddings)
         all_token_counts.concat(result.token_counts)
         total_tokens += result.total_tokens

@@ -35,6 +35,24 @@ module Memo
           raise ArgumentError.new("api_key required for voyage format") unless api_key
           final_base_url = base_url || Providers::Voyage::DEFAULT_BASE_URL
           Providers::Voyage.new(api_key, model, final_base_url)
+        when "arcana", "arcana/openai"
+          raise ArgumentError.new("api_key required for arcana format") unless api_key
+          final_base_url = base_url || "https://api.openai.com/v1/embeddings"
+          arcana_provider = ::Arcana::Embed::OpenAI.new(
+            api_key: api_key,
+            model: model,
+            endpoint: final_base_url
+          )
+          Providers::Arcana.new(arcana_provider, model: model)
+        when "arcana/voyage"
+          raise ArgumentError.new("api_key required for arcana/voyage format") unless api_key
+          final_base_url = base_url || "https://api.voyageai.com/v1/embeddings"
+          arcana_provider = ::Arcana::Embed::Voyage.new(
+            api_key: api_key,
+            model: model,
+            endpoint: final_base_url
+          )
+          Providers::Arcana.new(arcana_provider, model: model)
         when "mock"
           Providers::Mock.new
         else

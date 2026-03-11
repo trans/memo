@@ -8,12 +8,14 @@ module Memo
       # Embed a single text
       #
       # Returns tuple of (embedding vector, token count)
-      abstract def embed_text(text : String) : {Array(Float64), Int32}
+      # input_type: "query" or "document" (used by Voyage AI for optimized embeddings)
+      abstract def embed_text(text : String, input_type : String? = nil) : {Array(Float64), Int32}
 
       # Embed multiple texts in a batch
       #
       # Returns EmbedResult with embeddings and token counts
-      abstract def embed_texts(texts : Array(String)) : EmbedResult
+      # input_type: "query" or "document" (used by Voyage AI for optimized embeddings)
+      abstract def embed_texts(texts : Array(String), input_type : String? = nil) : EmbedResult
     end
 
     # Result from batch embedding operation
