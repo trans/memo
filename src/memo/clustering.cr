@@ -109,7 +109,7 @@ module Memo
       # For sources with multiple chunks, we take the first one (smallest offset)
       db.query(
         <<-SQL,
-          SELECT s.external_int, e.rowid
+          SELECT s.external_int, e.#{db.memo_dialect.embedding_rowid_column}
           FROM #{prefix}sources s
           JOIN #{prefix}chunks c ON c.source_id = s.id
           JOIN #{prefix}embeddings e ON c.hash = e.hash AND e.service_id = ?

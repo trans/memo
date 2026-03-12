@@ -121,12 +121,14 @@ module Memo
       prefix = db.memo_table_prefix
       now = Time.utc.to_unix_ms
 
-      db.exec(
-        "INSERT OR REPLACE INTO #{prefix}files
-         (source_id, path, content_hash, mtime, size, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)",
-        source_id, info.path, info.content_hash, info.mtime, info.size, now
+      sql = db.memo_dialect.upsert_sql(
+        "#{prefix}files",
+        "source_id, path, content_hash, mtime, size, created_at",
+        "?, ?, ?, ?, ?, ?",
+        "source_id",
+        ["path", "content_hash", "mtime", "size", "created_at"]
       )
+      db.exec(sql, source_id, info.path, info.content_hash, info.mtime, info.size, now)
     end
 
     # Get file record by path

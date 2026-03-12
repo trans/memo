@@ -253,11 +253,8 @@ module Memo
       # Set prefix on db connection (modules read from this)
       @db.memo_table_prefix = @table_prefix
 
-      # Get db path from pragma if not provided
-      @db_path = db_path || db.query_one?(
-        "SELECT file FROM pragma_database_list WHERE name = 'main'",
-        as: String
-      )
+      # Get db path from dialect if not provided
+      @db_path = db_path || @db.memo_dialect.db_file_path(@db)
 
       Database.init(@db)
 
@@ -1709,27 +1706,22 @@ module Memo
     # using offset/size from the chunks table.
     private def store_source_text_internal(internal_source_id : Int64, content : String, content_hash : Bytes? = nil, skip_hash : Bool = false)
       prefix = @table_prefix
+      dialect = @db.memo_dialect
       now = Time.utc.to_unix_ms
       hash = skip_hash ? nil : (content_hash || Storage.compute_hash(content))
 
       # Insert or replace source text (keyed by internal source_id)
-      @db.exec(
-        "INSERT OR REPLACE INTO #{prefix}texts (source_id, content, content_hash, created_at)
-         VALUES (?, ?, ?, ?)",
-        internal_source_id, content, hash, now
+      sql = dialect.upsert_sql(
+        "#{prefix}texts",
+        "source_id, content, content_hash, created_at",
+        "?, ?, ?, ?",
+        "source_id",
+        ["content", "content_hash", "created_at"]
       )
+      @db.exec(sql, internal_source_id, content, hash, now)
 
-      # Update FTS5 index
-      # Delete any existing entry first (FTS5 doesn't support INSERT OR REPLACE)
-      @db.exec(
-        "DELETE FROM #{prefix}texts_fts WHERE source_id = ?",
-        internal_source_id
-      )
-      @db.exec(
-        "INSERT INTO #{prefix}texts_fts (source_id, content)
-         VALUES (?, ?)",
-        internal_source_id, content
-      )
+      # Update FTS index
+      dialect.fts_upsert(@db, prefix, internal_source_id, content)
     end
 
     # Embed texts in batches of @batch_size to avoid API input limits
@@ -1768,10 +1760,7 @@ module Memo
         "DELETE FROM #{prefix}texts WHERE source_id = ?",
         internal_source_id
       )
-      @db.exec(
-        "DELETE FROM #{prefix}texts_fts WHERE source_id = ?",
-        internal_source_id
-      )
+      @db.memo_dialect.fts_delete(@db, prefix, internal_source_id)
     end
 
     # Get source text by internal source_id

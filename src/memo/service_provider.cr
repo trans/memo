@@ -86,13 +86,12 @@ module Memo
 
       # Insert new service
       now = Time.utc
-      db.exec(
+      id = db.memo_dialect.insert_returning_id(
+        db,
         "INSERT INTO #{prefix}services (name, format, base_url, model, dimensions, max_tokens, is_default, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         name, format, base_url, model, dimensions, max_tokens, is_default ? 1 : 0, now.to_unix_ms
       )
-
-      id = db.scalar("SELECT last_insert_rowid()").as(Int64)
 
       Info.new(
         id: id,

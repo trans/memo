@@ -150,15 +150,18 @@ module Memo
       prefix = db.memo_table_prefix
       now = Time.utc.to_unix_ms
 
+      sql = db.memo_dialect.upsert_sql(
+        "#{prefix}vocab",
+        "word, service_id, embedding, frequency, created_at",
+        "?, ?, ?, ?, ?",
+        "word, service_id",
+        ["embedding", "frequency", "created_at"]
+      )
+
       db.transaction do
         words.each_with_index do |word, idx|
           embedding_blob = Storage.serialize_embedding(embeddings[idx])
-
-          db.exec(
-            "INSERT OR REPLACE INTO #{prefix}vocab (word, service_id, embedding, frequency, created_at)
-             VALUES (?, ?, ?, ?, ?)",
-            word, service_id, embedding_blob, frequencies[idx], now
-          )
+          db.exec(sql, word, service_id, embedding_blob, frequencies[idx], now)
         end
       end
     end
@@ -205,11 +208,14 @@ module Memo
       embedding_blob = Storage.serialize_embedding(embedding)
       now = Time.utc.to_unix_ms
 
-      db.exec(
-        "INSERT OR REPLACE INTO #{prefix}vocab (word, service_id, embedding, frequency, created_at)
-         VALUES (?, ?, ?, ?, ?)",
-        word, service_id, embedding_blob, frequency, now
+      sql = db.memo_dialect.upsert_sql(
+        "#{prefix}vocab",
+        "word, service_id, embedding, frequency, created_at",
+        "?, ?, ?, ?, ?",
+        "word, service_id",
+        ["embedding", "frequency", "created_at"]
       )
+      db.exec(sql, word, service_id, embedding_blob, frequency, now)
     end
 
     # Clear all vocabulary for a service

@@ -156,18 +156,22 @@ module Memo
         end
       end
 
+      dialect = db.memo_dialect
+
       if match && !match.empty?
-        fts_join = "JOIN #{prefix}texts_fts ON c.source_id = #{prefix}texts_fts.source_id"
-        where_clauses << "#{prefix}texts_fts MATCH ?"
+        fts_join = dialect.fts_join_sql(prefix)
+        where_clauses << dialect.fts_where_sql(prefix)
         params << match
       end
+
+      rid_col = dialect.embedding_rowid_column
 
       # Query for valid rowids
       valid_rowids = Set(UInt64).new
 
       db.query(
         <<-SQL,
-          SELECT DISTINCT e.rowid
+          SELECT DISTINCT e.#{rid_col}
           FROM #{prefix}chunks c
           JOIN #{prefix}embeddings e ON c.hash = e.hash AND e.service_id = ?
           #{text_join}
@@ -198,6 +202,7 @@ module Memo
       include_text : Bool
     ) : Array(Result)
       prefix = db.memo_table_prefix
+      rid_col = db.memo_dialect.embedding_rowid_column
       rowids = scores.keys.map(&.to_i64)
 
       # Build text select/join if needed
@@ -210,7 +215,7 @@ module Memo
 
       db.query(
         <<-SQL,
-          SELECT e.rowid, c.id, c.hash, c.source_type, c.source_id,
+          SELECT e.#{rid_col}, c.id, c.hash, c.source_type, c.source_id,
                  s.external_int, s.external_text, s.external_blob,
                  c.pair_id, ps.external_int, ps.external_text, ps.external_blob,
                  c.parent_id, prs.external_int, prs.external_text, prs.external_blob,
@@ -222,7 +227,7 @@ module Memo
           LEFT JOIN #{prefix}sources ps ON c.pair_id = ps.id
           LEFT JOIN #{prefix}sources prs ON c.parent_id = prs.id
           #{text_join}
-          WHERE e.rowid IN (#{placeholders})
+          WHERE e.#{rid_col} IN (#{placeholders})
             AND e.service_id = ?
         SQL
         args: rowids.map(&.as(DB::Any)) + [service_id.as(DB::Any)]

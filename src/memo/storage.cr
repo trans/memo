@@ -36,13 +36,12 @@ module Memo
       return service_id if service_id
 
       # Insert new service
-      db.exec(
+      db.memo_dialect.insert_returning_id(
+        db,
         "INSERT INTO #{prefix}services (name, format, base_url, model, dimensions, max_tokens, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)",
         service_name, format, base_url, model, dimensions, max_tokens, Time.utc.to_unix_ms
       )
-
-      db.scalar("SELECT last_insert_rowid()").as(Int64)
     end
 
     # Get service by name
@@ -137,17 +136,20 @@ module Memo
       prefix = db.memo_table_prefix
 
       # Try to insert (will skip if hash+service_id already exists due to composite PRIMARY KEY)
-      result = db.exec(
-        "INSERT OR IGNORE INTO #{prefix}embeddings (hash, service_id, token_count, created_at)
-         VALUES (?, ?, ?, ?)",
-        hash, service_id, token_count, Time.utc.to_unix_ms
+      dialect = db.memo_dialect
+      sql = dialect.insert_or_ignore_sql(
+        "#{prefix}embeddings",
+        "hash, service_id, token_count, created_at",
+        "?, ?, ?, ?"
       )
+      result = db.exec(sql, hash, service_id, token_count, Time.utc.to_unix_ms)
 
       inserted = result.rows_affected > 0
 
       # Get the rowid (whether newly inserted or already existing)
+      rid_col = dialect.embedding_rowid_column
       rowid = db.query_one(
-        "SELECT rowid FROM #{prefix}embeddings WHERE hash = ? AND service_id = ?",
+        "SELECT #{rid_col} FROM #{prefix}embeddings WHERE hash = ? AND service_id = ?",
         hash, service_id,
         as: Int64
       )
@@ -161,8 +163,9 @@ module Memo
     def get_rowid(db : DB::Database, hash : Bytes, service_id : Int64) : Int64?
       prefix = db.memo_table_prefix
 
+      rid_col = db.memo_dialect.embedding_rowid_column
       db.query_one?(
-        "SELECT rowid FROM #{prefix}embeddings WHERE hash = ? AND service_id = ?",
+        "SELECT #{rid_col} FROM #{prefix}embeddings WHERE hash = ? AND service_id = ?",
         hash, service_id,
         as: Int64
       )
@@ -189,17 +192,23 @@ module Memo
     ) : Int64
       prefix = db.memo_table_prefix
 
-      result = db.exec(
-        "INSERT OR IGNORE INTO #{prefix}chunks
-         (hash, source_id, source_type, pair_id, parent_id, offset, size, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        hash, source_id, source_type, pair_id, parent_id, offset, size, Time.utc.to_unix_ms
+      dialect = db.memo_dialect
+      sql = dialect.insert_or_ignore_sql(
+        "#{prefix}chunks",
+        "hash, source_id, source_type, pair_id, parent_id, offset, size, created_at",
+        "?, ?, ?, ?, ?, ?, ?, ?"
       )
+      result = db.exec(sql, hash, source_id, source_type, pair_id, parent_id, offset, size, Time.utc.to_unix_ms)
 
       # Return 0 if insert was ignored (chunk already exists)
       return 0_i64 if result.rows_affected == 0
 
-      db.scalar("SELECT last_insert_rowid()").as(Int64)
+      # Get the ID of the newly inserted chunk
+      db.query_one(
+        "SELECT id FROM #{prefix}chunks WHERE source_id = ? AND offset IS ?",
+        source_id, offset,
+        as: Int64
+      )
     end
 
     # Increment match_count for chunks

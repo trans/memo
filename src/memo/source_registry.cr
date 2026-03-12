@@ -17,11 +17,11 @@ module Memo
     # Returns the internal (database) ID for the new source.
     def create(db : DB::Database, source_type : String) : Int64
       prefix = db.memo_table_prefix
-      db.exec(
+      db.memo_dialect.insert_returning_id(
+        db,
         "INSERT INTO #{prefix}sources (source_type, created_at) VALUES (?, ?)",
         source_type, Time.utc.to_unix_ms
       )
-      db.scalar("SELECT last_insert_rowid()").as(Int64)
     end
 
     # Resolve external ID to internal ID, creating source record if needed
@@ -34,6 +34,8 @@ module Memo
     ) : Int64
       prefix = db.memo_table_prefix
 
+      dialect = db.memo_dialect
+
       case external_id
       when Int64
         # Try to find existing source by integer ID
@@ -45,11 +47,11 @@ module Memo
         return internal_id if internal_id
 
         # Create new source with integer ID
-        db.exec(
+        dialect.insert_returning_id(
+          db,
           "INSERT INTO #{prefix}sources (source_type, external_int, created_at) VALUES (?, ?, ?)",
           source_type, external_id, Time.utc.to_unix_ms
         )
-        db.scalar("SELECT last_insert_rowid()").as(Int64)
 
       when Bytes
         # Try to find existing source by blob ID
@@ -61,11 +63,11 @@ module Memo
         return internal_id if internal_id
 
         # Create new source with blob ID
-        db.exec(
+        dialect.insert_returning_id(
+          db,
           "INSERT INTO #{prefix}sources (source_type, external_blob, created_at) VALUES (?, ?, ?)",
           source_type, external_id, Time.utc.to_unix_ms
         )
-        db.scalar("SELECT last_insert_rowid()").as(Int64)
 
       else # String
         ext_str = external_id.as(String)
@@ -78,11 +80,11 @@ module Memo
         return internal_id if internal_id
 
         # Create new source with text ID
-        db.exec(
+        dialect.insert_returning_id(
+          db,
           "INSERT INTO #{prefix}sources (source_type, external_text, created_at) VALUES (?, ?, ?)",
           source_type, ext_str, Time.utc.to_unix_ms
         )
-        db.scalar("SELECT last_insert_rowid()").as(Int64)
       end
     end
 
