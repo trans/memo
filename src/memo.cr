@@ -4,10 +4,9 @@ require "digest/sha256"
 require "set"
 require "usearch"
 
-# Extend DB::Database to carry table prefix and dialect
+# Extend DB::Database to carry dialect
 # This avoids global state - each db connection knows its config
 class DB::Database
-  property memo_table_prefix : String = "memo_"
   property memo_dialect : Memo::Dialect::Base { Memo::Dialect::SQLite.new }
 end
 

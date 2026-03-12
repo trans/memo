@@ -37,12 +37,11 @@ describe Memo::Service do
           processed.should be > 0
 
           # Verify relationships stored in chunks
-          prefix = service.table_prefix
           result = service.db.query_one(
             "SELECT ps.external_int, prs.external_int
-             FROM #{prefix}chunks c
-             LEFT JOIN #{prefix}sources ps ON c.pair_id = ps.id
-             LEFT JOIN #{prefix}sources prs ON c.parent_id = prs.id
+             FROM memo_chunks c
+             LEFT JOIN memo_sources ps ON c.pair_id = ps.id
+             LEFT JOIN memo_sources prs ON c.parent_id = prs.id
              LIMIT 1",
             as: {Int64?, Int64?}
           )
@@ -211,10 +210,9 @@ describe Memo::Service do
           service.enqueue(source_type: "event", source_id: 1_i64, text: "Available before embedding")
 
           # Text should be in the texts table even before process_queue
-          prefix = service.table_prefix
           content = service.db.query_one?(
-            "SELECT t.content FROM #{prefix}texts t
-             JOIN #{prefix}sources s ON t.source_id = s.id
+            "SELECT t.content FROM memo_texts t
+             JOIN memo_sources s ON t.source_id = s.id
              WHERE s.source_type = ? AND s.external_int = ?",
             "event", 1_i64,
             as: String

@@ -71,8 +71,6 @@ module Memo
       base_url : String? = nil,
       is_default : Bool = false
     ) : Info
-      prefix = db.memo_table_prefix
-
       # Check if name already exists
       existing = get_by_name(db, name)
       if existing
@@ -81,18 +79,17 @@ module Memo
 
       # If setting as default, clear other defaults first
       if is_default
-        db.exec("UPDATE #{prefix}services SET is_default = 0 WHERE is_default = 1")
+        db.exec("UPDATE memo_services SET is_default = 0 WHERE is_default = 1")
       end
 
       # Insert new service
       now = Time.utc
       id = db.memo_dialect.insert_returning_id(
         db,
-        "INSERT INTO #{prefix}services (name, format, base_url, model, dimensions, max_tokens, is_default, created_at)
+        "INSERT INTO memo_services (name, format, base_url, model, dimensions, max_tokens, is_default, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         name, format, base_url, model, dimensions, max_tokens, is_default ? 1 : 0, now.to_unix_ms
       )
-
       Info.new(
         id: id,
         name: name,
@@ -111,11 +108,9 @@ module Memo
     #
     # Returns nil if not found.
     def get(db : DB::Database, id : Int64) : Info?
-      prefix = db.memo_table_prefix
-
       db.query_one?(
         "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
-         FROM #{prefix}services WHERE id = ?",
+         FROM memo_services WHERE id = ?",
         id
       ) do |rs|
         read_info(rs)
@@ -126,11 +121,9 @@ module Memo
     #
     # Returns nil if not found.
     def get_by_name(db : DB::Database, name : String) : Info?
-      prefix = db.memo_table_prefix
-
       db.query_one?(
         "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
-         FROM #{prefix}services WHERE name = ?",
+         FROM memo_services WHERE name = ?",
         name
       ) do |rs|
         read_info(rs)
@@ -141,11 +134,9 @@ module Memo
     #
     # Returns nil if no default is set.
     def get_default(db : DB::Database) : Info?
-      prefix = db.memo_table_prefix
-
       db.query_one?(
         "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
-         FROM #{prefix}services WHERE is_default = 1 LIMIT 1"
+         FROM memo_services WHERE is_default = 1 LIMIT 1"
       ) do |rs|
         read_info(rs)
       end
@@ -156,14 +147,12 @@ module Memo
     # Clears any existing default and sets the specified service.
     # Returns true if successful, false if service not found.
     def set_default(db : DB::Database, name : String) : Bool
-      prefix = db.memo_table_prefix
-
       svc = get_by_name(db, name)
       return false unless svc
 
       db.transaction do
-        db.exec("UPDATE #{prefix}services SET is_default = 0 WHERE is_default = 1")
-        db.exec("UPDATE #{prefix}services SET is_default = 1 WHERE id = ?", svc.id)
+        db.exec("UPDATE memo_services SET is_default = 0 WHERE is_default = 1")
+        db.exec("UPDATE memo_services SET is_default = 1 WHERE id = ?", svc.id)
       end
 
       true
@@ -173,12 +162,11 @@ module Memo
     #
     # Returns array of service info, ordered by creation time (newest first).
     def list(db : DB::Database) : Array(Info)
-      prefix = db.memo_table_prefix
       services = [] of Info
 
       db.query(
         "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
-         FROM #{prefix}services
+         FROM memo_services
          ORDER BY created_at DESC"
       ) do |rs|
         rs.each do
@@ -193,12 +181,11 @@ module Memo
     #
     # Returns array of service info for the specified API format.
     def list_by_format(db : DB::Database, format : String) : Array(Info)
-      prefix = db.memo_table_prefix
       services = [] of Info
 
       db.query(
         "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
-         FROM #{prefix}services
+         FROM memo_services
          WHERE format = ?
          ORDER BY created_at DESC",
         format
@@ -221,8 +208,6 @@ module Memo
       base_url : String? = nil,
       max_tokens : Int32? = nil
     ) : Info?
-      prefix = db.memo_table_prefix
-
       # Build update query dynamically
       updates = [] of String
       params = [] of DB::Any
@@ -242,10 +227,9 @@ module Memo
       params << id
 
       result = db.exec(
-        "UPDATE #{prefix}services SET #{updates.join(", ")} WHERE id = ?",
+        "UPDATE memo_services SET #{updates.join(", ")} WHERE id = ?",
         args: params
       )
-
       return nil if result.rows_affected == 0
 
       get(db, id)
@@ -259,14 +243,10 @@ module Memo
     # Returns true if deleted, false if not found.
     # Raises if embeddings exist and force is false.
     def delete(db : DB::Database, id : Int64, force : Bool = false) : Bool
-      prefix = db.memo_table_prefix
-
       # Check if service exists
       return false unless get(db, id)
-
       # Check for associated embeddings
       stats = stats(db, id)
-
       if !stats.empty? && !force
         raise ArgumentError.new(
           "Cannot delete service #{id}: has #{stats.embeddings} embeddings and #{stats.chunks} chunks. " \
@@ -280,7 +260,7 @@ module Memo
           # Get all embedding hashes for this service
           hashes = [] of Bytes
           db.query(
-            "SELECT hash FROM #{prefix}embeddings WHERE service_id = ?",
+            "SELECT hash FROM memo_embeddings WHERE service_id = ?",
             id
           ) do |rs|
             rs.each do
@@ -290,15 +270,15 @@ module Memo
 
           # Delete chunks referencing these embeddings
           hashes.each do |hash|
-            db.exec("DELETE FROM #{prefix}chunks WHERE hash = ?", hash)
+            db.exec("DELETE FROM memo_chunks WHERE hash = ?", hash)
           end
 
           # Delete embeddings
-          db.exec("DELETE FROM #{prefix}embeddings WHERE service_id = ?", id)
+          db.exec("DELETE FROM memo_embeddings WHERE service_id = ?", id)
         end
 
         # Delete the service
-        db.exec("DELETE FROM #{prefix}services WHERE id = ?", id)
+        db.exec("DELETE FROM memo_services WHERE id = ?", id)
       end
 
       true
@@ -306,39 +286,31 @@ module Memo
 
     # Get usage statistics for a service
     def stats(db : DB::Database, id : Int64) : Stats
-      prefix = db.memo_table_prefix
-
       embeddings = db.scalar(
-        "SELECT COUNT(*) FROM #{prefix}embeddings WHERE service_id = ?",
+        "SELECT COUNT(*) FROM memo_embeddings WHERE service_id = ?",
         id
       ).as(Int64)
-
       chunks = db.scalar(
-        "SELECT COUNT(*) FROM #{prefix}chunks c
-         JOIN #{prefix}embeddings e ON c.hash = e.hash
+        "SELECT COUNT(*) FROM memo_chunks c
+         JOIN memo_embeddings e ON c.hash = e.hash
          WHERE e.service_id = ?",
         id
       ).as(Int64)
-
       Stats.new(embeddings, chunks)
     end
 
     # Check if a service exists
     def exists?(db : DB::Database, id : Int64) : Bool
-      prefix = db.memo_table_prefix
-
       count = db.scalar(
-        "SELECT COUNT(*) FROM #{prefix}services WHERE id = ?",
+        "SELECT COUNT(*) FROM memo_services WHERE id = ?",
         id
       ).as(Int64)
-
       count > 0
     end
 
     # Get total count of services
     def count(db : DB::Database) : Int64
-      prefix = db.memo_table_prefix
-      db.scalar("SELECT COUNT(*) FROM #{prefix}services").as(Int64)
+      db.scalar("SELECT COUNT(*) FROM memo_services").as(Int64)
     end
 
     private def read_info(rs) : Info

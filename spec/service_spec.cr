@@ -120,11 +120,11 @@ describe Memo::Service do
 
         # Verify chunk was stored with correct source
         # Join with sources table to get external ID
-        prefix = service.table_prefix
-        result = service.db.query_one(
+        
+result = service.db.query_one(
           "SELECT c.source_type, s.external_int
-           FROM #{prefix}chunks c
-           JOIN #{prefix}sources s ON c.source_id = s.id
+           FROM memo_chunks c
+           JOIN memo_sources s ON c.source_id = s.id
            LIMIT 1",
           as: {String, Int64}
         )
@@ -144,12 +144,12 @@ describe Memo::Service do
 
         # Verify relationships stored
         # Join with sources table to get external IDs for pair and parent
-        prefix = service.table_prefix
-        result = service.db.query_one(
+        
+result = service.db.query_one(
           "SELECT ps.external_int, prs.external_int
-           FROM #{prefix}chunks c
-           LEFT JOIN #{prefix}sources ps ON c.pair_id = ps.id
-           LEFT JOIN #{prefix}sources prs ON c.parent_id = prs.id
+           FROM memo_chunks c
+           LEFT JOIN memo_sources ps ON c.pair_id = ps.id
+           LEFT JOIN memo_sources prs ON c.parent_id = prs.id
            LIMIT 1",
           as: {Int64?, Int64?}
         )
@@ -230,12 +230,12 @@ describe Memo::Service do
         service.index_batch(docs)
 
         # Join with sources table to get external IDs for pair and parent
-        prefix = service.table_prefix
-        result = service.db.query_one(
+        
+result = service.db.query_one(
           "SELECT ps.external_int, prs.external_int
-           FROM #{prefix}chunks c
-           LEFT JOIN #{prefix}sources ps ON c.pair_id = ps.id
-           LEFT JOIN #{prefix}sources prs ON c.parent_id = prs.id
+           FROM memo_chunks c
+           LEFT JOIN memo_sources ps ON c.pair_id = ps.id
+           LEFT JOIN memo_sources prs ON c.parent_id = prs.id
            LIMIT 1",
           as: {Int64?, Int64?}
         )
@@ -399,10 +399,10 @@ describe Memo::Service do
 
         # Verify text was stored (keyed by internal source_id)
         # Join with sources to find by external ID
-        prefix = service.table_prefix
-        content = service.db.query_one?(
-          "SELECT t.content FROM #{prefix}texts t
-           JOIN #{prefix}sources s ON t.source_id = s.id
+        
+content = service.db.query_one?(
+          "SELECT t.content FROM memo_texts t
+           JOIN memo_sources s ON t.source_id = s.id
            WHERE s.source_type = ? AND s.external_int = ?",
           "event", 1_i64,
           as: String
@@ -418,8 +418,8 @@ describe Memo::Service do
         service.index(source_type: "event", source_id: 2_i64, text: "Same text")
 
         # Should have two text entries (one per source)
-        prefix = service.table_prefix
-        count = service.db.scalar("SELECT COUNT(*) FROM #{prefix}texts").as(Int64)
+        
+count = service.db.scalar("SELECT COUNT(*) FROM memo_texts").as(Int64)
         count.should eq(2)
       end
     end
@@ -431,13 +431,13 @@ describe Memo::Service do
         service.index(source_type: "event", source_id: 1_i64, text: "Updated text")
 
         # Should still have one entry with updated content
-        prefix = service.table_prefix
-        count = service.db.scalar("SELECT COUNT(*) FROM #{prefix}texts").as(Int64)
+        
+count = service.db.scalar("SELECT COUNT(*) FROM memo_texts").as(Int64)
         count.should eq(1)
 
         content = service.db.query_one?(
-          "SELECT t.content FROM #{prefix}texts t
-           JOIN #{prefix}sources s ON t.source_id = s.id
+          "SELECT t.content FROM memo_texts t
+           JOIN memo_sources s ON t.source_id = s.id
            WHERE s.source_type = ? AND s.external_int = ?",
           "event", 1_i64,
           as: String
@@ -453,14 +453,14 @@ describe Memo::Service do
         service.index(source_type: "event", source_id: 1_i64, text: "Test document")
 
         # Get chunk ID
-        chunk_id = service.db.scalar("SELECT id FROM #{service.table_prefix}chunks LIMIT 1").as(Int64)
+        chunk_id = service.db.scalar("SELECT id FROM memo_chunks LIMIT 1").as(Int64)
 
         # Mark as read
         service.mark_as_read([chunk_id])
 
         # Verify read_count incremented
         read_count = service.db.scalar(
-          "SELECT read_count FROM #{service.table_prefix}chunks WHERE id = ?",
+          "SELECT read_count FROM memo_chunks WHERE id = ?",
           chunk_id
         ).as(Int64)
         read_count.should eq(1)

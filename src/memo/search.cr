@@ -71,8 +71,6 @@ module Memo
       match : String? = nil,
       include_text : Bool = true
     ) : Array(Result)
-      prefix = db.memo_table_prefix
-
       has_filters = filters || sql_where || (like && !like.empty?) || (match && !match.empty?)
 
       # Get nearest neighbor candidates from USearch
@@ -115,8 +113,6 @@ module Memo
       like : Array(String)?,
       match : String?
     ) : Array(USearch::SearchResult)
-      prefix = db.memo_table_prefix
-
       # Build SQL to get valid embedding rowids
       where_clauses = ["e.service_id = ?"] of String
       params = [service_id] of DB::Any
@@ -149,7 +145,7 @@ module Memo
       fts_join = ""
 
       if like && !like.empty?
-        text_join = "JOIN #{prefix}texts st ON c.source_id = st.source_id"
+        text_join = "JOIN memo_texts st ON c.source_id = st.source_id"
         like.each do |pattern|
           where_clauses << "st.content LIKE ?"
           params << pattern
@@ -159,8 +155,8 @@ module Memo
       dialect = db.memo_dialect
 
       if match && !match.empty?
-        fts_join = dialect.fts_join_sql(prefix)
-        where_clauses << dialect.fts_where_sql(prefix)
+        fts_join = dialect.fts_join_sql
+        where_clauses << dialect.fts_where_sql
         params << match
       end
 
@@ -172,8 +168,8 @@ module Memo
       db.query(
         <<-SQL,
           SELECT DISTINCT e.#{rid_col}
-          FROM #{prefix}chunks c
-          JOIN #{prefix}embeddings e ON c.hash = e.hash AND e.service_id = ?
+          FROM memo_chunks c
+          JOIN memo_embeddings e ON c.hash = e.hash AND e.service_id = ?
           #{text_join}
           #{fts_join}
           WHERE #{where_clauses.join(" AND ")}
@@ -201,13 +197,12 @@ module Memo
       limit : Int32,
       include_text : Bool
     ) : Array(Result)
-      prefix = db.memo_table_prefix
       rid_col = db.memo_dialect.embedding_rowid_column
       rowids = scores.keys.map(&.to_i64)
 
       # Build text select/join if needed
       text_select = include_text ? ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text" : ""
-      text_join = include_text ? "LEFT JOIN #{prefix}texts st ON c.source_id = st.source_id" : ""
+      text_join = include_text ? "LEFT JOIN memo_texts st ON c.source_id = st.source_id" : ""
 
       placeholders = rowids.map { "?" }.join(", ")
 
@@ -221,11 +216,11 @@ module Memo
                  c.parent_id, prs.external_int, prs.external_text, prs.external_blob,
                  c.offset, c.size, c.match_count, c.read_count
                  #{text_select}
-          FROM #{prefix}embeddings e
-          JOIN #{prefix}chunks c ON c.hash = e.hash
-          JOIN #{prefix}sources s ON c.source_id = s.id
-          LEFT JOIN #{prefix}sources ps ON c.pair_id = ps.id
-          LEFT JOIN #{prefix}sources prs ON c.parent_id = prs.id
+          FROM memo_embeddings e
+          JOIN memo_chunks c ON c.hash = e.hash
+          JOIN memo_sources s ON c.source_id = s.id
+          LEFT JOIN memo_sources ps ON c.pair_id = ps.id
+          LEFT JOIN memo_sources prs ON c.parent_id = prs.id
           #{text_join}
           WHERE e.#{rid_col} IN (#{placeholders})
             AND e.service_id = ?

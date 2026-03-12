@@ -118,11 +118,10 @@ module Memo
 
     # Store file record in database
     def store(db : DB::Database, source_id : Int64, info : FileInfo)
-      prefix = db.memo_table_prefix
       now = Time.utc.to_unix_ms
 
       sql = db.memo_dialect.upsert_sql(
-        "#{prefix}files",
+        "memo_files",
         "source_id, path, content_hash, mtime, size, created_at",
         "?, ?, ?, ?, ?, ?",
         "source_id",
@@ -133,11 +132,9 @@ module Memo
 
     # Get file record by path
     def get_by_path(db : DB::Database, path : String) : FileRecord?
-      prefix = db.memo_table_prefix
-
       db.query_one?(
         "SELECT source_id, path, content_hash, mtime, size
-         FROM #{prefix}files WHERE path = ?",
+         FROM memo_files WHERE path = ?",
         path
       ) do |rs|
         FileRecord.new(
@@ -152,11 +149,9 @@ module Memo
 
     # Get file record by content hash
     def get_by_hash(db : DB::Database, hash : Bytes) : FileRecord?
-      prefix = db.memo_table_prefix
-
       db.query_one?(
         "SELECT source_id, path, content_hash, mtime, size
-         FROM #{prefix}files WHERE content_hash = ?",
+         FROM memo_files WHERE content_hash = ?",
         hash
       ) do |rs|
         FileRecord.new(
@@ -171,11 +166,9 @@ module Memo
 
     # Get file record by source_id
     def get_by_source(db : DB::Database, source_id : Int64) : FileRecord?
-      prefix = db.memo_table_prefix
-
       db.query_one?(
         "SELECT source_id, path, content_hash, mtime, size
-         FROM #{prefix}files WHERE source_id = ?",
+         FROM memo_files WHERE source_id = ?",
         source_id
       ) do |rs|
         FileRecord.new(
@@ -190,8 +183,7 @@ module Memo
 
     # Delete file record
     def delete(db : DB::Database, source_id : Int64) : Bool
-      prefix = db.memo_table_prefix
-      result = db.exec("DELETE FROM #{prefix}files WHERE source_id = ?", source_id)
+      result = db.exec("DELETE FROM memo_files WHERE source_id = ?", source_id)
       result.rows_affected > 0
     end
 
@@ -202,12 +194,11 @@ module Memo
 
     # List all indexed files
     def list(db : DB::Database, limit : Int32 = 100, offset : Int32 = 0) : Array(FileRecord)
-      prefix = db.memo_table_prefix
       records = [] of FileRecord
 
       db.query(
         "SELECT source_id, path, content_hash, mtime, size
-         FROM #{prefix}files ORDER BY path LIMIT ? OFFSET ?",
+         FROM memo_files ORDER BY path LIMIT ? OFFSET ?",
         limit, offset
       ) do |rs|
         rs.each do
@@ -226,8 +217,7 @@ module Memo
 
     # Count indexed files
     def count(db : DB::Database) : Int64
-      prefix = db.memo_table_prefix
-      db.scalar("SELECT COUNT(*) FROM #{prefix}files").as(Int64)
+      db.scalar("SELECT COUNT(*) FROM memo_files").as(Int64)
     end
 
     private def walk_recursive(
@@ -245,7 +235,6 @@ module Memo
 
         # Check if ignored
         next if matcher.ignores?(relative_path)
-
         if File.directory?(full_path.to_s)
           # Recurse into directory (add trailing slash for directory matching)
           next if matcher.ignores?(relative_path + "/")
@@ -253,7 +242,6 @@ module Memo
         else
           # Skip binary files
           next if binary?(full_path.to_s)
-
           yield full_path.to_s
         end
       end

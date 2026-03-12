@@ -100,7 +100,6 @@ module Memo
     getter service_format : String
     getter service_model : String
     getter db_path : String?
-    getter table_prefix : String
 
     # Private struct for init_provider return value
     private record ProviderConfig,
@@ -164,8 +163,7 @@ module Memo
       store_text : Bool = true,
       build_vocab : Bool = true,
       batch_size : Int32 = 100,
-      max_retries : Int32 = 3,
-      table_prefix : String = "memo_"
+      max_retries : Int32 = 3
     )
       # Create parent directory if it doesn't exist
       dir = File.dirname(db_path)
@@ -177,10 +175,6 @@ module Memo
       @owns_db = true
       @text_storage = store_text
       @build_vocab = build_vocab && store_text  # vocab requires text storage
-      @table_prefix = table_prefix
-
-      # Set prefix on db connection (modules read from this)
-      @db.memo_table_prefix = @table_prefix
 
       # Initialize schema
       Database.init(@db)
@@ -241,17 +235,12 @@ module Memo
       build_vocab : Bool = true,
       batch_size : Int32 = 100,
       max_retries : Int32 = 3,
-      db_path : String? = nil,
-      table_prefix : String = "memo_"
+      db_path : String? = nil
     )
       @db = db
       @owns_db = false  # Caller owns the connection
       @text_storage = store_text
       @build_vocab = build_vocab && store_text  # vocab requires text storage
-      @table_prefix = table_prefix
-
-      # Set prefix on db connection (modules read from this)
-      @db.memo_table_prefix = @table_prefix
 
       # Get db path from dialect if not provided
       @db_path = db_path || @db.memo_dialect.db_file_path(@db)
@@ -456,23 +445,22 @@ module Memo
     #
     # Returns counts of embeddings, chunks, and unique sources.
     def stats : Stats
-      prefix = @table_prefix
 
       embeddings = @db.scalar(
-        "SELECT COUNT(*) FROM #{prefix}embeddings WHERE service_id = ?",
+        "SELECT COUNT(*) FROM memo_embeddings WHERE service_id = ?",
         @service_id
       ).as(Int64)
 
       chunks = @db.scalar(
-        "SELECT COUNT(*) FROM #{prefix}chunks c
-         JOIN #{prefix}embeddings e ON c.hash = e.hash
+        "SELECT COUNT(*) FROM memo_chunks c
+         JOIN memo_embeddings e ON c.hash = e.hash
          WHERE e.service_id = ?",
         @service_id
       ).as(Int64)
 
       sources = @db.scalar(
-        "SELECT COUNT(DISTINCT c.source_id) FROM #{prefix}chunks c
-         JOIN #{prefix}embeddings e ON c.hash = e.hash
+        "SELECT COUNT(DISTINCT c.source_id) FROM memo_chunks c
+         JOIN memo_embeddings e ON c.hash = e.hash
          WHERE e.service_id = ?",
         @service_id
       ).as(Int64)
@@ -492,7 +480,6 @@ module Memo
     #   If nil and source_id is Int64, searches integer IDs across all types.
     #   If nil and source_id is String, searches string IDs across all types.
     def delete(source_id : ExternalId, source_type : String? = nil) : Int32
-      prefix = @table_prefix
 
       # Resolve external ID to internal ID
       internal_id = if source_type
@@ -510,7 +497,6 @@ module Memo
     #
     # Internal method used by delete() and embed_and_store().
     private def delete_internal(internal_source_id : Int64, source_type : String? = nil) : Int32
-      prefix = @table_prefix
 
       # Build query based on whether source_type is provided
       type_filter = source_type ? " AND source_type = ?" : ""
@@ -519,7 +505,7 @@ module Memo
       # Get hashes of chunks to be deleted
       hashes = [] of Bytes
       @db.query(
-        "SELECT DISTINCT hash FROM #{prefix}chunks
+        "SELECT DISTINCT hash FROM memo_chunks
          WHERE source_id = ?#{type_filter}",
         args: query_params
       ) do |rs|
@@ -535,12 +521,12 @@ module Memo
         hashes.each do |hash|
           result = if source_type
                      @db.exec(
-                       "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ? AND source_type = ?",
+                       "DELETE FROM memo_chunks WHERE hash = ? AND source_id = ? AND source_type = ?",
                        hash, internal_source_id, source_type
                      )
                    else
                      @db.exec(
-                       "DELETE FROM #{prefix}chunks WHERE hash = ? AND source_id = ?",
+                       "DELETE FROM memo_chunks WHERE hash = ? AND source_id = ?",
                        hash, internal_source_id
                      )
                    end
@@ -551,7 +537,7 @@ module Memo
         hashes.each do |hash|
           # Check if any chunks still reference this hash
           remaining = @db.scalar(
-            "SELECT COUNT(*) FROM #{prefix}chunks WHERE hash = ?",
+            "SELECT COUNT(*) FROM memo_chunks WHERE hash = ?",
             hash
           ).as(Int64)
 
@@ -560,7 +546,7 @@ module Memo
             if rowid = Storage.get_rowid(@db, hash, @service_id)
               USearchIndex.remove(@usearch_index, rowid.to_u64)
             end
-            @db.exec("DELETE FROM #{prefix}embeddings WHERE hash = ?", hash)
+            @db.exec("DELETE FROM memo_embeddings WHERE hash = ?", hash)
           end
         end
 
@@ -781,7 +767,7 @@ module Memo
       internal_pair_id : Int64? = nil,
       internal_parent_id : Int64? = nil
     )
-      prefix = @table_prefix
+
       now = Time.utc.to_unix_ms
 
       # Store source_type, pair_id and parent_id in the text field as metadata prefix
@@ -789,7 +775,7 @@ module Memo
       stored_text = "MEMO_META:#{source_type},#{internal_pair_id || ""},#{internal_parent_id || ""}\n#{text}"
 
       @db.exec(
-        "INSERT INTO #{prefix}embed_queue (source_id, text, status, created_at)
+        "INSERT INTO memo_embed_queue (source_id, text, status, created_at)
          VALUES (?, ?, -1, ?)
          ON CONFLICT(source_id) DO UPDATE SET
            text = excluded.text,
@@ -866,7 +852,7 @@ module Memo
     # one API endpoint with batched requests. Parallel workers would hit
     # rate limits and add complexity without benefit.
     def process_queue : Int32
-      prefix = @table_prefix
+
       max_retries = @queue_config.max_retries
       processed = 0
 
@@ -875,7 +861,7 @@ module Memo
         items = [] of {Int64, Int64, String, String, Int64?, Int64?}
 
         @db.query(
-          "SELECT id, source_id, text FROM #{prefix}embed_queue
+          "SELECT id, source_id, text FROM memo_embed_queue
            WHERE status = -1
            ORDER BY created_at ASC
            LIMIT ?",
@@ -909,7 +895,7 @@ module Memo
 
             # Mark as successful
             @db.exec(
-              "UPDATE #{prefix}embed_queue
+              "UPDATE memo_embed_queue
                SET status = 0, processed_at = ?, attempts = attempts + 1
                WHERE id = ?",
               Time.utc.to_unix_ms, id
@@ -920,7 +906,7 @@ module Memo
           rescue ex
             # Get current attempts
             attempts = @db.query_one(
-              "SELECT attempts FROM #{prefix}embed_queue WHERE id = ?",
+              "SELECT attempts FROM memo_embed_queue WHERE id = ?",
               id,
               as: Int32
             )
@@ -930,7 +916,7 @@ module Memo
             if new_attempts >= max_retries
               # Max retries reached, mark as permanently failed
               @db.exec(
-                "UPDATE #{prefix}embed_queue
+                "UPDATE memo_embed_queue
                  SET status = 1, error_message = ?, attempts = ?, processed_at = ?
                  WHERE id = ?",
                 ex.message, new_attempts, Time.utc.to_unix_ms, id
@@ -938,7 +924,7 @@ module Memo
             else
               # Keep as pending but increment attempts
               @db.exec(
-                "UPDATE #{prefix}embed_queue
+                "UPDATE memo_embed_queue
                  SET attempts = ?, error_message = ?
                  WHERE id = ?",
                 new_attempts, ex.message, id
@@ -966,12 +952,12 @@ module Memo
     # Used by index() for immediate processing with retry support.
     # Returns number of chunks stored.
     private def process_queue_item_internal(internal_source_id : Int64) : Int32
-      prefix = @table_prefix
+
       max_retries = @queue_config.max_retries
 
       # Get the specific item (using internal source_id)
       row = @db.query_one?(
-        "SELECT id, text FROM #{prefix}embed_queue
+        "SELECT id, text FROM memo_embed_queue
          WHERE source_id = ? AND status = -1",
         internal_source_id,
         as: {Int64, String}
@@ -997,7 +983,7 @@ module Memo
 
           # Mark as successful
           @db.exec(
-            "UPDATE #{prefix}embed_queue
+            "UPDATE memo_embed_queue
              SET status = 0, processed_at = ?, attempts = ?
              WHERE id = ?",
             Time.utc.to_unix_ms, attempts + 1, id
@@ -1010,7 +996,7 @@ module Memo
           attempts += 1
 
           @db.exec(
-            "UPDATE #{prefix}embed_queue
+            "UPDATE memo_embed_queue
              SET attempts = ?, error_message = ?
              WHERE id = ?",
             attempts, ex.message, id
@@ -1020,7 +1006,7 @@ module Memo
 
       # Max retries reached, mark as permanently failed
       @db.exec(
-        "UPDATE #{prefix}embed_queue
+        "UPDATE memo_embed_queue
          SET status = 1, error_message = ?, processed_at = ?
          WHERE id = ?",
         last_error.try(&.message), Time.utc.to_unix_ms, id
@@ -1033,14 +1019,13 @@ module Memo
     #
     # Returns counts of pending and failed items.
     def queue_stats : QueueStats
-      prefix = @table_prefix
 
       pending = @db.scalar(
-        "SELECT COUNT(*) FROM #{prefix}embed_queue WHERE status = -1",
+        "SELECT COUNT(*) FROM memo_embed_queue WHERE status = -1",
       ).as(Int64)
 
       failed = @db.scalar(
-        "SELECT COUNT(*) FROM #{prefix}embed_queue WHERE status > 0",
+        "SELECT COUNT(*) FROM memo_embed_queue WHERE status > 0",
       ).as(Int64)
 
       QueueStats.new(pending, failed)
@@ -1051,10 +1036,9 @@ module Memo
     # Removes successfully processed items (status = 0).
     # Returns number of items removed.
     def clear_completed_queue : Int32
-      prefix = @table_prefix
 
       result = @db.exec(
-        "DELETE FROM #{prefix}embed_queue WHERE status = 0"
+        "DELETE FROM memo_embed_queue WHERE status = 0"
       )
 
       result.rows_affected.to_i
@@ -1065,10 +1049,9 @@ module Memo
     # Removes all items regardless of status.
     # Returns number of items removed.
     def clear_queue : Int32
-      prefix = @table_prefix
 
       result = @db.exec(
-        "DELETE FROM #{prefix}embed_queue"
+        "DELETE FROM memo_embed_queue"
       )
 
       result.rows_affected.to_i
@@ -1083,7 +1066,6 @@ module Memo
     def reindex(source_type : String) : Int32
       raise "Text storage required for reindex without block" unless @text_storage
 
-      prefix = @table_prefix
       queued = 0
 
       # Get source texts and metadata from chunks table
@@ -1093,9 +1075,9 @@ module Memo
 
       @db.query(
         "SELECT st.source_id, c.pair_id, c.parent_id, st.content
-         FROM #{prefix}texts st
-         JOIN #{prefix}sources s ON st.source_id = s.id
-         LEFT JOIN #{prefix}chunks c ON st.source_id = c.source_id
+         FROM memo_texts st
+         JOIN memo_sources s ON st.source_id = s.id
+         LEFT JOIN memo_chunks c ON st.source_id = c.source_id
          WHERE s.source_type = ?
          GROUP BY st.source_id",
         source_type
@@ -1149,7 +1131,7 @@ module Memo
     # memo.process_queue
     # ```
     def reindex(source_type : String, &block : ExternalId -> String) : Int32
-      prefix = @table_prefix
+
       queued = 0
 
       # Get all internal source_ids and metadata for this source type
@@ -1158,9 +1140,9 @@ module Memo
 
       @db.query(
         "SELECT DISTINCT c.source_id, s.external_int, s.external_text, c.pair_id, c.parent_id
-         FROM #{prefix}chunks c
-         JOIN #{prefix}embeddings e ON c.hash = e.hash
-         JOIN #{prefix}sources s ON c.source_id = s.id
+         FROM memo_chunks c
+         JOIN memo_embeddings e ON c.hash = e.hash
+         JOIN memo_sources s ON c.source_id = s.id
          WHERE c.source_type = ? AND e.service_id = ?",
         source_type, @service_id
       ) do |rs|
@@ -1225,11 +1207,9 @@ module Memo
     def build_vocab(batch_size : Int32 = 2000, clear_existing : Bool = true) : Int32
       raise "Text storage required for build_vocab" unless @text_storage
 
-      prefix = @table_prefix
-
       # Collect all text content
       texts = [] of String
-      @db.query("SELECT content FROM #{prefix}texts") do |rs|
+      @db.query("SELECT content FROM memo_texts") do |rs|
         rs.each do
           texts << rs.read(String)
         end
@@ -1705,14 +1685,14 @@ module Memo
     # Stores the original un-chunked text. Chunk text is extracted
     # using offset/size from the chunks table.
     private def store_source_text_internal(internal_source_id : Int64, content : String, content_hash : Bytes? = nil, skip_hash : Bool = false)
-      prefix = @table_prefix
+
       dialect = @db.memo_dialect
       now = Time.utc.to_unix_ms
       hash = skip_hash ? nil : (content_hash || Storage.compute_hash(content))
 
       # Insert or replace source text (keyed by internal source_id)
       sql = dialect.upsert_sql(
-        "#{prefix}texts",
+        "memo_texts",
         "source_id, content, content_hash, created_at",
         "?, ?, ?, ?",
         "source_id",
@@ -1721,7 +1701,7 @@ module Memo
       @db.exec(sql, internal_source_id, content, hash, now)
 
       # Update FTS index
-      dialect.fts_upsert(@db, prefix, internal_source_id, content)
+      dialect.fts_upsert(@db, internal_source_id, content)
     end
 
     # Embed texts in batches of @batch_size to avoid API input limits
@@ -1744,9 +1724,9 @@ module Memo
 
     # Check if source text has changed by comparing content hash
     private def source_text_changed?(internal_source_id : Int64, content_hash : Bytes) : Bool
-      prefix = @table_prefix
+
       stored_hash = @db.query_one?(
-        "SELECT content_hash FROM #{prefix}texts WHERE source_id = ?",
+        "SELECT content_hash FROM memo_texts WHERE source_id = ?",
         internal_source_id,
         as: Bytes?
       )
@@ -1755,12 +1735,12 @@ module Memo
 
     # Delete source text by internal ID
     private def delete_source_text_internal(internal_source_id : Int64)
-      prefix = @table_prefix
+
       @db.exec(
-        "DELETE FROM #{prefix}texts WHERE source_id = ?",
+        "DELETE FROM memo_texts WHERE source_id = ?",
         internal_source_id
       )
-      @db.memo_dialect.fts_delete(@db, prefix, internal_source_id)
+      @db.memo_dialect.fts_delete(@db, internal_source_id)
     end
 
     # Get source text by internal source_id
@@ -1770,9 +1750,9 @@ module Memo
 
     # Get source text by internal source_id (internal)
     private def get_source_text_internal(internal_source_id : Int64) : String?
-      prefix = @table_prefix
+
       @db.query_one?(
-        "SELECT content FROM #{prefix}texts WHERE source_id = ?",
+        "SELECT content FROM memo_texts WHERE source_id = ?",
         internal_source_id,
         as: String
       )
@@ -1867,7 +1847,7 @@ module Memo
         # Also update in-memory config so future chunking uses the new ratio
         # (Storage.update_tokens_per_byte uses EMA, so fetch the actual updated value)
         updated_ratio = @db.query_one?(
-          "SELECT tokens_per_byte FROM #{@table_prefix}services WHERE id = ?",
+          "SELECT tokens_per_byte FROM memo_services WHERE id = ?",
           @service_id, as: Float64
         )
         @chunking_config = @chunking_config.with_tokens_per_byte(updated_ratio) if updated_ratio
