@@ -6,52 +6,63 @@ module Memo
   # Wraps USearch index lifecycle: file naming, open/save/close, type conversion,
   # and vector operations. All Float64↔Float32 conversion happens here.
   #
-  # One index per service (isolated vector spaces). Index files are stored
-  # alongside the SQLite database, prefixed with the DB filename stem:
+  # One index per service (isolated vector spaces). Index files are named
+  # by service format, model, and dimensions:
   #   memo.openai--text-embedding-3-small--1536.usearch
   module USearchIndex
     extend self
 
-    # Build the index file path for a service.
+    # Default directory for index files when no db_path is available
+    # (e.g., PostgreSQL backend)
+    DEFAULT_INDEX_DIR = File.join(Path.home.to_s, ".memo", "indices")
+
+    # Build the index file path from a database path.
     #
     # Path: {db_dir}/{db_stem}.{format}--{model}--{dimensions}.usearch
     # Path-unsafe characters in format/model are replaced with hyphens.
     def index_path(db_path : String, format : String, model : String, dimensions : Int32) : String
       dir = File.dirname(db_path)
       stem = File.basename(db_path, File.extname(db_path))
+      index_path_in_dir(dir, format, model, dimensions, stem)
+    end
+
+    # Build the index file path from an explicit directory.
+    #
+    # Path: {dir}/{stem}.{format}--{model}--{dimensions}.usearch
+    # If no stem is provided, uses "memo" as default.
+    def index_path_in_dir(dir : String, format : String, model : String, dimensions : Int32, stem : String = "memo") : String
       safe_format = format.gsub(/[^a-zA-Z0-9\-\.]/, "-")
       safe_model = model.gsub(/[^a-zA-Z0-9\-\.]/, "-")
       File.join(dir, "#{stem}.#{safe_format}--#{safe_model}--#{dimensions}.usearch")
     end
 
-    # Open or create a USearch index for a service.
+    # Open or create a USearch index at a specific path.
     #
     # If the index file exists on disk, loads it. Otherwise creates a new
     # empty index with cosine metric and f16 quantization.
-    def open(db_path : String, format : String, model : String, dimensions : Int32) : USearch::Index
-      path = index_path(db_path, format, model, dimensions)
+    def open(path : String, dimensions : Int32) : USearch::Index
       if File.exists?(path)
         USearch::Index.load(path, dimensions: dimensions, metric: :cos, quantization: :f16)
       else
+        Dir.mkdir_p(File.dirname(path))
         USearch::Index.new(dimensions: dimensions, metric: :cos, quantization: :f16)
       end
     end
 
     # Save the index to disk.
-    def save(index : USearch::Index, db_path : String, format : String, model : String, dimensions : Int32)
-      path = index_path(db_path, format, model, dimensions)
+    def save(index : USearch::Index, path : String)
+      Dir.mkdir_p(File.dirname(path))
       index.save(path)
     end
 
     # Save and close the index, freeing resources.
-    def close(index : USearch::Index, db_path : String, format : String, model : String, dimensions : Int32)
-      save(index, db_path, format, model, dimensions) rescue nil
+    def close(index : USearch::Index, path : String)
+      save(index, path) rescue nil
       index.close
     end
 
     # Delete the index file from disk.
-    def delete_file(db_path : String, format : String, model : String, dimensions : Int32)
-      path = index_path(db_path, format, model, dimensions)
+    def delete_file(path : String)
       File.delete(path) if File.exists?(path)
     end
 
@@ -62,7 +73,7 @@ module Memo
 
     # Add a vector to the index.
     #
-    # Key is the SQLite rowid from the embeddings table.
+    # Key is the embedding rowid (SQLite rowid or PostgreSQL eid).
     # Embedding is converted from Float64 to Float32 at this boundary.
     def add(index : USearch::Index, key : UInt64, embedding : Array(Float64))
       index.add(key, to_f32(embedding))

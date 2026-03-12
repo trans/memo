@@ -100,6 +100,7 @@ module Memo
     getter service_format : String
     getter service_model : String
     getter db_path : String?
+    getter index_path : String
 
     # Private struct for init_provider return value
     private record ProviderConfig,
@@ -163,15 +164,25 @@ module Memo
       store_text : Bool = true,
       build_vocab : Bool = true,
       batch_size : Int32 = 100,
-      max_retries : Int32 = 3
+      max_retries : Int32 = 3,
+      index_dir : String? = nil
     )
-      # Create parent directory if it doesn't exist
-      dir = File.dirname(db_path)
-      Dir.mkdir_p(dir) unless dir.empty? || Dir.exists?(dir)
+      # Detect backend from connection string
+      if db_path.starts_with?("postgres")
+        # PostgreSQL: connect directly, set dialect
+        @db = DB.open(db_path)
+        @db.memo_dialect = Dialect.for(db_path)
+        @db_path = nil
+        # Default index dir for PG if not provided
+        index_dir ||= USearchIndex::DEFAULT_INDEX_DIR
+      else
+        # SQLite: create parent directory and connect
+        dir = File.dirname(db_path)
+        Dir.mkdir_p(dir) unless dir.empty? || Dir.exists?(dir)
+        @db = DB.open("sqlite3://#{db_path}")
+        @db_path = db_path
+      end
 
-      # Open memo database
-      @db_path = db_path
-      @db = DB.open("sqlite3://#{db_path}")
       @owns_db = true
       @text_storage = store_text
       @build_vocab = build_vocab && store_text  # vocab requires text storage
@@ -198,8 +209,13 @@ module Memo
       @service_model = config.model
       @dimensions = config.dimensions
 
-      # Open USearch HNSW index for this service
-      @usearch_index = USearchIndex.open(db_path, config.format, config.model, config.dimensions)
+      # Compute and open USearch HNSW index for this service
+      @index_path = if idx_dir = index_dir
+                      USearchIndex.index_path_in_dir(idx_dir, config.format, config.model, config.dimensions)
+                    else
+                      USearchIndex.index_path(db_path, config.format, config.model, config.dimensions)
+                    end
+      @usearch_index = USearchIndex.open(@index_path, config.dimensions)
 
       # Create chunking config with service's tokens_per_byte ratio
       @chunking_config = Config::Chunking.new(
@@ -235,7 +251,8 @@ module Memo
       build_vocab : Bool = true,
       batch_size : Int32 = 100,
       max_retries : Int32 = 3,
-      db_path : String? = nil
+      db_path : String? = nil,
+      index_dir : String? = nil
     )
       @db = db
       @owns_db = false  # Caller owns the connection
@@ -266,10 +283,15 @@ module Memo
       @service_model = config.model
       @dimensions = config.dimensions
 
-      # Open USearch HNSW index for this service
-      resolved_db_path = @db_path
-      raise ArgumentError.new("db_path required for USearch index") unless resolved_db_path
-      @usearch_index = USearchIndex.open(resolved_db_path, config.format, config.model, config.dimensions)
+      # Compute and open USearch HNSW index for this service
+      @index_path = if idx_dir = index_dir
+                      USearchIndex.index_path_in_dir(idx_dir, config.format, config.model, config.dimensions)
+                    elsif resolved_db_path = @db_path
+                      USearchIndex.index_path(resolved_db_path, config.format, config.model, config.dimensions)
+                    else
+                      USearchIndex.index_path_in_dir(USearchIndex::DEFAULT_INDEX_DIR, config.format, config.model, config.dimensions)
+                    end
+      @usearch_index = USearchIndex.open(@index_path, config.dimensions)
 
       # Create chunking config with service's tokens_per_byte ratio
       @chunking_config = Config::Chunking.new(
@@ -566,9 +588,7 @@ module Memo
     # close is a no-op (caller owns the connection).
     def close
       # Save USearch index before closing
-      if resolved_db_path = @db_path
-        USearchIndex.close(@usearch_index, resolved_db_path, @service_format, @service_model, @dimensions)
-      end
+      USearchIndex.close(@usearch_index, @index_path)
       return unless @owns_db
       @db.close
     rescue
@@ -652,8 +672,13 @@ module Memo
       return false unless svc
       result = ServiceProvider.delete(@db, svc.id, force)
       # Delete USearch index file if service was deleted
-      if result && (resolved_db_path = @db_path)
-        USearchIndex.delete_file(resolved_db_path, svc.format, svc.model, svc.dimensions)
+      if result
+        svc_index_path = if db_p = @db_path
+                           USearchIndex.index_path(db_p, svc.format, svc.model, svc.dimensions)
+                         else
+                           USearchIndex.index_path_in_dir(USearchIndex::DEFAULT_INDEX_DIR, svc.format, svc.model, svc.dimensions)
+                         end
+        USearchIndex.delete_file(svc_index_path)
       end
       result
     end
@@ -690,15 +715,12 @@ module Memo
       svc = ServiceProvider.get_by_name(@db, name)
       raise ArgumentError.new("Service '#{name}' not found") unless svc
 
-      resolved_db_path = @db_path
-      raise ArgumentError.new("db_path required for USearch index") unless resolved_db_path
-
       # Create provider instance from stored config
       provider_instance = Providers::Registry.create(svc.format, api_key, svc.model, svc.base_url)
       raise ArgumentError.new("Unknown format: #{svc.format}") unless provider_instance
 
       # Close current USearch index
-      USearchIndex.close(@usearch_index, resolved_db_path, @service_format, @service_model, @dimensions)
+      USearchIndex.close(@usearch_index, @index_path)
 
       @provider = provider_instance
       @service_name = name
@@ -708,7 +730,12 @@ module Memo
       @dimensions = svc.dimensions
 
       # Open USearch index for the new service
-      @usearch_index = USearchIndex.open(resolved_db_path, svc.format, svc.model, svc.dimensions)
+      @index_path = if db_p = @db_path
+                      USearchIndex.index_path(db_p, svc.format, svc.model, svc.dimensions)
+                    else
+                      USearchIndex.index_path_in_dir(USearchIndex::DEFAULT_INDEX_DIR, svc.format, svc.model, svc.dimensions)
+                    end
+      @usearch_index = USearchIndex.open(@index_path, svc.dimensions)
     end
 
     # =========================================================================

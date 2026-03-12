@@ -15,9 +15,17 @@ module Memo
       end
     end
 
-    # Create new database file and initialize schema (standalone mode)
+    # Create database connection and initialize schema (standalone mode)
+    #
+    # Accepts either a file path (SQLite) or connection string (postgres://...).
+    # Sets the appropriate dialect automatically.
     def create(path : String) : DB::Database
-      db = DB.open("sqlite3:#{path}")
+      if path.starts_with?("postgres")
+        db = DB.open(path)
+        db.memo_dialect = Dialect.for(path)
+      else
+        db = DB.open("sqlite3:#{path}")
+      end
       init(db)
       db
     end

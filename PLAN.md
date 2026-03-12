@@ -143,38 +143,47 @@ def self.for(connection_string : String) : Base
 end
 ```
 
+## Implementation Notes
+
+Changes from the original plan during implementation:
+
+- **Configurable table prefix removed** — The `table_prefix` system was removed entirely. All tables are hardcoded with `memo_` prefix. Schema files are the single source of truth for table names; all SQL in code uses literal strings. This eliminated ~300 lines of interpolation overhead.
+- **USearch API simplified** — `USearchIndex` methods now take a pre-computed path string instead of `(db_path, format, model, dimensions)`. `Service` stores `@index_path` and passes it directly. New `index_path_in_dir` method for PG backend (no db file to derive from).
+- **Connection string routing** — `Service.new(db_path: "postgres://...")` auto-detects PG and sets dialect. `Database.create` also handles both backends. Default USearch index dir for PG: `~/.memo/indices/`.
+- **FTS translation** — PG uses `plainto_tsquery('english', ?)` for now. This handles simple term queries but not FTS5 advanced syntax (AND/OR/NOT/prefix*). Full translation is a future enhancement.
+- **`pg` shard** — Not added to `shard.yml` as a dependency. Users add it themselves when they `require "memo/pg"`. The runtime factory pattern means PG code is never compiled unless explicitly required.
+
 ## Testing Strategy
 
-- All existing specs continue to run against SQLite dialect (regression)
-- New spec helper: `with_test_pg_service` (requires PG connection, skipped in CI without PG)
-- Duplicate key service specs to run against both backends
-- FTS query translation gets its own unit tests
+- All 116 existing specs pass against SQLite dialect (regression verified)
+- PostgreSQL integration tests require a live PG instance (future: `with_test_pg_service` helper, skipped in CI without PG)
+- FTS query translation beyond `plainto_tsquery` is a future enhancement
 
 ## Risks
 
-- **FTS query translation** — FTS5 and `to_tsquery` have different syntax and capabilities. Complex FTS5 queries may not translate 1:1. Mitigation: support a common subset, document limitations.
-- **rowid stability** — SQLite rowids are stable; PG BIGSERIAL is also stable (never reused). USearch keys should be safe.
+- **FTS query translation** — FTS5 and `to_tsquery` have different syntax. Current PG implementation uses `plainto_tsquery` which handles simple term matching but not boolean operators or prefix queries. Mitigation: document limitations, enhance later.
+- **rowid stability** — SQLite rowids are stable; PG `eid BIGSERIAL` is also stable (never reused). USearch keys are safe in both backends.
 - **Performance** — PG adds network latency for metadata queries. Mitigation: batch operations where possible, USearch stays in-process for vector search.
+- **USearch index locality** — PG backend stores USearch index files locally (`~/.memo/indices/`). In a multi-machine setup, each machine has its own index that must be rebuilt if lost. The index is a cache over the embeddings in PG, so rebuild is lossless.
 
 ## Files Changed (Summary)
 
 **New files:**
-- `src/memo/dialect/base.cr`
-- `src/memo/dialect/sqlite.cr`
-- `src/memo/dialect/postgres.cr`
-- `src/memo/dialect.cr`
-- `src/memo/pg.cr`
-- `db/schema/memo_schema_pg.sql`
+- `src/memo/dialect/base.cr` — Abstract dialect interface (10 abstract methods)
+- `src/memo/dialect/sqlite.cr` — SQLite dialect (FTS5, last_insert_rowid, INSERT OR IGNORE/REPLACE)
+- `src/memo/dialect/postgres.cr` — PostgreSQL dialect (RETURNING, ON CONFLICT, tsvector, $$-aware splitting)
+- `src/memo/dialect.cr` — Dialect factory with runtime PG registration
+- `src/memo/pg.cr` — PostgreSQL entry point (`require "memo/pg"`)
+- `db/schema/memo_schema_pg.sql` — PostgreSQL schema (BIGSERIAL, BYTEA, tsvector/GIN, trigger)
 
 **Modified files:**
-- `src/memo/storage.cr`
-- `src/memo/source_registry.cr`
-- `src/memo/service_provider.cr`
-- `src/memo/files.cr`
-- `src/memo/vocab.cr`
-- `src/memo/search.cr`
-- `src/memo/service.cr`
-- `src/memo/database.cr`
-- `src/memo/usearch_index.cr`
-- `src/memo.cr`
-- `shard.yml`
+- `src/memo/storage.cr` — Use dialect for inserts, rowid column
+- `src/memo/source_registry.cr` — Use dialect for insert_returning_id
+- `src/memo/service_provider.cr` — Use dialect for insert_returning_id, upsert
+- `src/memo/files.cr` — Use dialect for upsert
+- `src/memo/vocab.cr` — Use dialect for upsert
+- `src/memo/search.cr` — Use dialect for FTS join/where, rowid column
+- `src/memo/service.cr` — Connection string routing, index_path, removed table_prefix
+- `src/memo/database.cr` — PG-aware create(), dialect-driven schema init
+- `src/memo/usearch_index.cr` — Simplified path-based API, DEFAULT_INDEX_DIR
+- `src/memo.cr` — Removed memo_table_prefix, added dialect require
