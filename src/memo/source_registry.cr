@@ -16,12 +16,11 @@ module Memo
     #
     # Returns the internal (database) ID for the new source.
     def create(db : DB::Database, source_type : String) : Int64
-      prefix = db.memo_table_prefix
-      db.exec(
-        "INSERT INTO #{prefix}sources (source_type, created_at) VALUES (?, ?)",
+      db.memo_dialect.insert_returning_id(
+        db,
+        "INSERT INTO memo_sources (source_type, created_at) VALUES (?, ?)",
         source_type, Time.utc.to_unix_ms
       )
-      db.scalar("SELECT last_insert_rowid()").as(Int64)
     end
 
     # Resolve external ID to internal ID, creating source record if needed
@@ -32,57 +31,55 @@ module Memo
       source_type : String,
       external_id : ExternalId
     ) : Int64
-      prefix = db.memo_table_prefix
+      dialect = db.memo_dialect
 
       case external_id
       when Int64
         # Try to find existing source by integer ID
         internal_id = db.query_one?(
-          "SELECT id FROM #{prefix}sources WHERE source_type = ? AND external_int = ?",
+          "SELECT id FROM memo_sources WHERE source_type = ? AND external_int = ?",
           source_type, external_id,
           as: Int64
         )
         return internal_id if internal_id
 
         # Create new source with integer ID
-        db.exec(
-          "INSERT INTO #{prefix}sources (source_type, external_int, created_at) VALUES (?, ?, ?)",
+        dialect.insert_returning_id(
+          db,
+          "INSERT INTO memo_sources (source_type, external_int, created_at) VALUES (?, ?, ?)",
           source_type, external_id, Time.utc.to_unix_ms
         )
-        db.scalar("SELECT last_insert_rowid()").as(Int64)
-
       when Bytes
         # Try to find existing source by blob ID
         internal_id = db.query_one?(
-          "SELECT id FROM #{prefix}sources WHERE source_type = ? AND external_blob = ?",
+          "SELECT id FROM memo_sources WHERE source_type = ? AND external_blob = ?",
           source_type, external_id,
           as: Int64
         )
         return internal_id if internal_id
 
         # Create new source with blob ID
-        db.exec(
-          "INSERT INTO #{prefix}sources (source_type, external_blob, created_at) VALUES (?, ?, ?)",
+        dialect.insert_returning_id(
+          db,
+          "INSERT INTO memo_sources (source_type, external_blob, created_at) VALUES (?, ?, ?)",
           source_type, external_id, Time.utc.to_unix_ms
         )
-        db.scalar("SELECT last_insert_rowid()").as(Int64)
-
       else # String
         ext_str = external_id.as(String)
         # Try to find existing source by text ID
         internal_id = db.query_one?(
-          "SELECT id FROM #{prefix}sources WHERE source_type = ? AND external_text = ?",
+          "SELECT id FROM memo_sources WHERE source_type = ? AND external_text = ?",
           source_type, ext_str,
           as: Int64
         )
         return internal_id if internal_id
 
         # Create new source with text ID
-        db.exec(
-          "INSERT INTO #{prefix}sources (source_type, external_text, created_at) VALUES (?, ?, ?)",
+        dialect.insert_returning_id(
+          db,
+          "INSERT INTO memo_sources (source_type, external_text, created_at) VALUES (?, ?, ?)",
           source_type, ext_str, Time.utc.to_unix_ms
         )
-        db.scalar("SELECT last_insert_rowid()").as(Int64)
       end
     end
 
@@ -91,17 +88,14 @@ module Memo
     # Returns tuple of (source_type, external_id) or nil if not found.
     # external_id may be nil if source has no external ID (memo-managed).
     def get_external(db : DB::Database, internal_id : Int64) : {String, ExternalId?}?
-      prefix = db.memo_table_prefix
-
       db.query_one?(
-        "SELECT source_type, external_int, external_text, external_blob FROM #{prefix}sources WHERE id = ?",
+        "SELECT source_type, external_int, external_text, external_blob FROM memo_sources WHERE id = ?",
         internal_id
       ) do |rs|
         source_type = rs.read(String)
         external_int = rs.read(Int64?)
         external_text = rs.read(String?)
         external_blob = rs.read(Bytes?)
-
         external_id : ExternalId? = external_int || external_text || external_blob
         {source_type, external_id}
       end
@@ -115,24 +109,22 @@ module Memo
       source_type : String,
       external_id : ExternalId
     ) : Int64?
-      prefix = db.memo_table_prefix
-
       case external_id
       when Int64
         db.query_one?(
-          "SELECT id FROM #{prefix}sources WHERE source_type = ? AND external_int = ?",
+          "SELECT id FROM memo_sources WHERE source_type = ? AND external_int = ?",
           source_type, external_id,
           as: Int64
         )
       when Bytes
         db.query_one?(
-          "SELECT id FROM #{prefix}sources WHERE source_type = ? AND external_blob = ?",
+          "SELECT id FROM memo_sources WHERE source_type = ? AND external_blob = ?",
           source_type, external_id,
           as: Int64
         )
       else # String
         db.query_one?(
-          "SELECT id FROM #{prefix}sources WHERE source_type = ? AND external_text = ?",
+          "SELECT id FROM memo_sources WHERE source_type = ? AND external_text = ?",
           source_type, external_id.as(String),
           as: Int64
         )
@@ -147,24 +139,22 @@ module Memo
       db : DB::Database,
       external_id : ExternalId
     ) : Int64?
-      prefix = db.memo_table_prefix
-
       case external_id
       when Int64
         db.query_one?(
-          "SELECT id FROM #{prefix}sources WHERE external_int = ?",
+          "SELECT id FROM memo_sources WHERE external_int = ?",
           external_id,
           as: Int64
         )
       when Bytes
         db.query_one?(
-          "SELECT id FROM #{prefix}sources WHERE external_blob = ?",
+          "SELECT id FROM memo_sources WHERE external_blob = ?",
           external_id,
           as: Int64
         )
       else # String
         db.query_one?(
-          "SELECT id FROM #{prefix}sources WHERE external_text = ?",
+          "SELECT id FROM memo_sources WHERE external_text = ?",
           external_id.as(String),
           as: Int64
         )
@@ -180,22 +170,20 @@ module Memo
       source_type : String,
       external_id : ExternalId
     ) : Bool
-      prefix = db.memo_table_prefix
-
       result = case external_id
                when Int64
                  db.exec(
-                   "DELETE FROM #{prefix}sources WHERE source_type = ? AND external_int = ?",
+                   "DELETE FROM memo_sources WHERE source_type = ? AND external_int = ?",
                    source_type, external_id
                  )
                when Bytes
                  db.exec(
-                   "DELETE FROM #{prefix}sources WHERE source_type = ? AND external_blob = ?",
+                   "DELETE FROM memo_sources WHERE source_type = ? AND external_blob = ?",
                    source_type, external_id
                  )
                else # String
                  db.exec(
-                   "DELETE FROM #{prefix}sources WHERE source_type = ? AND external_text = ?",
+                   "DELETE FROM memo_sources WHERE source_type = ? AND external_text = ?",
                    source_type, external_id.as(String)
                  )
                end
@@ -205,8 +193,7 @@ module Memo
 
     # Delete source by internal ID
     def delete_by_id(db : DB::Database, internal_id : Int64) : Bool
-      prefix = db.memo_table_prefix
-      result = db.exec("DELETE FROM #{prefix}sources WHERE id = ?", internal_id)
+      result = db.exec("DELETE FROM memo_sources WHERE id = ?", internal_id)
       result.rows_affected > 0
     end
 
@@ -221,11 +208,10 @@ module Memo
       limit : Int32 = 100,
       offset : Int32 = 0
     ) : Array({Int64, ExternalId?})
-      prefix = db.memo_table_prefix
       results = [] of {Int64, ExternalId?}
 
       db.query(
-        "SELECT id, external_int, external_text, external_blob FROM #{prefix}sources
+        "SELECT id, external_int, external_text, external_blob FROM memo_sources
          WHERE source_type = ?
          ORDER BY COALESCE(external_int, 0), external_text
          LIMIT ? OFFSET ?",

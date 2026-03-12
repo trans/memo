@@ -56,7 +56,6 @@ module Memo
     # Returns array of WordFrequency sorted by count (descending)
     def extract_terms(text : String) : Array(WordFrequency)
       word_counts = Hash(String, Int32).new(0)
-
       # Tokenize: split on non-word characters
       text.scan(/[\p{L}\p{N}]+/) do |match|
         word = match[0].downcase
@@ -67,10 +66,8 @@ module Memo
 
         # Skip numbers-only
         next if word.matches?(/^\d+$/)
-
         # Skip stopwords
         next if STOPWORDS.includes?(word)
-
         word_counts[word] += 1
       end
 
@@ -82,7 +79,6 @@ module Memo
     # Extract terms from multiple texts, combining frequencies
     def extract_terms_batch(texts : Array(String)) : Array(WordFrequency)
       word_counts = Hash(String, Int32).new(0)
-
       texts.each do |text|
         text.scan(/[\p{L}\p{N}]+/) do |match|
           word = match[0].downcase
@@ -91,7 +87,6 @@ module Memo
           next if word.size > MAX_WORD_LENGTH
           next if word.matches?(/^\d+$/)
           next if STOPWORDS.includes?(word)
-
           word_counts[word] += 1
         end
       end
@@ -111,21 +106,18 @@ module Memo
       limit : Int32 = 10,
       min_score : Float64 = 0.5
     ) : Array(Result)
-      prefix = db.memo_table_prefix
       results = [] of Result
 
       db.query(
-        "SELECT word, embedding, frequency FROM #{prefix}vocab WHERE service_id = ?",
+        "SELECT word, embedding, frequency FROM memo_vocab WHERE service_id = ?",
         service_id
       ) do |rs|
         rs.each do
           word = rs.read(String)
           embedding_blob = rs.read(Bytes)
           frequency = rs.read(Int32)
-
           stored_embedding = Storage.deserialize_embedding(embedding_blob)
           score = cosine_similarity(query_embedding, stored_embedding)
-
           next if score < min_score
 
           result = Result.new(word, score, frequency)
@@ -147,18 +139,19 @@ module Memo
       frequencies : Array(Int32),
       service_id : Int64
     )
-      prefix = db.memo_table_prefix
       now = Time.utc.to_unix_ms
 
+      sql = db.memo_dialect.upsert_sql(
+        "memo_vocab",
+        "word, service_id, embedding, frequency, created_at",
+        "?, ?, ?, ?, ?",
+        "word, service_id",
+        ["embedding", "frequency", "created_at"]
+      )
       db.transaction do
         words.each_with_index do |word, idx|
           embedding_blob = Storage.serialize_embedding(embeddings[idx])
-
-          db.exec(
-            "INSERT OR REPLACE INTO #{prefix}vocab (word, service_id, embedding, frequency, created_at)
-             VALUES (?, ?, ?, ?, ?)",
-            word, service_id, embedding_blob, frequencies[idx], now
-          )
+          db.exec(sql, word, service_id, embedding_blob, frequencies[idx], now)
         end
       end
     end
@@ -168,15 +161,13 @@ module Memo
     # Returns set of words that already have embeddings
     def get_existing_words(db : DB::Database, words : Array(String), service_id : Int64) : Set(String)
       return Set(String).new if words.empty?
-
-      prefix = db.memo_table_prefix
       existing = Set(String).new
 
       # Query in batches to avoid SQL parameter limits
       words.each_slice(500) do |batch|
         placeholders = batch.map { "?" }.join(", ")
         db.query(
-          "SELECT word FROM #{prefix}vocab WHERE service_id = ? AND word IN (#{placeholders})",
+          "SELECT word FROM memo_vocab WHERE service_id = ? AND word IN (#{placeholders})",
           args: [service_id] + batch
         ) do |rs|
           rs.each { existing << rs.read(String) }
@@ -189,11 +180,9 @@ module Memo
     # Update frequencies for existing words (increment by count)
     def update_frequencies(db : DB::Database, word_freqs : Array(WordFrequency), service_id : Int64)
       return if word_freqs.empty?
-
-      prefix = db.memo_table_prefix
       word_freqs.each do |wf|
         db.exec(
-          "UPDATE #{prefix}vocab SET frequency = frequency + ? WHERE word = ? AND service_id = ?",
+          "UPDATE memo_vocab SET frequency = frequency + ? WHERE word = ? AND service_id = ?",
           wf.count, wf.word, service_id
         )
       end
@@ -201,28 +190,28 @@ module Memo
 
     # Store a single word with embedding
     def store_word(db : DB::Database, word : String, embedding : Array(Float64), frequency : Int32, service_id : Int64)
-      prefix = db.memo_table_prefix
       embedding_blob = Storage.serialize_embedding(embedding)
       now = Time.utc.to_unix_ms
 
-      db.exec(
-        "INSERT OR REPLACE INTO #{prefix}vocab (word, service_id, embedding, frequency, created_at)
-         VALUES (?, ?, ?, ?, ?)",
-        word, service_id, embedding_blob, frequency, now
+      sql = db.memo_dialect.upsert_sql(
+        "memo_vocab",
+        "word, service_id, embedding, frequency, created_at",
+        "?, ?, ?, ?, ?",
+        "word, service_id",
+        ["embedding", "frequency", "created_at"]
       )
+      db.exec(sql, word, service_id, embedding_blob, frequency, now)
     end
 
     # Clear all vocabulary for a service
     def clear(db : DB::Database, service_id : Int64)
-      prefix = db.memo_table_prefix
-      db.exec("DELETE FROM #{prefix}vocab WHERE service_id = ?", service_id)
+      db.exec("DELETE FROM memo_vocab WHERE service_id = ?", service_id)
     end
 
     # Get vocabulary count for a service
     def count(db : DB::Database, service_id : Int64) : Int64
-      prefix = db.memo_table_prefix
       db.scalar(
-        "SELECT COUNT(*) FROM #{prefix}vocab WHERE service_id = ?",
+        "SELECT COUNT(*) FROM memo_vocab WHERE service_id = ?",
         service_id
       ).as(Int64)
     end
@@ -243,7 +232,6 @@ module Memo
 
       magnitude_a = Math.sqrt(magnitude_a)
       magnitude_b = Math.sqrt(magnitude_b)
-
       return 0.0 if magnitude_a == 0.0 || magnitude_b == 0.0
 
       dot_product / (magnitude_a * magnitude_b)

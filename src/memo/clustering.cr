@@ -34,7 +34,6 @@ module Memo
 
       # All external_ids in the cluster (in order)
       getter source_ids : Array(Int64)
-
       # Number of sources in the cluster
       getter size : Int32
 
@@ -77,10 +76,8 @@ module Memo
 
       # Compute consecutive similarities and find boundaries
       boundaries = find_boundaries(ids_with_embeddings, embeddings, threshold)
-
       # Group into clusters
       clusters = build_clusters(ids_with_embeddings, boundaries)
-
       # Filter by minimum size
       clusters.select { |c| c.size >= min_cluster_size }
     end
@@ -98,21 +95,17 @@ module Memo
       external_ids : Array(Int64)
     ) : Hash(Int64, Array(Float64))
       return {} of Int64 => Array(Float64) if external_ids.empty?
-
-      prefix = db.memo_table_prefix
       result = {} of Int64 => Array(Float64)
-
       # Build placeholders for IN clause
       placeholders = external_ids.map { "?" }.join(", ")
-
       # Query: sources → chunks → embeddings (get rowids for USearch lookup)
       # For sources with multiple chunks, we take the first one (smallest offset)
       db.query(
         <<-SQL,
-          SELECT s.external_int, e.rowid
-          FROM #{prefix}sources s
-          JOIN #{prefix}chunks c ON c.source_id = s.id
-          JOIN #{prefix}embeddings e ON c.hash = e.hash AND e.service_id = ?
+          SELECT s.external_int, e.#{db.memo_dialect.embedding_rowid_column}
+          FROM memo_sources s
+          JOIN memo_chunks c ON c.source_id = s.id
+          JOIN memo_embeddings e ON c.hash = e.hash AND e.service_id = ?
           WHERE s.source_type = ?
             AND s.external_int IN (#{placeholders})
           GROUP BY s.external_int
@@ -146,7 +139,6 @@ module Memo
         vec_a = embeddings[ids[i]]
         vec_b = embeddings[ids[i + 1]]
         similarity = cosine_similarity(vec_a, vec_b)
-
         if similarity < threshold
           # Topic shift detected - next item starts new cluster
           boundaries << (i + 1)
