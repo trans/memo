@@ -76,6 +76,14 @@ watch-test:
 loc:
   @find src -name '*.cr' | xargs wc -l | tail -1
 
+# Bump version: just bump 0.10.0
+bump VERSION:
+  sed -i 's/^version: .*/version: {{VERSION}}/' shard.yml
+  sed -i 's/VERSION = ".*"/VERSION = "{{VERSION}}"/' src/memo.cr
+  @echo "Bumped to {{VERSION}}"
+  @grep 'version:' shard.yml | head -1
+  @grep 'VERSION' src/memo.cr
+
 # List all tasks
 list:
   @just --list
