@@ -18,22 +18,13 @@ module Memo
       dimensions : Int32,
       max_tokens : Int32
     ) : Int64
+      q = db.memo_queries
       service_name = name || "#{format}/#{model}"
 
-      service_id = db.query_one?(
-        "SELECT id FROM memo_services WHERE name = ?",
-        service_name,
-        as: Int64
-      )
-
+      service_id = q.find_service_id(service_name)
       return service_id if service_id
 
-      db.memo_dialect.insert_returning_id(
-        db,
-        "INSERT INTO memo_services (name, format, base_url, model, dimensions, max_tokens, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
-        service_name, format, base_url, model, dimensions, max_tokens, Time.utc.to_unix_ms
-      )
+      q.insert_service(service_name, format, base_url, model, dimensions, max_tokens, Time.utc.to_unix_ms)
     end
 
     # Get service by name
@@ -41,21 +32,7 @@ module Memo
       db : DB::Database,
       name : String
     ) : {Int64, String, String?, String, Int32, Int32, Float64}?
-      db.query_one?(
-        "SELECT id, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25)
-         FROM memo_services WHERE name = ?",
-        name
-      ) do |rs|
-        {
-          rs.read(Int64),   # id
-          rs.read(String),  # format
-          rs.read(String?), # base_url
-          rs.read(String),  # model
-          rs.read(Int32),   # dimensions
-          rs.read(Int32),   # max_tokens
-          rs.read(Float64), # tokens_per_byte
-        }
-      end
+      db.memo_queries.get_service_by_name(name)
     end
 
     # Returns service record by format and model, or nil if not found
@@ -64,21 +41,7 @@ module Memo
       format : String,
       model : String
     ) : {Int64, String, String?, String, Int32, Int32, Float64}?
-      db.query_one?(
-        "SELECT id, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25)
-         FROM memo_services WHERE format = ? AND model = ?",
-        format, model
-      ) do |rs|
-        {
-          rs.read(Int64),   # id
-          rs.read(String),  # format
-          rs.read(String?), # base_url
-          rs.read(String),  # model
-          rs.read(Int32),   # dimensions
-          rs.read(Int32),   # max_tokens
-          rs.read(Float64), # tokens_per_byte
-        }
-      end
+      db.memo_queries.get_service_by_format_model(format, model)
     end
 
     # Update tokens_per_byte ratio using exponential moving average
@@ -87,18 +50,10 @@ module Memo
       service_id : Int64,
       observed_ratio : Float64
     )
-      current = db.query_one?(
-        "SELECT COALESCE(tokens_per_byte, 0.25) FROM memo_services WHERE id = ?",
-        service_id,
-        as: Float64
-      ) || 0.25
-
+      q = db.memo_queries
+      current = q.get_tokens_per_byte(service_id) || 0.25
       updated = current * 0.8 + observed_ratio * 0.2
-
-      db.exec(
-        "UPDATE memo_services SET tokens_per_byte = ? WHERE id = ?",
-        updated, service_id
-      )
+      q.update_tokens_per_byte(updated, service_id)
     end
 
     # Register embedding hash in database (deduplicated by hash + service_id)
@@ -110,34 +65,21 @@ module Memo
       token_count : Int32,
       service_id : Int64
     ) : {Bool, Int64}
-      dialect = db.memo_dialect
-      sql = dialect.insert_or_ignore_sql(
-        "memo_embeddings",
-        "hash, service_id, token_count, created_at",
-        "?, ?, ?, ?"
-      )
-      result = db.exec(sql, hash, service_id, token_count, Time.utc.to_unix_ms)
+      q = db.memo_queries
 
-      inserted = result.rows_affected > 0
-
-      rid_col = dialect.embedding_rowid_column
-      rowid = db.query_one(
-        "SELECT #{rid_col} FROM memo_embeddings WHERE hash = ? AND service_id = ?",
-        hash, service_id,
-        as: Int64
-      )
-
-      {inserted, rowid}
+      # Try to get existing rowid first
+      existing = q.get_embedding_rowid?(hash, service_id)
+      if existing
+        {false, existing}
+      else
+        rowid = q.insert_embedding_ignore(hash, service_id, token_count, Time.utc.to_unix_ms)
+        {true, rowid}
+      end
     end
 
     # Get the rowid of an embedding by hash and service_id.
     def get_rowid(db : DB::Database, hash : Bytes, service_id : Int64) : Int64?
-      rid_col = db.memo_dialect.embedding_rowid_column
-      db.query_one?(
-        "SELECT #{rid_col} FROM memo_embeddings WHERE hash = ? AND service_id = ?",
-        hash, service_id,
-        as: Int64
-      )
+      db.memo_queries.get_embedding_rowid?(hash, service_id)
     end
 
     # Create chunk reference (or ignore if already exists)
@@ -153,41 +95,19 @@ module Memo
       pair_id : Int64? = nil,
       parent_id : Int64? = nil
     ) : Int64
-      dialect = db.memo_dialect
-      sql = dialect.insert_or_ignore_sql(
-        "memo_chunks",
-        "hash, source_id, source_type, pair_id, parent_id, offset, size, created_at",
-        "?, ?, ?, ?, ?, ?, ?, ?"
-      )
-      result = db.exec(sql, hash, source_id, source_type, pair_id, parent_id, offset, size, Time.utc.to_unix_ms)
-
-      return 0_i64 if result.rows_affected == 0
-
-      db.query_one(
-        "SELECT id FROM memo_chunks WHERE source_id = ? AND offset IS ?",
-        source_id, offset,
-        as: Int64
-      )
+      db.memo_queries.insert_chunk_ignore(hash, source_id, source_type, pair_id, parent_id, offset, size, Time.utc.to_unix_ms)
     end
 
     # Increment match_count for chunks
     def increment_match_count(db : DB::Database, chunk_ids : Array(Int64))
       return if chunk_ids.empty?
-      placeholders = chunk_ids.map { "?" }.join(", ")
-      db.exec(
-        "UPDATE memo_chunks SET match_count = match_count + 1 WHERE id IN (#{placeholders})",
-        args: chunk_ids
-      )
+      db.memo_queries.increment_match_count(chunk_ids)
     end
 
     # Increment read_count for chunks
     def increment_read_count(db : DB::Database, chunk_ids : Array(Int64))
       return if chunk_ids.empty?
-      placeholders = chunk_ids.map { "?" }.join(", ")
-      db.exec(
-        "UPDATE memo_chunks SET read_count = read_count + 1 WHERE id IN (#{placeholders})",
-        args: chunk_ids
-      )
+      db.memo_queries.increment_read_count(chunk_ids)
     end
 
     # Serialize embedding to binary blob (Int16 for 50% storage reduction)

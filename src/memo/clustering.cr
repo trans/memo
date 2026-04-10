@@ -96,29 +96,10 @@ module Memo
     ) : Hash(Int64, Array(Float64))
       return {} of Int64 => Array(Float64) if external_ids.empty?
       result = {} of Int64 => Array(Float64)
-      # Build placeholders for IN clause
-      placeholders = external_ids.map { "?" }.join(", ")
-      # Query: sources → chunks → embeddings (get rowids for USearch lookup)
-      # For sources with multiple chunks, we take the first one (smallest offset)
-      db.query(
-        <<-SQL,
-          SELECT s.external_int, e.#{db.memo_dialect.embedding_rowid_column}
-          FROM memo_sources s
-          JOIN memo_chunks c ON c.source_id = s.id
-          JOIN memo_embeddings e ON c.hash = e.hash AND e.service_id = ?
-          WHERE s.source_type = ?
-            AND s.external_int IN (#{placeholders})
-          GROUP BY s.external_int
-          ORDER BY s.external_int, c.offset
-        SQL
-        args: [service_id, source_type] + external_ids.map(&.as(DB::Any))
-      ) do |rs|
-        rs.each do
-          external_id = rs.read(Int64)
-          rowid = rs.read(Int64)
-          embedding = USearchIndex.get_vector(usearch_index, rowid.to_u64)
-          result[external_id] = embedding if embedding
-        end
+      rows = db.memo_queries.load_embedding_rowids(service_id, source_type, external_ids)
+      rows.each do |external_id, rowid|
+        embedding = USearchIndex.get_vector(usearch_index, rowid.to_u64)
+        result[external_id] = embedding if embedding
       end
 
       result

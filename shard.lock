@@ -24,6 +24,10 @@ shards:
     git: https://github.com/naqvis/magic.cr.git
     version: 0.1.0+git.commit.48388767a31b305ee15422caef01253667f8ec2f
 
+  pg:
+    git: https://github.com/will/crystal-pg.git
+    version: 0.29.0+git.commit.c16d54814405e2b9748d9bddc3d8ce0d41d2190f
+
   sqlite3:
     git: https://github.com/crystal-lang/crystal-sqlite3.git
     version: 0.22.0

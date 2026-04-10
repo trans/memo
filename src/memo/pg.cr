@@ -15,5 +15,7 @@
 
 require "pg"
 require "./dialect/postgres"
+require "./queries/postgres"
 
 Memo::Dialect.register_pg { Memo::Dialect::Postgres.new }
+Memo::Queries.register_pg { |db| Memo::Queries::Postgres.new(db) }

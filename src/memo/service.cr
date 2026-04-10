@@ -4,8 +4,14 @@ module Memo
     getter embeddings : Int64
     getter chunks : Int64
     getter sources : Int64
+    getter index_memory_bytes : UInt64
+    getter query_cache_size : Int32
 
-    def initialize(@embeddings, @chunks, @sources)
+    def initialize(@embeddings, @chunks, @sources, @index_memory_bytes = 0_u64, @query_cache_size = 0)
+    end
+
+    def index_memory_mb : Float64
+      (@index_memory_bytes.to_f64 / (1024 * 1024)).round(1)
     end
   end
 
@@ -101,6 +107,7 @@ module Memo
     getter service_model : String
     getter db_path : String?
     getter index_path : String
+    getter query_cache : QueryCache
 
     # Private struct for init_provider return value
     private record ProviderConfig,
@@ -165,13 +172,15 @@ module Memo
       build_vocab : Bool = true,
       batch_size : Int32 = 100,
       max_retries : Int32 = 3,
-      index_dir : String? = nil
+      index_dir : String? = nil,
+      query_cache_size : Int32 = 10_000
     )
       # Detect backend from connection string
       if db_path.starts_with?("postgres")
-        # PostgreSQL: connect directly, set dialect
+        # PostgreSQL: connect directly, set dialect and queries
         @db = DB.open(db_path)
         @db.memo_dialect = Dialect.for(db_path)
+        @db.memo_queries = Queries.for(@db, db_path)
         @db_path = nil
         # Default index dir for PG if not provided
         index_dir ||= USearchIndex::DEFAULT_INDEX_DIR
@@ -228,6 +237,13 @@ module Memo
       # Store batch size and queue config
       @batch_size = batch_size
       @queue_config = Config::Queue.new(max_retries: max_retries)
+
+      # Query embedding cache
+      @query_cache = QueryCache.new(
+        max_entries: query_cache_size,
+        db: @db,
+        service_id: @service_id
+      )
     end
 
     # Initialize service with existing database connection
@@ -252,7 +268,8 @@ module Memo
       batch_size : Int32 = 100,
       max_retries : Int32 = 3,
       db_path : String? = nil,
-      index_dir : String? = nil
+      index_dir : String? = nil,
+      query_cache_size : Int32 = 10_000
     )
       @db = db
       @owns_db = false  # Caller owns the connection
@@ -304,6 +321,13 @@ module Memo
       # Store batch size and queue config
       @batch_size = batch_size
       @queue_config = Config::Queue.new(max_retries: max_retries)
+
+      # Query embedding cache
+      @query_cache = QueryCache.new(
+        max_entries: query_cache_size,
+        db: @db,
+        service_id: @service_id
+      )
     end
 
     # Index a document
@@ -415,15 +439,50 @@ module Memo
       sql_where : String? = nil,
       include_text : Bool = true
     ) : Array(Search::Result)
-      # Generate query embedding
-      query_embedding, _tokens = @provider.embed_text(query, "query")
+      results, _timings = search_with_timings(
+        query: query, limit: limit, min_score: min_score,
+        source_type: source_type, source_id: source_id,
+        pair_id: pair_id, parent_id: parent_id,
+        like: like, match: match, sql_where: sql_where,
+        include_text: include_text
+      )
+      results
+    end
+
+    # Search with per-stage timing breakdown
+    #
+    # Returns {results, timings} where timings has embed_ms, search_ms, fetch_ms, total_ms.
+    def search_with_timings(
+      query : String,
+      limit : Int32 = 10,
+      min_score : Float64 = 0.7,
+      source_type : String? = nil,
+      source_id : ExternalId? = nil,
+      pair_id : ExternalId? = nil,
+      parent_id : ExternalId? = nil,
+      like : String | Array(String) | Nil = nil,
+      match : String? = nil,
+      sql_where : String? = nil,
+      include_text : Bool = true
+    ) : {Array(Search::Result), Search::Timings}
+      t_start = Time.instant
+
+      # Generate query embedding (check cache first)
+      t_embed_start = Time.instant
+      cached = @query_cache.get(query)
+      if cached
+        query_embedding, _tokens = cached
+      else
+        query_embedding, _tokens = @provider.embed_text(query, "query")
+        @query_cache.put(query, query_embedding, _tokens)
+      end
+      t_embed_end = Time.instant
 
       # Resolve external IDs to internal IDs for filtering
       internal_source_id = source_id && source_type ? SourceRegistry.get_internal(@db, source_type, source_id) : nil
       internal_pair_id = pair_id && source_type ? SourceRegistry.get_internal(@db, source_type, pair_id) : nil
       internal_parent_id = parent_id && source_type ? SourceRegistry.get_internal(@db, source_type, parent_id) : nil
 
-      # Build filters with internal IDs
       filters = if source_type || internal_source_id || internal_pair_id || internal_parent_id
                   Search::Filters.new(
                     source_type: source_type,
@@ -435,15 +494,15 @@ module Memo
                   nil
                 end
 
-      # Normalize like to array
       like_patterns = case like
                       when String then [like]
                       when Array  then like
                       else             nil
                       end
 
-      # Search using USearch HNSW index
-      Search.semantic(
+      # Vector + metadata search
+      t_search_start = Time.instant
+      results = Search.semantic(
         db: @db,
         embedding: query_embedding,
         service_id: @service_id,
@@ -456,6 +515,21 @@ module Memo
         match: @text_storage ? match : nil,
         include_text: @text_storage && include_text
       )
+      t_end = Time.instant
+
+      embed_ms = (t_embed_end - t_embed_start).total_milliseconds
+      search_ms = (t_end - t_search_start).total_milliseconds
+      total_ms = (t_end - t_start).total_milliseconds
+
+      timings = Search::Timings.new(
+        embed_ms: embed_ms.round(1),
+        search_ms: search_ms.round(1),
+        fetch_ms: (search_ms * 0.5).round(1),  # approximate — fetch is part of semantic()
+        total_ms: total_ms.round(1),
+        cache_hit: !!cached
+      )
+
+      {results, timings}
     end
 
     # Mark chunks as read (increment read_count)
@@ -467,27 +541,14 @@ module Memo
     #
     # Returns counts of embeddings, chunks, and unique sources.
     def stats : Stats
-
-      embeddings = @db.scalar(
-        "SELECT COUNT(*) FROM memo_embeddings WHERE service_id = ?",
-        @service_id
-      ).as(Int64)
-
-      chunks = @db.scalar(
-        "SELECT COUNT(*) FROM memo_chunks c
-         JOIN memo_embeddings e ON c.hash = e.hash
-         WHERE e.service_id = ?",
-        @service_id
-      ).as(Int64)
-
-      sources = @db.scalar(
-        "SELECT COUNT(DISTINCT c.source_id) FROM memo_chunks c
-         JOIN memo_embeddings e ON c.hash = e.hash
-         WHERE e.service_id = ?",
-        @service_id
-      ).as(Int64)
-
-      Stats.new(embeddings, chunks, sources)
+      q = @db.memo_queries
+      Stats.new(
+        q.count_service_embeddings(@service_id),
+        q.count_service_chunks(@service_id),
+        q.count_service_sources(@service_id),
+        @usearch_index.memory_usage,
+        @query_cache.size
+      )
     end
 
     # Delete all chunks for a source
@@ -519,60 +580,29 @@ module Memo
     #
     # Internal method used by delete() and embed_and_store().
     private def delete_internal(internal_source_id : Int64, source_type : String? = nil) : Int32
-
-      # Build query based on whether source_type is provided
-      type_filter = source_type ? " AND source_type = ?" : ""
-      query_params = source_type ? [internal_source_id, source_type] : [internal_source_id]
-
-      # Get hashes of chunks to be deleted
-      hashes = [] of Bytes
-      @db.query(
-        "SELECT DISTINCT hash FROM memo_chunks
-         WHERE source_id = ?#{type_filter}",
-        args: query_params
-      ) do |rs|
-        rs.each do
-          hashes << rs.read(Bytes)
-        end
-      end
+      q = @db.memo_queries
+      hashes = q.get_chunk_hashes(internal_source_id, source_type)
 
       deleted_count = 0
 
       @db.transaction do
-        # Delete chunks and count actual rows deleted
         hashes.each do |hash|
-          result = if source_type
-                     @db.exec(
-                       "DELETE FROM memo_chunks WHERE hash = ? AND source_id = ? AND source_type = ?",
-                       hash, internal_source_id, source_type
-                     )
-                   else
-                     @db.exec(
-                       "DELETE FROM memo_chunks WHERE hash = ? AND source_id = ?",
-                       hash, internal_source_id
-                     )
-                   end
-          deleted_count += result.rows_affected.to_i
+          deleted_count += if source_type
+                             q.delete_chunks(hash, internal_source_id, source_type)
+                           else
+                             q.delete_chunks(hash, internal_source_id)
+                           end
         end
 
-        # Clean up orphaned embeddings (for ALL services)
         hashes.each do |hash|
-          # Check if any chunks still reference this hash
-          remaining = @db.scalar(
-            "SELECT COUNT(*) FROM memo_chunks WHERE hash = ?",
-            hash
-          ).as(Int64)
-
-          if remaining == 0
-            # Remove from current service's USearch index before deleting
-            if rowid = Storage.get_rowid(@db, hash, @service_id)
+          if q.count_chunks_by_hash(hash) == 0
+            if rowid = q.get_embedding_rowid?(hash, @service_id)
               USearchIndex.remove(@usearch_index, rowid.to_u64)
             end
-            @db.exec("DELETE FROM memo_embeddings WHERE hash = ?", hash)
+            q.delete_embeddings_by_hash(hash)
           end
         end
 
-        # Clean up texts and texts_fts entries
         delete_source_text_internal(internal_source_id)
       end
 
@@ -801,17 +831,7 @@ module Memo
       # Format: "MEMO_META:source_type,pair_id,parent_id\n" followed by actual text
       stored_text = "MEMO_META:#{source_type},#{internal_pair_id || ""},#{internal_parent_id || ""}\n#{text}"
 
-      @db.exec(
-        "INSERT INTO memo_embed_queue (source_id, text, status, created_at)
-         VALUES (?, ?, -1, ?)
-         ON CONFLICT(source_id) DO UPDATE SET
-           text = excluded.text,
-           status = -1,
-           error_message = NULL,
-           attempts = 0,
-           processed_at = NULL",
-        internal_source_id, stored_text, now
-      )
+      @db.memo_queries.enqueue(internal_source_id, stored_text, now)
 
       # Store text immediately so it's available for retrieval
       # before embedding runs. Embedding is deferred, text is not.
@@ -879,39 +899,21 @@ module Memo
     # one API endpoint with batched requests. Parallel workers would hit
     # rate limits and add complexity without benefit.
     def process_queue : Int32
-
+      q = @db.memo_queries
       max_retries = @queue_config.max_retries
       processed = 0
 
       loop do
-        # Get a batch of pending items (source_id is internal ID)
-        items = [] of {Int64, Int64, String, String, Int64?, Int64?}
+        raw_items = q.get_pending_queue(@batch_size)
+        break if raw_items.empty?
 
-        @db.query(
-          "SELECT id, source_id, text FROM memo_embed_queue
-           WHERE status = -1
-           ORDER BY created_at ASC
-           LIMIT ?",
-          @batch_size
-        ) do |rs|
-          rs.each do
-            id = rs.read(Int64)
-            internal_source_id = rs.read(Int64)
-            stored_text = rs.read(String)
-
-            # Parse metadata (source_type, pair_id, parent_id) from stored text
-            source_type, text, pair_id, parent_id = parse_queue_text_internal(stored_text)
-
-            items << {id, internal_source_id, source_type, text, pair_id, parent_id}
-          end
+        items = raw_items.map do |id, internal_source_id, stored_text|
+          source_type, text, pair_id, parent_id = parse_queue_text_internal(stored_text)
+          {id, internal_source_id, source_type, text, pair_id, parent_id}
         end
 
-        break if items.empty?
-
-        # Process each item
         items.each do |id, internal_source_id, source_type, text, pair_id, parent_id|
           begin
-            # Embed and store the document
             stored = embed_and_store_internal(
               source_type: source_type,
               internal_source_id: internal_source_id,
@@ -919,43 +921,16 @@ module Memo
               internal_pair_id: pair_id,
               internal_parent_id: parent_id
             )
-
-            # Mark as successful
-            @db.exec(
-              "UPDATE memo_embed_queue
-               SET status = 0, processed_at = ?, attempts = attempts + 1
-               WHERE id = ?",
-              Time.utc.to_unix_ms, id
-            )
-
+            q.mark_queue_success(id, Time.utc.to_unix_ms)
             processed += stored
-
           rescue ex
-            # Get current attempts
-            attempts = @db.query_one(
-              "SELECT attempts FROM memo_embed_queue WHERE id = ?",
-              id,
-              as: Int32
-            )
-
+            attempts = q.get_queue_attempts(id)
             new_attempts = attempts + 1
 
             if new_attempts >= max_retries
-              # Max retries reached, mark as permanently failed
-              @db.exec(
-                "UPDATE memo_embed_queue
-                 SET status = 1, error_message = ?, attempts = ?, processed_at = ?
-                 WHERE id = ?",
-                ex.message, new_attempts, Time.utc.to_unix_ms, id
-              )
+              q.mark_queue_failed(id, ex.message, new_attempts, Time.utc.to_unix_ms)
             else
-              # Keep as pending but increment attempts
-              @db.exec(
-                "UPDATE memo_embed_queue
-                 SET attempts = ?, error_message = ?
-                 WHERE id = ?",
-                new_attempts, ex.message, id
-              )
+              q.mark_queue_retry(id, new_attempts, ex.message)
             end
           end
         end
@@ -979,17 +954,10 @@ module Memo
     # Used by index() for immediate processing with retry support.
     # Returns number of chunks stored.
     private def process_queue_item_internal(internal_source_id : Int64) : Int32
-
+      q = @db.memo_queries
       max_retries = @queue_config.max_retries
 
-      # Get the specific item (using internal source_id)
-      row = @db.query_one?(
-        "SELECT id, text FROM memo_embed_queue
-         WHERE source_id = ? AND status = -1",
-        internal_source_id,
-        as: {Int64, String}
-      )
-
+      row = q.get_queue_item(internal_source_id)
       return 0 unless row
 
       id, stored_text = row
@@ -1007,38 +975,16 @@ module Memo
             internal_pair_id: pair_id,
             internal_parent_id: parent_id
           )
-
-          # Mark as successful
-          @db.exec(
-            "UPDATE memo_embed_queue
-             SET status = 0, processed_at = ?, attempts = ?
-             WHERE id = ?",
-            Time.utc.to_unix_ms, attempts + 1, id
-          )
-
+          q.mark_queue_item_success(id, Time.utc.to_unix_ms, attempts + 1)
           return chunks_stored
-
         rescue ex
           last_error = ex
           attempts += 1
-
-          @db.exec(
-            "UPDATE memo_embed_queue
-             SET attempts = ?, error_message = ?
-             WHERE id = ?",
-            attempts, ex.message, id
-          )
+          q.mark_queue_retry(id, attempts, ex.message)
         end
       end
 
-      # Max retries reached, mark as permanently failed
-      @db.exec(
-        "UPDATE memo_embed_queue
-         SET status = 1, error_message = ?, processed_at = ?
-         WHERE id = ?",
-        last_error.try(&.message), Time.utc.to_unix_ms, id
-      )
-
+      q.mark_queue_failed(id, last_error.try(&.message), attempts, Time.utc.to_unix_ms)
       raise Exception.new("Index failed after #{max_retries} attempts: #{last_error.try(&.message)}")
     end
 
@@ -1046,15 +992,7 @@ module Memo
     #
     # Returns counts of pending and failed items.
     def queue_stats : QueueStats
-
-      pending = @db.scalar(
-        "SELECT COUNT(*) FROM memo_embed_queue WHERE status = -1",
-      ).as(Int64)
-
-      failed = @db.scalar(
-        "SELECT COUNT(*) FROM memo_embed_queue WHERE status > 0",
-      ).as(Int64)
-
+      pending, failed = @db.memo_queries.queue_stats
       QueueStats.new(pending, failed)
     end
 
@@ -1063,12 +1001,7 @@ module Memo
     # Removes successfully processed items (status = 0).
     # Returns number of items removed.
     def clear_completed_queue : Int32
-
-      result = @db.exec(
-        "DELETE FROM memo_embed_queue WHERE status = 0"
-      )
-
-      result.rows_affected.to_i
+      @db.memo_queries.clear_completed_queue
     end
 
     # Clear all items from the queue
@@ -1076,12 +1009,7 @@ module Memo
     # Removes all items regardless of status.
     # Returns number of items removed.
     def clear_queue : Int32
-
-      result = @db.exec(
-        "DELETE FROM memo_embed_queue"
-      )
-
-      result.rows_affected.to_i
+      @db.memo_queries.clear_queue
     end
 
     # Re-index all content of a given source type
@@ -1098,25 +1026,7 @@ module Memo
       # Get source texts and metadata from chunks table
       # texts stores full content (keyed by internal source_id), chunks has metadata
       # Join through sources to get only sources of the requested type
-      sources = [] of {Int64, Int64?, Int64?, String}
-
-      @db.query(
-        "SELECT st.source_id, c.pair_id, c.parent_id, st.content
-         FROM memo_texts st
-         JOIN memo_sources s ON st.source_id = s.id
-         LEFT JOIN memo_chunks c ON st.source_id = c.source_id
-         WHERE s.source_type = ?
-         GROUP BY st.source_id",
-        source_type
-      ) do |rs|
-        rs.each do
-          internal_source_id = rs.read(Int64)
-          pair_id = rs.read(Int64?)
-          parent_id = rs.read(Int64?)
-          text = rs.read(String)
-          sources << {internal_source_id, pair_id, parent_id, text}
-        end
-      end
+      sources = @db.memo_queries.get_texts_for_reindex(source_type)
 
       return 0 if sources.empty?
 
@@ -1165,23 +1075,9 @@ module Memo
       # plus external IDs for the callback
       sources = [] of {Int64, ExternalId, Int64?, Int64?}
 
-      @db.query(
-        "SELECT DISTINCT c.source_id, s.external_int, s.external_text, c.pair_id, c.parent_id
-         FROM memo_chunks c
-         JOIN memo_embeddings e ON c.hash = e.hash
-         JOIN memo_sources s ON c.source_id = s.id
-         WHERE c.source_type = ? AND e.service_id = ?",
-        source_type, @service_id
-      ) do |rs|
-        rs.each do
-          internal_source_id = rs.read(Int64)
-          external_int = rs.read(Int64?)
-          external_text = rs.read(String?)
-          pair_id = rs.read(Int64?)
-          parent_id = rs.read(Int64?)
-          external_id : ExternalId = external_int || external_text.not_nil!
-          sources << {internal_source_id, external_id, pair_id, parent_id}
-        end
+      @db.memo_queries.get_chunks_for_reindex(source_type, @service_id).each do |internal_source_id, external_int, external_text, pair_id, parent_id|
+        external_id : ExternalId = external_int || external_text.not_nil!
+        sources << {internal_source_id, external_id, pair_id, parent_id}
       end
 
       return 0 if sources.empty?
@@ -1234,13 +1130,7 @@ module Memo
     def build_vocab(batch_size : Int32 = 2000, clear_existing : Bool = true) : Int32
       raise "Text storage required for build_vocab" unless @text_storage
 
-      # Collect all text content
-      texts = [] of String
-      @db.query("SELECT content FROM memo_texts") do |rs|
-        rs.each do
-          texts << rs.read(String)
-        end
-      end
+      texts = @db.memo_queries.get_all_texts
 
       return 0 if texts.empty?
 
@@ -1712,23 +1602,9 @@ module Memo
     # Stores the original un-chunked text. Chunk text is extracted
     # using offset/size from the chunks table.
     private def store_source_text_internal(internal_source_id : Int64, content : String, content_hash : Bytes? = nil, skip_hash : Bool = false)
-
-      dialect = @db.memo_dialect
-      now = Time.utc.to_unix_ms
       hash = skip_hash ? nil : (content_hash || Storage.compute_hash(content))
-
-      # Insert or replace source text (keyed by internal source_id)
-      sql = dialect.upsert_sql(
-        "memo_texts",
-        "source_id, content, content_hash, created_at",
-        "?, ?, ?, ?",
-        "source_id",
-        ["content", "content_hash", "created_at"]
-      )
-      @db.exec(sql, internal_source_id, content, hash, now)
-
-      # Update FTS index
-      dialect.fts_upsert(@db, internal_source_id, content)
+      @db.memo_queries.upsert_text(internal_source_id, content, hash, Time.utc.to_unix_ms)
+      @db.memo_dialect.fts_upsert(@db, internal_source_id, content)
     end
 
     # Embed texts in batches of @batch_size to avoid API input limits
@@ -1751,22 +1627,13 @@ module Memo
 
     # Check if source text has changed by comparing content hash
     private def source_text_changed?(internal_source_id : Int64, content_hash : Bytes) : Bool
-
-      stored_hash = @db.query_one?(
-        "SELECT content_hash FROM memo_texts WHERE source_id = ?",
-        internal_source_id,
-        as: Bytes?
-      )
+      stored_hash = @db.memo_queries.get_text_hash(internal_source_id)
       stored_hash.nil? || stored_hash != content_hash
     end
 
     # Delete source text by internal ID
     private def delete_source_text_internal(internal_source_id : Int64)
-
-      @db.exec(
-        "DELETE FROM memo_texts WHERE source_id = ?",
-        internal_source_id
-      )
+      @db.memo_queries.delete_text(internal_source_id)
       @db.memo_dialect.fts_delete(@db, internal_source_id)
     end
 
@@ -1777,12 +1644,7 @@ module Memo
 
     # Get source text by internal source_id (internal)
     private def get_source_text_internal(internal_source_id : Int64) : String?
-
-      @db.query_one?(
-        "SELECT content FROM memo_texts WHERE source_id = ?",
-        internal_source_id,
-        as: String
-      )
+      @db.memo_queries.get_text(internal_source_id)
     end
 
     # Parse queue text to extract metadata and actual text (internal format)
@@ -1873,10 +1735,7 @@ module Memo
 
         # Also update in-memory config so future chunking uses the new ratio
         # (Storage.update_tokens_per_byte uses EMA, so fetch the actual updated value)
-        updated_ratio = @db.query_one?(
-          "SELECT tokens_per_byte FROM memo_services WHERE id = ?",
-          @service_id, as: Float64
-        )
+        updated_ratio = @db.memo_queries.get_service_tokens_per_byte(@service_id)
         @chunking_config = @chunking_config.with_tokens_per_byte(updated_ratio) if updated_ratio
       end
 

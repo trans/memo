@@ -118,73 +118,27 @@ module Memo
 
     # Store file record in database
     def store(db : DB::Database, source_id : Int64, info : FileInfo)
-      now = Time.utc.to_unix_ms
-
-      sql = db.memo_dialect.upsert_sql(
-        "memo_files",
-        "source_id, path, content_hash, mtime, size, created_at",
-        "?, ?, ?, ?, ?, ?",
-        "source_id",
-        ["path", "content_hash", "mtime", "size", "created_at"]
-      )
-      db.exec(sql, source_id, info.path, info.content_hash, info.mtime, info.size, now)
+      db.memo_queries.upsert_file(source_id, info.path, info.content_hash, info.mtime, info.size, Time.utc.to_unix_ms)
     end
 
     # Get file record by path
     def get_by_path(db : DB::Database, path : String) : FileRecord?
-      db.query_one?(
-        "SELECT source_id, path, content_hash, mtime, size
-         FROM memo_files WHERE path = ?",
-        path
-      ) do |rs|
-        FileRecord.new(
-          rs.read(Int64),
-          rs.read(String),
-          rs.read(Bytes),
-          rs.read(Int64),
-          rs.read(Int64)
-        )
-      end
+      db.memo_queries.get_file_by_path(path)
     end
 
     # Get file record by content hash
     def get_by_hash(db : DB::Database, hash : Bytes) : FileRecord?
-      db.query_one?(
-        "SELECT source_id, path, content_hash, mtime, size
-         FROM memo_files WHERE content_hash = ?",
-        hash
-      ) do |rs|
-        FileRecord.new(
-          rs.read(Int64),
-          rs.read(String),
-          rs.read(Bytes),
-          rs.read(Int64),
-          rs.read(Int64)
-        )
-      end
+      db.memo_queries.get_file_by_hash(hash)
     end
 
     # Get file record by source_id
     def get_by_source(db : DB::Database, source_id : Int64) : FileRecord?
-      db.query_one?(
-        "SELECT source_id, path, content_hash, mtime, size
-         FROM memo_files WHERE source_id = ?",
-        source_id
-      ) do |rs|
-        FileRecord.new(
-          rs.read(Int64),
-          rs.read(String),
-          rs.read(Bytes),
-          rs.read(Int64),
-          rs.read(Int64)
-        )
-      end
+      db.memo_queries.get_file_by_source(source_id)
     end
 
     # Delete file record
     def delete(db : DB::Database, source_id : Int64) : Bool
-      result = db.exec("DELETE FROM memo_files WHERE source_id = ?", source_id)
-      result.rows_affected > 0
+      db.memo_queries.delete_file(source_id) > 0
     end
 
     # Check if file needs re-indexing (mtime changed)
@@ -194,30 +148,12 @@ module Memo
 
     # List all indexed files
     def list(db : DB::Database, limit : Int32 = 100, offset : Int32 = 0) : Array(FileRecord)
-      records = [] of FileRecord
-
-      db.query(
-        "SELECT source_id, path, content_hash, mtime, size
-         FROM memo_files ORDER BY path LIMIT ? OFFSET ?",
-        limit, offset
-      ) do |rs|
-        rs.each do
-          records << FileRecord.new(
-            rs.read(Int64),
-            rs.read(String),
-            rs.read(Bytes),
-            rs.read(Int64),
-            rs.read(Int64)
-          )
-        end
-      end
-
-      records
+      db.memo_queries.list_files(limit, offset)
     end
 
     # Count indexed files
     def count(db : DB::Database) : Int64
-      db.scalar("SELECT COUNT(*) FROM memo_files").as(Int64)
+      db.memo_queries.count_files
     end
 
     private def walk_recursive(

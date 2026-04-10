@@ -4,10 +4,11 @@ require "digest/sha256"
 require "set"
 require "usearch"
 
-# Extend DB::Database to carry dialect
+# Extend DB::Database to carry dialect and queries
 # This avoids global state - each db connection knows its config
 class DB::Database
   property memo_dialect : Memo::Dialect::Base { Memo::Dialect::SQLite.new }
+  property memo_queries : Memo::Queries { Memo::Queries::SQLite.new(self) }
 end
 
 require "./memo/types"
@@ -30,6 +31,9 @@ require "./memo/vocab"
 require "./memo/files"
 require "./memo/clustering"
 require "./memo/service_provider"
+require "./memo/queries/base"
+require "./memo/queries/sqlite"
+require "./memo/query_cache"
 require "./memo/service"
 
 # Memo - Semantic search and vector storage library
@@ -75,5 +79,5 @@ require "./memo/service"
 # Internal modules (Storage, Search, Chunking, RRF) remain accessible
 # for advanced use cases but Service is the recommended entry point.
 module Memo
-  VERSION = "0.9.0"
+  VERSION = "0.10.0"
 end

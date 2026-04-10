@@ -3,6 +3,18 @@ module Memo
   module Search
     extend self
 
+    # Per-stage timing breakdown for search operations
+    struct Timings
+      getter embed_ms : Float64
+      getter search_ms : Float64
+      getter fetch_ms : Float64
+      getter total_ms : Float64
+      getter cache_hit : Bool
+
+      def initialize(@embed_ms = 0.0, @search_ms = 0.0, @fetch_ms = 0.0, @total_ms = 0.0, @cache_hit = false)
+      end
+    end
+
     # Search result struct
     #
     # Returns external source IDs (Int64, String, or Bytes), matching what was indexed.
@@ -113,7 +125,7 @@ module Memo
       like : Array(String)?,
       match : String?
     ) : Array(USearch::SearchResult)
-      # Build SQL to get valid embedding rowids
+      # Build WHERE clauses and params
       where_clauses = ["e.service_id = ?"] of String
       params = [service_id] of DB::Any
 
@@ -140,7 +152,6 @@ module Memo
         where_clauses << "(#{sql_where})"
       end
 
-      # Text joins
       text_join = ""
       fts_join = ""
 
@@ -153,37 +164,15 @@ module Memo
       end
 
       dialect = db.memo_dialect
-
       if match && !match.empty?
         fts_join = dialect.fts_join_sql
         where_clauses << dialect.fts_where_sql
         params << match
       end
 
-      rid_col = dialect.embedding_rowid_column
-
-      # Query for valid rowids
-      valid_rowids = Set(UInt64).new
-
-      db.query(
-        <<-SQL,
-          SELECT DISTINCT e.#{rid_col}
-          FROM memo_chunks c
-          JOIN memo_embeddings e ON c.hash = e.hash AND e.service_id = ?
-          #{text_join}
-          #{fts_join}
-          WHERE #{where_clauses.join(" AND ")}
-        SQL
-        args: [service_id] + params
-      ) do |rs|
-        rs.each do
-          valid_rowids << rs.read(Int64).to_u64
-        end
-      end
-
+      valid_rowids = db.memo_queries.search_filtered_rowids(service_id, params, where_clauses, text_join, fts_join)
       return [] of USearch::SearchResult if valid_rowids.empty?
 
-      # Use USearch filtered search with the valid set
       USearchIndex.filtered_search(usearch_index, embedding, limit) do |key|
         valid_rowids.includes?(key)
       end
@@ -197,91 +186,34 @@ module Memo
       limit : Int32,
       include_text : Bool
     ) : Array(Result)
-      rid_col = db.memo_dialect.embedding_rowid_column
       rowids = scores.keys.map(&.to_i64)
+      rows = db.memo_queries.fetch_search_results(rowids, service_id, include_text)
 
-      # Build text select/join if needed
-      text_select = include_text ? ", SUBSTR(st.content, c.offset + 1, c.size) AS chunk_text" : ""
-      text_join = include_text ? "LEFT JOIN memo_texts st ON c.source_id = st.source_id" : ""
+      results = rows.map do |row|
+        embedding_rowid, chunk_id, hash, source_type, internal_source_id,
+          external_int, external_text, external_blob,
+          internal_pair_id, pair_external_int, pair_external_text, pair_external_blob,
+          internal_parent_id, parent_external_int, parent_external_text, parent_external_blob,
+          offset, size, match_count, read_count, text_content = row
 
-      placeholders = rowids.map { "?" }.join(", ")
+        score = scores[embedding_rowid]? || 0.0
+        external_source_id : ExternalId? = external_int || external_text || external_blob
+        external_pair_id : ExternalId? = internal_pair_id ? (pair_external_int || pair_external_text || pair_external_blob) : nil
+        external_parent_id : ExternalId? = internal_parent_id ? (parent_external_int || parent_external_text || parent_external_blob) : nil
 
-      results = [] of Result
-
-      db.query(
-        <<-SQL,
-          SELECT e.#{rid_col}, c.id, c.hash, c.source_type, c.source_id,
-                 s.external_int, s.external_text, s.external_blob,
-                 c.pair_id, ps.external_int, ps.external_text, ps.external_blob,
-                 c.parent_id, prs.external_int, prs.external_text, prs.external_blob,
-                 c.offset, c.size, c.match_count, c.read_count
-                 #{text_select}
-          FROM memo_embeddings e
-          JOIN memo_chunks c ON c.hash = e.hash
-          JOIN memo_sources s ON c.source_id = s.id
-          LEFT JOIN memo_sources ps ON c.pair_id = ps.id
-          LEFT JOIN memo_sources prs ON c.parent_id = prs.id
-          #{text_join}
-          WHERE e.#{rid_col} IN (#{placeholders})
-            AND e.service_id = ?
-        SQL
-        args: rowids.map(&.as(DB::Any)) + [service_id.as(DB::Any)]
-      ) do |rs|
-        rs.each do
-          embedding_rowid = rs.read(Int64).to_u64
-          chunk_id = rs.read(Int64)
-          hash = rs.read(Bytes)
-          source_type = rs.read(String)
-          internal_source_id = rs.read(Int64)
-          external_int = rs.read(Int64?)
-          external_text = rs.read(String?)
-          external_blob = rs.read(Bytes?)
-          internal_pair_id = rs.read(Int64?)
-          pair_external_int = rs.read(Int64?)
-          pair_external_text = rs.read(String?)
-          pair_external_blob = rs.read(Bytes?)
-          internal_parent_id = rs.read(Int64?)
-          parent_external_int = rs.read(Int64?)
-          parent_external_text = rs.read(String?)
-          parent_external_blob = rs.read(Bytes?)
-          offset = rs.read(Int32?)
-          size = rs.read(Int32)
-          match_count = rs.read(Int32)
-          read_count = rs.read(Int32)
-          text_content = include_text ? rs.read(String?) : nil
-
-          score = scores[embedding_rowid]? || 0.0
-
-          # Build external IDs (may be nil for memo-managed sources)
-          external_source_id : ExternalId? = external_int || external_text || external_blob
-          external_pair_id : ExternalId? = internal_pair_id ? (pair_external_int || pair_external_text || pair_external_blob) : nil
-          external_parent_id : ExternalId? = internal_parent_id ? (parent_external_int || parent_external_text || parent_external_blob) : nil
-
-          results << Result.new(
-            chunk_id: chunk_id,
-            hash: hash,
-            source_type: source_type,
-            source_id: external_source_id,
-            internal_source_id: internal_source_id,
-            pair_id: external_pair_id,
-            parent_id: external_parent_id,
-            offset: offset,
-            size: size,
-            match_count: match_count,
-            read_count: read_count,
-            score: score,
-            text: text_content
-          )
-        end
+        Result.new(
+          chunk_id: chunk_id, hash: hash, source_type: source_type,
+          source_id: external_source_id, internal_source_id: internal_source_id,
+          pair_id: external_pair_id, parent_id: external_parent_id,
+          offset: offset, size: size,
+          match_count: match_count, read_count: read_count,
+          score: score, text: text_content
+        )
       end
 
-      # Sort by score descending and limit
       results.sort_by! { |r| -r.score }
       results = results.first(limit)
-
-      # Increment match counts for results found
       Storage.increment_match_count(db, results.map(&.chunk_id))
-
       results
     end
   end

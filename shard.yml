@@ -1,5 +1,5 @@
 name: memo
-version: 0.9.0
+version: 0.10.0
 
 description: |
   Memo - Semantic search and vector storage library for Crystal.
@@ -31,10 +31,15 @@ dependencies:
   arcana:
     github: trans/arcana
     version: ~> 0.2.1
+  pg:
+    github: will/crystal-pg
+    branch: master
 
 targets:
   memo:
-    main: src/cli/main.cr
+    main: bin/memo.cr
+  memo-arcana:
+    main: bin/memo-arcana.cr
 
 development_dependencies:
   ameba:

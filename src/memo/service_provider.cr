@@ -1,19 +1,5 @@
 module Memo
-  # Internal module for service configuration CRUD operations
-  #
-  # Users should access these operations through Service instance methods:
-  # - memo.create_service(...)
-  # - memo.get_service(name)
-  # - memo.list_services
-  # - memo.update_service(name, ...)
-  # - memo.delete_service(name)
-  #
-  # This module is exposed for advanced use cases where direct database
-  # access is needed.
-  #
-  # :nodoc:
   module ServiceProvider
-    # Service configuration information
     struct Info
       getter id : Int64
       getter name : String
@@ -27,26 +13,17 @@ module Memo
       getter created_at : Time
 
       def initialize(
-        @id : Int64,
-        @name : String,
-        @format : String,
-        @base_url : String?,
-        @model : String,
-        @dimensions : Int32,
-        @max_tokens : Int32,
-        @tokens_per_byte : Float64,
-        @is_default : Bool,
-        @created_at : Time
+        @id, @name, @format, @base_url, @model, @dimensions,
+        @max_tokens, @tokens_per_byte, @is_default, @created_at
       )
       end
     end
 
-    # Statistics about a service's usage
     struct Stats
       getter embeddings : Int64
       getter chunks : Int64
 
-      def initialize(@embeddings : Int64, @chunks : Int64)
+      def initialize(@embeddings, @chunks)
       end
 
       def empty? : Bool
@@ -56,11 +33,6 @@ module Memo
 
     extend self
 
-    # Create a new service configuration
-    #
-    # If a service with the same name already exists, raises an error.
-    #
-    # Returns the created service info.
     def create(
       db : DB::Database,
       name : String,
@@ -71,144 +43,58 @@ module Memo
       base_url : String? = nil,
       is_default : Bool = false
     ) : Info
-      # Check if name already exists
-      existing = get_by_name(db, name)
-      if existing
-        raise ArgumentError.new("Service '#{name}' already exists")
-      end
+      q = db.memo_queries
+      existing = q.get_service_info_by_name(name)
+      raise ArgumentError.new("Service '#{name}' already exists") if existing
 
-      # If setting as default, clear other defaults first
-      if is_default
-        db.exec("UPDATE memo_services SET is_default = 0 WHERE is_default = 1")
-      end
+      q.clear_default_service if is_default
 
-      # Insert new service
       now = Time.utc
-      id = db.memo_dialect.insert_returning_id(
-        db,
-        "INSERT INTO memo_services (name, format, base_url, model, dimensions, max_tokens, is_default, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        name, format, base_url, model, dimensions, max_tokens, is_default ? 1 : 0, now.to_unix_ms
-      )
-      Info.new(
-        id: id,
-        name: name,
-        format: format,
-        base_url: base_url,
-        model: model,
-        dimensions: dimensions,
-        max_tokens: max_tokens,
-        tokens_per_byte: 0.25,
-        is_default: is_default,
-        created_at: now
-      )
+      id = q.insert_service_full(name, format, base_url, model, dimensions, max_tokens, is_default ? 1 : 0, now.to_unix_ms)
+      Info.new(id: id, name: name, format: format, base_url: base_url, model: model,
+        dimensions: dimensions, max_tokens: max_tokens, tokens_per_byte: 0.25,
+        is_default: is_default, created_at: now)
     end
 
-    # Get a service by ID
-    #
-    # Returns nil if not found.
     def get(db : DB::Database, id : Int64) : Info?
-      db.query_one?(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
-         FROM memo_services WHERE id = ?",
-        id
-      ) do |rs|
-        read_info(rs)
-      end
+      db.memo_queries.get_service_info(id)
     end
 
-    # Get a service by name
-    #
-    # Returns nil if not found.
     def get_by_name(db : DB::Database, name : String) : Info?
-      db.query_one?(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
-         FROM memo_services WHERE name = ?",
-        name
-      ) do |rs|
-        read_info(rs)
-      end
+      db.memo_queries.get_service_info_by_name(name)
     end
 
-    # Get the default service
-    #
-    # Returns nil if no default is set.
     def get_default(db : DB::Database) : Info?
-      db.query_one?(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
-         FROM memo_services WHERE is_default = 1 LIMIT 1"
-      ) do |rs|
-        read_info(rs)
-      end
+      db.memo_queries.get_default_service
     end
 
-    # Set a service as the default
-    #
-    # Clears any existing default and sets the specified service.
-    # Returns true if successful, false if service not found.
     def set_default(db : DB::Database, name : String) : Bool
-      svc = get_by_name(db, name)
+      q = db.memo_queries
+      svc = q.get_service_info_by_name(name)
       return false unless svc
 
       db.transaction do
-        db.exec("UPDATE memo_services SET is_default = 0 WHERE is_default = 1")
-        db.exec("UPDATE memo_services SET is_default = 1 WHERE id = ?", svc.id)
+        q.clear_default_service
+        q.set_default_service(svc.id)
       end
-
       true
     end
 
-    # List all services
-    #
-    # Returns array of service info, ordered by creation time (newest first).
     def list(db : DB::Database) : Array(Info)
-      services = [] of Info
-
-      db.query(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
-         FROM memo_services
-         ORDER BY created_at DESC"
-      ) do |rs|
-        rs.each do
-          services << read_info(rs)
-        end
-      end
-
-      services
+      db.memo_queries.list_services
     end
 
-    # List services by format
-    #
-    # Returns array of service info for the specified API format.
     def list_by_format(db : DB::Database, format : String) : Array(Info)
-      services = [] of Info
-
-      db.query(
-        "SELECT id, name, format, base_url, model, dimensions, max_tokens, COALESCE(tokens_per_byte, 0.25), is_default, created_at
-         FROM memo_services
-         WHERE format = ?
-         ORDER BY created_at DESC",
-        format
-      ) do |rs|
-        rs.each do
-          services << read_info(rs)
-        end
-      end
-
-      services
+      db.memo_queries.list_services_by_format(format)
     end
 
-    # Update a service configuration
-    #
-    # Can update base_url and max_tokens. Other fields define the service identity.
-    # Returns the updated service info, or nil if not found.
     def update(
       db : DB::Database,
       id : Int64,
       base_url : String? = nil,
       max_tokens : Int32? = nil
     ) : Info?
-      # Build update query dynamically
+      q = db.memo_queries
       updates = [] of String
       params = [] of DB::Any
 
@@ -216,116 +102,51 @@ module Memo
         updates << "base_url = ?"
         params << base_url
       end
-
       if max_tokens
         updates << "max_tokens = ?"
         params << max_tokens
       end
 
-      return get(db, id) if updates.empty?
+      return q.get_service_info(id) if updates.empty?
 
-      params << id
-
-      result = db.exec(
-        "UPDATE memo_services SET #{updates.join(", ")} WHERE id = ?",
-        args: params
-      )
-      return nil if result.rows_affected == 0
-
-      get(db, id)
+      q.update_service(id, updates, params)
+      q.get_service_info(id)
     end
 
-    # Delete a service
-    #
-    # By default, fails if the service has any associated embeddings.
-    # Use force: true to delete the service and all associated data.
-    #
-    # Returns true if deleted, false if not found.
-    # Raises if embeddings exist and force is false.
     def delete(db : DB::Database, id : Int64, force : Bool = false) : Bool
-      # Check if service exists
-      return false unless get(db, id)
-      # Check for associated embeddings
-      stats = stats(db, id)
-      if !stats.empty? && !force
+      q = db.memo_queries
+      return false unless q.get_service_info(id)
+
+      s = stats(db, id)
+      if !s.empty? && !force
         raise ArgumentError.new(
-          "Cannot delete service #{id}: has #{stats.embeddings} embeddings and #{stats.chunks} chunks. " \
+          "Cannot delete service #{id}: has #{s.embeddings} embeddings and #{s.chunks} chunks. " \
           "Use force: true to delete all associated data."
         )
       end
 
       db.transaction do
-        if force && !stats.empty?
-          # Delete in order: chunks -> embeddings -> service
-          # Get all embedding hashes for this service
-          hashes = [] of Bytes
-          db.query(
-            "SELECT hash FROM memo_embeddings WHERE service_id = ?",
-            id
-          ) do |rs|
-            rs.each do
-              hashes << rs.read(Bytes)
-            end
-          end
-
-          # Delete chunks referencing these embeddings
-          hashes.each do |hash|
-            db.exec("DELETE FROM memo_chunks WHERE hash = ?", hash)
-          end
-
-          # Delete embeddings
-          db.exec("DELETE FROM memo_embeddings WHERE service_id = ?", id)
+        if force && !s.empty?
+          hashes = q.get_embedding_hashes_for_service(id)
+          hashes.each { |hash| q.delete_chunks_by_hash(hash) }
+          q.delete_embeddings_by_service(id)
         end
-
-        # Delete the service
-        db.exec("DELETE FROM memo_services WHERE id = ?", id)
+        q.delete_service(id)
       end
-
       true
     end
 
-    # Get usage statistics for a service
     def stats(db : DB::Database, id : Int64) : Stats
-      embeddings = db.scalar(
-        "SELECT COUNT(*) FROM memo_embeddings WHERE service_id = ?",
-        id
-      ).as(Int64)
-      chunks = db.scalar(
-        "SELECT COUNT(*) FROM memo_chunks c
-         JOIN memo_embeddings e ON c.hash = e.hash
-         WHERE e.service_id = ?",
-        id
-      ).as(Int64)
-      Stats.new(embeddings, chunks)
+      q = db.memo_queries
+      Stats.new(q.count_embeddings_for_service(id), q.count_chunks_for_service(id))
     end
 
-    # Check if a service exists
     def exists?(db : DB::Database, id : Int64) : Bool
-      count = db.scalar(
-        "SELECT COUNT(*) FROM memo_services WHERE id = ?",
-        id
-      ).as(Int64)
-      count > 0
+      db.memo_queries.service_exists?(id)
     end
 
-    # Get total count of services
     def count(db : DB::Database) : Int64
-      db.scalar("SELECT COUNT(*) FROM memo_services").as(Int64)
-    end
-
-    private def read_info(rs) : Info
-      Info.new(
-        id: rs.read(Int64),
-        name: rs.read(String),
-        format: rs.read(String),
-        base_url: rs.read(String?),
-        model: rs.read(String),
-        dimensions: rs.read(Int32),
-        max_tokens: rs.read(Int32),
-        tokens_per_byte: rs.read(Float64),
-        is_default: rs.read(Int32) == 1,
-        created_at: Time.unix_ms(rs.read(Int64))
-      )
+      db.memo_queries.count_services
     end
   end
 end
