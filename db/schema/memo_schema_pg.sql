@@ -221,3 +221,20 @@ CREATE TABLE IF NOT EXISTS memo_files (
 );
 
 CREATE INDEX IF NOT EXISTS memo_idx_files_hash ON memo_files(content_hash);
+
+-- =============================================================================
+-- Query embedding cache
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS memo_query_cache (
+    query TEXT NOT NULL,
+    service_id BIGINT NOT NULL,
+    embedding BYTEA NOT NULL,
+    token_count INTEGER NOT NULL,
+    created_at BIGINT NOT NULL,
+
+    PRIMARY KEY (query, service_id),
+    FOREIGN KEY (service_id) REFERENCES memo_services(id)
+);
+
+CREATE INDEX IF NOT EXISTS memo_idx_query_cache_service ON memo_query_cache(service_id, created_at);
