@@ -1,0 +1,217 @@
+require "../src/arcana/service"
+require "../src/memo/pg"
+require "http/web_socket"
+require "json"
+
+# Memo Arcana Bus Service
+#
+# Connects to an Arcana server via WebSocket and exposes Memo's
+# core API (index, search, delete, stats) as a bus service.
+#
+# Environment variables:
+#   ARCANA_HOST       — Arcana server host (default: 127.0.0.1)
+#   ARCANA_PORT       — Arcana server port (default: 4000)
+#   MEMO_DB           — Database path or postgres:// connection string (required)
+#   MEMO_SERVICE      — Embedding service name (optional)
+#   MEMO_FORMAT       — Embedding provider format (optional, e.g. "openai")
+#   MEMO_API_KEY      — Embedding provider API key (optional)
+#   MEMO_MODEL        — Embedding model (optional)
+#   MEMO_INDEX_DIR    — USearch index directory (optional)
+
+# ANSI color helpers
+DIM    = "\e[2m"
+BOLD   = "\e[1m"
+RESET  = "\e[0m"
+GREEN  = "\e[32m"
+YELLOW = "\e[33m"
+RED    = "\e[31m"
+CYAN   = "\e[36m"
+GRAY   = "\e[90m"
+
+def log(msg : String)
+  STDERR.puts "#{GRAY}#{Time.local.to_s("%H:%M:%S")}#{RESET} #{msg}"
+end
+
+def truncate(s : String, max : Int32 = 50) : String
+  s.size > max ? "#{s[0, max]}…" : s
+end
+
+def summarize(data : JSON::Any) : String
+  return "" unless data.as_h?
+  parts = [] of String
+  data.as_h.each do |k, v|
+    next if k == "action"
+    val = case raw = v.raw
+          when String then %("#{truncate(raw, 40)}")
+          when Array  then "[#{raw.size}]"
+          when Hash   then "{…}"
+          else             raw.to_s
+          end
+    parts << "#{k}=#{val}"
+  end
+  parts.join(" ")
+end
+
+db_path = ENV["MEMO_DB"]? || abort("MEMO_DB is required")
+
+arcana_host = ENV["ARCANA_HOST"]? || "127.0.0.1"
+arcana_port = (ENV["ARCANA_PORT"]? || "4000").to_i
+
+service_name = ENV["MEMO_SERVICE"]? || "mock"
+chunking_max = (ENV["MEMO_CHUNKING_MAX"]? || (service_name == "mock" ? "100" : "2000")).to_i
+
+# Startup banner
+STDERR.puts ""
+STDERR.puts "#{BOLD}#{CYAN}memo-arcana#{RESET} #{DIM}— semantic search service#{RESET}"
+STDERR.puts "#{DIM}┌──────────────────────────────────────────────────#{RESET}"
+STDERR.puts "#{DIM}│#{RESET} db       #{DIM}│#{RESET} #{db_path}"
+STDERR.puts "#{DIM}│#{RESET} service  #{DIM}│#{RESET} #{service_name}"
+STDERR.puts "#{DIM}│#{RESET} bus      #{DIM}│#{RESET} #{arcana_host}:#{arcana_port}"
+STDERR.puts "#{DIM}└──────────────────────────────────────────────────#{RESET}"
+
+memo = Memo::Service.new(
+  db_path: db_path,
+  service: service_name,
+  format: ENV["MEMO_FORMAT"]?,
+  api_key: ENV["MEMO_API_KEY"]? || ENV["OPENAI_API_KEY"]?,
+  model: ENV["MEMO_MODEL"]?,
+  index_dir: ENV["MEMO_INDEX_DIR"]?,
+  chunking_max_tokens: chunking_max,
+)
+
+handler = Memo::ArcanaService.new(memo)
+
+ws_url = "ws://#{arcana_host}:#{arcana_port}/bus"
+ws = HTTP::WebSocket.new(URI.parse(ws_url))
+
+# Join the bus as a service
+join_msg = {
+  type:        "join",
+  address:     "memo:service",
+  name:        "Memo Service",
+  kind:        "service",
+  description: "Semantic search & vector storage service",
+  tags:        ["search", "vectors", "embeddings"],
+}.to_json
+ws.send(join_msg)
+
+log "#{GREEN}●#{RESET} registered as #{BOLD}memo:service#{RESET}, listening for requests"
+STDERR.puts ""
+
+ws.on_message do |msg|
+  begin
+    envelope = JSON.parse(msg)
+
+    # Extract data from protocol-wrapped or raw payloads
+    payload = envelope["payload"]?
+    data = if payload && payload["_proto"]?
+             payload["data"]? || JSON::Any.new(nil)
+           else
+             payload || JSON::Any.new(nil)
+           end
+
+    action = data["action"]?.try(&.as_s?) || "?"
+    from = envelope["from"]?.try(&.as_s?) || "?"
+    t_start = Time.instant
+
+    # Handle help intent
+    if payload && payload["_intent"]?.try(&.as_s?) == "help"
+      result_payload = JSON.parse(%({"_proto":"arcana/1","_status":"help","guide":#{Memo::ArcanaService::GUIDE.to_json},"schema":#{Memo::ArcanaService::SCHEMA.to_json}}))
+      reply = {
+        type:           "send",
+        from:           "memo:service",
+        to:             envelope["reply_to"]?.try(&.as_s?) || envelope["from"]?.try(&.as_s?) || "",
+        subject:        envelope["subject"]?.try(&.as_s?) || "",
+        payload:        result_payload,
+        correlation_id: envelope["correlation_id"]?.try(&.as_s?) || "",
+      }.to_json
+      ws.send(reply)
+      next
+    end
+
+    # Dispatch to handler
+    result = handler.handle(data)
+    elapsed_ms = (Time.instant - t_start).total_milliseconds.round(1)
+
+    # Compact one-liner: action, source, params, status, timing
+    status_color = elapsed_ms > 500 ? YELLOW : GREEN
+    summary = summarize(data)
+    extra = ""
+    if action == "search"
+      if t = result["timings"]?
+        cache = t["cache_hit"]?.try(&.as_bool?) ? "#{CYAN}cache#{RESET}" : ""
+        n = result["results"]?.try(&.as_a?.try(&.size)) || 0
+        extra = " #{DIM}→#{RESET} #{n} hit#{n == 1 ? "" : "s"} #{cache}"
+      end
+    elsif action == "stats" && result["embeddings"]?
+      extra = " #{DIM}→#{RESET} #{result["embeddings"]} emb / #{result["chunks"]} chunks"
+    elsif (action == "index" || action == "index_batch") && result["chunks"]?
+      extra = " #{DIM}→#{RESET} #{result["chunks"]} chunks"
+    end
+    log "#{status_color}#{action.ljust(11)}#{RESET} #{DIM}#{from.ljust(12)}#{RESET} #{summary}#{extra} #{DIM}(#{elapsed_ms}ms)#{RESET}"
+
+    # Wrap in protocol result
+    result_payload = JSON::Any.new({
+      "_proto"  => JSON::Any.new("arcana/1"),
+      "_status" => JSON::Any.new("result"),
+      "data"    => result,
+    })
+
+    reply_to = envelope["reply_to"]?.try(&.as_s?) || envelope["from"]?.try(&.as_s?) || ""
+    next if reply_to.empty?
+
+    reply = {
+      type:           "send",
+      from:           "memo:service",
+      to:             reply_to,
+      subject:        envelope["subject"]?.try(&.as_s?) || "",
+      payload:        result_payload,
+      correlation_id: envelope["correlation_id"]?.try(&.as_s?) || "",
+    }.to_json
+    ws.send(reply)
+  rescue ex
+    # Send error reply
+    if envelope
+      error_payload = JSON::Any.new({
+        "_proto"  => JSON::Any.new("arcana/1"),
+        "_status" => JSON::Any.new("error"),
+        "message" => JSON::Any.new(ex.message || "Unknown error"),
+      })
+
+      reply_to = envelope["reply_to"]?.try(&.as_s?) || envelope["from"]?.try(&.as_s?) || ""
+      unless reply_to.empty?
+        reply = {
+          type:           "send",
+          from:           "memo:service",
+          to:             reply_to,
+          subject:        envelope["subject"]?.try(&.as_s?) || "",
+          payload:        error_payload,
+          correlation_id: envelope["correlation_id"]?.try(&.as_s?) || "",
+        }.to_json
+        ws.send(reply)
+      end
+    end
+
+    log "#{RED}error#{RESET}      #{ex.message}"
+  end
+end
+
+ws.on_close do |code, message|
+  log "#{YELLOW}●#{RESET} disconnected (#{code}: #{message})"
+  memo.close
+  exit 0
+end
+
+Signal::INT.trap do
+  STDERR.puts ""
+  log "#{YELLOW}●#{RESET} shutting down"
+  memo.close
+  exit 0
+end
+
+Signal::TERM.trap do
+  memo.close
+  exit 0
+end
+
+ws.run
