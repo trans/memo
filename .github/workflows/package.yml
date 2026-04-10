@@ -1,0 +1,88 @@
+name: Package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  arch:
+    name: Arch Linux (PKGBUILD)
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Crystal
+        run: |
+          pacman -Syu --noconfirm crystal shards
+          pacman -S --noconfirm sqlite file openssl pcre2 gc gcc-libs zlib
+
+      - name: Build
+        run: |
+          shards install --production
+          crystal build --release --no-debug bin/memo.cr -o bin/memo
+          crystal build --release --no-debug bin/memo-arcana.cr -o bin/memo-arcana
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          install -Dm755 bin/memo dist/usr/bin/memo
+          install -Dm755 bin/memo-arcana dist/usr/bin/memo-arcana
+          install -Dm644 LICENSE dist/usr/share/licenses/memo/LICENSE
+          bin/memo --completions bash | install -Dm644 /dev/stdin dist/usr/share/bash-completion/completions/memo
+          bin/memo --completions zsh | install -Dm644 /dev/stdin dist/usr/share/zsh/site-functions/_memo
+          bin/memo --completions fish | install -Dm644 /dev/stdin dist/usr/share/fish/vendor_completions.d/memo.fish
+          cd dist && tar czf ../memo-${GITHUB_REF_NAME:-dev}-x86_64-arch.tar.gz *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: memo-arch
+          path: memo-*-arch.tar.gz
+
+  deb:
+    name: Debian Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Crystal
+        run: |
+          curl -fsSL https://crystal-lang.org/install.sh | sudo bash
+          sudo apt-get install -y crystal libsqlite3-dev libmagic-dev libssl-dev libpcre2-dev libgc-dev zlib1g-dev dpkg-dev debhelper
+
+      - name: Prepare debian packaging
+        run: ln -s pkg/debian debian
+
+      - name: Build package
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Collect deb
+        run: |
+          mkdir -p dist
+          cp ../memo_*.deb dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: memo-deb
+          path: dist/*.deb
+
+  release-assets:
+    name: Upload release assets
+    if: github.event_name == 'release'
+    needs: [arch, deb]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            memo-arch/*
+            memo-deb/*

@@ -1,0 +1,52 @@
+# Maintainer: trans
+pkgname=memo
+pkgver=0.10.0
+pkgrel=1
+pkgdesc="Semantic search and vector storage CLI"
+arch=('x86_64')
+url="https://github.com/trans/memo"
+license=('MIT')
+depends=(
+  'sqlite'
+  'file'        # libmagic
+  'openssl'
+  'pcre2'
+  'gc'          # boehm-gc
+  'gcc-libs'    # libstdc++
+  'zlib'
+)
+makedepends=(
+  'crystal'
+  'shards'
+)
+optdepends=(
+  'postgresql-libs: PostgreSQL backend support (memo-arcana)'
+)
+source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/v${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  shards install --production
+  crystal build --release --no-debug bin/memo.cr -o bin/memo
+  crystal build --release --no-debug bin/memo-arcana.cr -o bin/memo-arcana
+}
+
+package() {
+  cd "${pkgname}-${pkgver}"
+
+  # Binaries
+  install -Dm755 bin/memo "${pkgdir}/usr/bin/memo"
+  install -Dm755 bin/memo-arcana "${pkgdir}/usr/bin/memo-arcana"
+
+  # License
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+
+  # Shell completions
+  bin/memo --completions bash | install -Dm644 /dev/stdin \
+    "${pkgdir}/usr/share/bash-completion/completions/memo"
+  bin/memo --completions zsh | install -Dm644 /dev/stdin \
+    "${pkgdir}/usr/share/zsh/site-functions/_memo"
+  bin/memo --completions fish | install -Dm644 /dev/stdin \
+    "${pkgdir}/usr/share/fish/vendor_completions.d/memo.fish"
+}

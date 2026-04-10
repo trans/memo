@@ -17,15 +17,23 @@ check:
 
 # Build the binary
 build:
-  crystal build src/cli.cr -o bin/memo
+  crystal build bin/memo.cr -o bin/memo
+
+# Build the Arcana bus service
+build-arcana:
+  crystal build bin/memo-arcana.cr -o bin/memo-arcana
 
 # Build release binary
 release:
-  crystal build --release src/cli.cr -o bin/memo
+  crystal build --release bin/memo.cr -o bin/memo
+
+# Build release Arcana bus service
+release-arcana:
+  crystal build --release bin/memo-arcana.cr -o bin/memo-arcana
 
 # Run the REPL
 run:
-  crystal run src/cli.cr
+  crystal run bin/memo.cr
 
 # Run all tests
 test:
@@ -80,6 +88,8 @@ loc:
 bump VERSION:
   sed -i 's/^version: .*/version: {{VERSION}}/' shard.yml
   sed -i 's/VERSION = ".*"/VERSION = "{{VERSION}}"/' src/memo.cr
+  sed -i 's/^pkgver=.*/pkgver={{VERSION}}/' pkg/PKGBUILD
+  sed -i '1s/([^)]*)/({{VERSION}}-1)/' pkg/debian/changelog
   @echo "Bumped to {{VERSION}}"
   @grep 'version:' shard.yml | head -1
   @grep 'VERSION' src/memo.cr

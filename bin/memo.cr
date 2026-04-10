@@ -1,8 +1,8 @@
 require "jargon"
-require "../memo"
-require "./schema"
-require "./input"
-require "./commands/*"
+require "../src/memo"
+require "../src/cli/schema"
+require "../src/cli/input"
+require "../src/cli/commands/*"
 
 module Memo::CLI
   VERSION = Memo::VERSION
@@ -41,6 +41,16 @@ module Memo::CLI
         puts cli.help(subcmd)
       else
         puts help_text
+      end
+      return
+    end
+
+    # Handle --completions bash|zsh|fish
+    if result.completion_requested?
+      case result.completion_shell
+      when "bash" then puts cli.bash_completion
+      when "zsh"  then puts cli.zsh_completion
+      when "fish" then puts cli.fish_completion
       end
       return
     end

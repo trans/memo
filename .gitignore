@@ -1,8 +1,9 @@
 # Dependencies
 /lib/
 
-# Build artifacts
-/bin/
+# Build artifacts (keep source files)
+/bin/*
+!/bin/*.cr
 
 # Editor/IDE
 .vscode/
