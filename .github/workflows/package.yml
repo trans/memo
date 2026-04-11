@@ -16,7 +16,7 @@ jobs:
       - name: Install Crystal
         run: |
           pacman -Syu --noconfirm crystal shards
-          pacman -S --noconfirm sqlite file openssl pcre2 gc gcc-libs zlib
+          pacman -S --noconfirm sqlite file openssl pcre2 gc gcc-libs zlib cmake make gcc
 
       - name: Build
         run: |
@@ -50,7 +50,7 @@ jobs:
       - name: Install Crystal
         run: |
           curl -fsSL https://crystal-lang.org/install.sh | sudo bash
-          sudo apt-get install -y crystal build-essential libsqlite3-dev libmagic-dev libssl-dev libpcre2-dev libgc-dev zlib1g-dev dpkg-dev debhelper
+          sudo apt-get install -y crystal build-essential cmake libsqlite3-dev libmagic-dev libssl-dev libpcre2-dev libgc-dev zlib1g-dev dpkg-dev debhelper
 
       - name: Prepare debian packaging
         run: ln -s pkg/debian debian
