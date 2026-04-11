@@ -9,15 +9,19 @@ override_dh_auto_build:
 	crystal build --release --no-debug bin/memo-arcana.cr -o bin/memo-arcana
 
 override_dh_auto_install:
-	install -Dm755 bin/memo $(CURDIR)/debian/memo/usr/bin/memo
-	install -Dm755 bin/memo-arcana $(CURDIR)/debian/memo/usr/bin/memo-arcana
-	install -Dm644 LICENSE $(CURDIR)/debian/memo/usr/share/doc/memo/copyright
+	dh_auto_install
+	# Shell completions
 	bin/memo --completions bash | install -Dm644 /dev/stdin \
 		$(CURDIR)/debian/memo/usr/share/bash-completion/completions/memo
 	bin/memo --completions zsh | install -Dm644 /dev/stdin \
 		$(CURDIR)/debian/memo/usr/share/zsh/vendor-completions/_memo
 	bin/memo --completions fish | install -Dm644 /dev/stdin \
 		$(CURDIR)/debian/memo/usr/share/fish/vendor_completions.d/memo.fish
+	# License
+	install -Dm644 LICENSE $(CURDIR)/debian/memo/usr/share/doc/memo/copyright
 
 override_dh_auto_test:
 	true
+
+override_dh_installsystemd:
+	dh_installsystemd --name=memo-arcana --no-enable --no-start

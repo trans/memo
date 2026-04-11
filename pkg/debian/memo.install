@@ -1,0 +1,3 @@
+bin/memo                       usr/bin/
+bin/memo-arcana                usr/bin/
+debian/memo.env                etc/memo/

@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    purge)
+        # Remove system user and state on purge
+        if getent passwd memo >/dev/null; then
+            deluser --quiet --system memo || true
+        fi
+        rm -rf /var/lib/memo /etc/memo
+        ;;
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

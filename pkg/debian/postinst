@@ -1,0 +1,30 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        # Create system user
+        if ! getent passwd memo >/dev/null; then
+            adduser --system --group --home /var/lib/memo \
+                    --no-create-home --shell /usr/sbin/nologin \
+                    --gecos "Memo semantic search service" memo
+        fi
+
+        # Create state directory
+        if [ ! -d /var/lib/memo ]; then
+            mkdir -p /var/lib/memo/indices
+        fi
+        chown -R memo:memo /var/lib/memo
+        chmod 750 /var/lib/memo
+
+        # Secure the env file (contains API keys)
+        if [ -f /etc/memo/memo.env ]; then
+            chown root:memo /etc/memo/memo.env
+            chmod 640 /etc/memo/memo.env
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

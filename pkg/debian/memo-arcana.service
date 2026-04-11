@@ -1,0 +1,34 @@
+[Unit]
+Description=Memo Arcana bus service
+Documentation=https://github.com/trans/memo
+After=network.target arcana.service postgresql.service
+Wants=arcana.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=memo
+Group=memo
+WorkingDirectory=/var/lib/memo
+ExecStart=/usr/bin/memo-arcana
+EnvironmentFile=-/etc/memo/memo.env
+UMask=002
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/memo
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target
