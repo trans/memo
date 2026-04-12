@@ -16,16 +16,29 @@ case "$1" in
         chown -R memo:memo /var/lib/memo
         chmod 750 /var/lib/memo
 
-        # Secure the env file (contains API keys)
+        # Config directory — readable by memo group, not world-readable
+        # (secrets.env will live here too if pushed by deployment tooling).
+        if [ -d /etc/memo ]; then
+            chown root:memo /etc/memo
+            chmod 750 /etc/memo
+        fi
+
+        # memo.env (non-secret defaults but group-readable for consistency)
         if [ -f /etc/memo/memo.env ]; then
             chown root:memo /etc/memo/memo.env
             chmod 640 /etc/memo/memo.env
         fi
 
-        # Namespaces config (may contain connection strings with passwords)
+        # namespaces.yaml (may reference ${VAR}s from secrets.env)
         if [ -f /etc/memo/namespaces.yaml ]; then
             chown root:memo /etc/memo/namespaces.yaml
             chmod 640 /etc/memo/namespaces.yaml
+        fi
+
+        # secrets.env — if present, tighten it (deployment tool may have pushed it)
+        if [ -f /etc/memo/secrets.env ]; then
+            chown root:memo /etc/memo/secrets.env
+            chmod 640 /etc/memo/secrets.env
         fi
         ;;
 esac

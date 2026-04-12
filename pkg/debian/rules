@@ -19,6 +19,9 @@ override_dh_auto_install:
 		$(CURDIR)/debian/memo/usr/share/fish/vendor_completions.d/memo.fish
 	# License
 	install -Dm644 LICENSE $(CURDIR)/debian/memo/usr/share/doc/memo/copyright
+	# Secrets env example (documents expected keys for deployment tooling)
+	install -Dm644 debian/secrets.env.example \
+		$(CURDIR)/debian/memo/usr/share/doc/memo/secrets.env.example
 
 override_dh_auto_test:
 	true

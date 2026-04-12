@@ -13,6 +13,7 @@ Group=memo
 WorkingDirectory=/var/lib/memo
 ExecStart=/usr/bin/memo-arcana
 EnvironmentFile=-/etc/memo/memo.env
+EnvironmentFile=-/etc/memo/secrets.env
 UMask=002
 Restart=on-failure
 RestartSec=5

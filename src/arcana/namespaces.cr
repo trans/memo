@@ -151,8 +151,8 @@ module Memo
 
     private def finalize_block(block : Hash(String, String)?)
       return unless block
-      ns = block["ns"]? || return
-      db = block["db"]? || return
+      ns = expand_env(block["ns"]?) || return
+      db = expand_env(block["db"]?) || return
 
       preload = case block["preload"]?.try(&.downcase)
                 when "true", "yes", "1" then true
@@ -164,14 +164,24 @@ module Memo
       register(Config.new(
         ns: ns,
         db: db,
-        service: block["service"]?,
-        format: block["format"]?,
-        api_key: block["api_key"]?,
-        model: block["model"]?,
-        index_dir: block["index_dir"]?,
+        service: expand_env(block["service"]?),
+        format: expand_env(block["format"]?),
+        api_key: expand_env(block["api_key"]?),
+        model: expand_env(block["model"]?),
+        index_dir: expand_env(block["index_dir"]?),
         chunking_max_tokens: chunking,
         preload: preload,
       ))
+    end
+
+    # Expand ${VAR} and $VAR references from process env.
+    # Missing vars become empty strings.
+    private def expand_env(value : String?) : String?
+      return nil unless value
+      value.gsub(/\$\{(\w+)\}|\$(\w+)/) do |_, match|
+        name = match[1]? || match[2]
+        name ? (ENV[name]? || "") : ""
+      end
     end
 
     # Internal: open a namespace. Must be called with @mutex held.
