@@ -1,3 +1,14 @@
+memo (0.11.0-1) unstable; urgency=medium
+
+  * Multi-namespace routing: memo-arcana now supports isolated
+    embedding spaces per namespace. Each `ns` has its own DB,
+    USearch index, and embedding provider.
+  * New actions: open, close, list.
+  * Config via /etc/memo/namespaces.yaml with preload support.
+  * Memo system user no longer has a home directory.
+
+ -- trans <trans@github.com>  Sat, 12 Apr 2026 00:00:00 +0000
+
 memo (0.10.0-1) unstable; urgency=medium
 
   * Initial package release
