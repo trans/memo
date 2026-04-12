@@ -13,11 +13,20 @@ module Memo
     extend self
 
     # Default directory for index files when no db_path is available
-    # (e.g., PostgreSQL backend). Follows XDG Base Directory spec.
-    DEFAULT_INDEX_DIR = File.join(
-      ENV.fetch("XDG_DATA_HOME", File.join(Path.home.to_s, ".local", "share")),
-      "memo", "indices"
-    )
+    # (e.g., PostgreSQL backend). Follows XDG Base Directory spec,
+    # with fallback to /var/lib/memo/indices for system users.
+    DEFAULT_INDEX_DIR = begin
+      if xdg = ENV["XDG_DATA_HOME"]?
+        File.join(xdg, "memo", "indices")
+      else
+        home = Path.home.to_s
+        if home == "/nonexistent" || home.empty? || !Dir.exists?(home)
+          "/var/lib/memo/indices"
+        else
+          File.join(home, ".local", "share", "memo", "indices")
+        end
+      end
+    end
 
     # Build the index file path from a database path.
     #
