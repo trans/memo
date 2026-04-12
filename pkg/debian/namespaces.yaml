@@ -1,0 +1,24 @@
+# Memo namespace registry
+#
+# Each namespace (ns) has its own isolated embedding space —
+# separate database, USearch index, and embedding service.
+#
+# Restart memo-arcana.service after editing:
+#   sudo systemctl restart memo-arcana
+#
+# Fields:
+#   ns          — Short identifier (used in every API call)
+#   db          — SQLite path or postgres:// connection string
+#   service     — Embedding service name (mock, openai, voyage)
+#   api_key     — API key for the embedding provider (optional, falls back to env)
+#   model       — Override default model for the service (optional)
+#   index_dir   — USearch index directory (default: /var/lib/memo/indices)
+#   preload     — Open at boot instead of on first request (default: false)
+
+namespaces:
+  # Example — uncomment and edit:
+  #
+  # - ns: myproject
+  #   db: postgres://user:pass@localhost/myproject_dev
+  #   service: openai
+  #   preload: true

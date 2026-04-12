@@ -3,17 +3,16 @@ set -e
 
 case "$1" in
     configure)
-        # Create system user
+        # Create system user with no home directory — state lives
+        # in /var/lib/memo and config in /etc/memo.
         if ! getent passwd memo >/dev/null; then
-            adduser --system --group --home /var/lib/memo \
-                    --no-create-home --shell /usr/sbin/nologin \
+            adduser --system --group --no-create-home \
+                    --home /nonexistent --shell /usr/sbin/nologin \
                     --gecos "Memo semantic search service" memo
         fi
 
         # Create state directory
-        if [ ! -d /var/lib/memo ]; then
-            mkdir -p /var/lib/memo/indices
-        fi
+        mkdir -p /var/lib/memo/indices
         chown -R memo:memo /var/lib/memo
         chmod 750 /var/lib/memo
 
@@ -21,6 +20,12 @@ case "$1" in
         if [ -f /etc/memo/memo.env ]; then
             chown root:memo /etc/memo/memo.env
             chmod 640 /etc/memo/memo.env
+        fi
+
+        # Namespaces config (may contain connection strings with passwords)
+        if [ -f /etc/memo/namespaces.yaml ]; then
+            chown root:memo /etc/memo/namespaces.yaml
+            chmod 640 /etc/memo/namespaces.yaml
         fi
         ;;
 esac

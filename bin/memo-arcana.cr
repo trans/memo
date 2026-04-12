@@ -6,17 +6,13 @@ require "json"
 # Memo Arcana Bus Service
 #
 # Connects to an Arcana server via WebSocket and exposes Memo's
-# core API (index, search, delete, stats) as a bus service.
+# core API as a multi-namespace bus service. Each namespace (ns)
+# is an isolated embedding space with its own DB and USearch index.
 #
 # Environment variables:
-#   ARCANA_HOST       — Arcana server host (default: 127.0.0.1)
-#   ARCANA_PORT       — Arcana server port (default: 4000)
-#   MEMO_DB           — Database path or postgres:// connection string (required)
-#   MEMO_SERVICE      — Embedding service name (optional)
-#   MEMO_FORMAT       — Embedding provider format (optional, e.g. "openai")
-#   MEMO_API_KEY      — Embedding provider API key (optional)
-#   MEMO_MODEL        — Embedding model (optional)
-#   MEMO_INDEX_DIR    — USearch index directory (optional)
+#   ARCANA_HOST           — Arcana server host (default: 127.0.0.1)
+#   ARCANA_PORT           — Arcana server port (default: 19118)
+#   MEMO_NAMESPACES       — Path to namespaces config (default: /etc/memo/namespaces.yaml)
 
 # ANSI color helpers
 DIM    = "\e[2m"
@@ -52,45 +48,44 @@ def summarize(data : JSON::Any) : String
   parts.join(" ")
 end
 
-db_path = ENV["MEMO_DB"]? || abort("MEMO_DB is required")
-
 arcana_host = ENV["ARCANA_HOST"]? || "127.0.0.1"
-arcana_port = (ENV["ARCANA_PORT"]? || "4000").to_i
+arcana_port = (ENV["ARCANA_PORT"]? || "19118").to_i
+config_path = ENV["MEMO_NAMESPACES"]? || "/etc/memo/namespaces.yaml"
 
-service_name = ENV["MEMO_SERVICE"]? || "mock"
-chunking_max = (ENV["MEMO_CHUNKING_MAX"]? || (service_name == "mock" ? "100" : "2000")).to_i
+namespaces = Memo::Namespaces.new
+if File.exists?(config_path)
+  namespaces.load_config(config_path)
+end
 
 # Startup banner
 STDERR.puts ""
 STDERR.puts "#{BOLD}#{CYAN}memo-arcana#{RESET} #{DIM}— semantic search service#{RESET}"
 STDERR.puts "#{DIM}┌──────────────────────────────────────────────────#{RESET}"
-STDERR.puts "#{DIM}│#{RESET} db       #{DIM}│#{RESET} #{db_path}"
-STDERR.puts "#{DIM}│#{RESET} service  #{DIM}│#{RESET} #{service_name}"
-STDERR.puts "#{DIM}│#{RESET} bus      #{DIM}│#{RESET} #{arcana_host}:#{arcana_port}"
+STDERR.puts "#{DIM}│#{RESET} config     #{DIM}│#{RESET} #{File.exists?(config_path) ? config_path : "(none)"}"
+STDERR.puts "#{DIM}│#{RESET} namespaces #{DIM}│#{RESET} #{namespaces.configs.size} registered"
+STDERR.puts "#{DIM}│#{RESET} bus        #{DIM}│#{RESET} #{arcana_host}:#{arcana_port}"
 STDERR.puts "#{DIM}└──────────────────────────────────────────────────#{RESET}"
 
-memo = Memo::Service.new(
-  db_path: db_path,
-  service: service_name,
-  format: ENV["MEMO_FORMAT"]?,
-  api_key: ENV["MEMO_API_KEY"]? || ENV["OPENAI_API_KEY"]?,
-  model: ENV["MEMO_MODEL"]?,
-  index_dir: ENV["MEMO_INDEX_DIR"]?,
-  chunking_max_tokens: chunking_max,
-)
+# Preload any namespaces flagged with preload: true
+namespaces.configs.each_value do |c|
+  log "#{DIM}registered#{RESET} ns=#{BOLD}#{c.ns}#{RESET} #{DIM}db=#{truncate(c.db, 40)} preload=#{c.preload}#{RESET}"
+end
+namespaces.preload_all
+namespaces.services.each_key do |ns|
+  log "#{GREEN}●#{RESET} preloaded #{BOLD}#{ns}#{RESET}"
+end
 
-handler = Memo::ArcanaService.new(memo)
+handler = Memo::ArcanaService.new(namespaces)
 
 ws_url = "ws://#{arcana_host}:#{arcana_port}/bus"
 ws = HTTP::WebSocket.new(URI.parse(ws_url))
 
-# Join the bus as a service
 join_msg = {
   type:        "join",
   address:     "memo:service",
   name:        "Memo Service",
   kind:        "service",
-  description: "Semantic search & vector storage service",
+  description: "Multi-namespace semantic search & vector storage service",
   tags:        ["search", "vectors", "embeddings"],
 }.to_json
 ws.send(join_msg)
@@ -102,7 +97,6 @@ ws.on_message do |msg|
   begin
     envelope = JSON.parse(msg)
 
-    # Extract data from protocol-wrapped or raw payloads
     payload = envelope["payload"]?
     data = if payload && payload["_proto"]?
              payload["data"]? || JSON::Any.new(nil)
@@ -114,7 +108,6 @@ ws.on_message do |msg|
     from = envelope["from"]?.try(&.as_s?) || "?"
     t_start = Time.instant
 
-    # Handle help intent
     if payload && payload["_intent"]?.try(&.as_s?) == "help"
       result_payload = JSON.parse(%({"_proto":"arcana/1","_status":"help","guide":#{Memo::ArcanaService::GUIDE.to_json},"schema":#{Memo::ArcanaService::SCHEMA.to_json}}))
       reply = {
@@ -129,11 +122,9 @@ ws.on_message do |msg|
       next
     end
 
-    # Dispatch to handler
     result = handler.handle(data)
     elapsed_ms = (Time.instant - t_start).total_milliseconds.round(1)
 
-    # Compact one-liner: action, source, params, status, timing
     status_color = elapsed_ms > 500 ? YELLOW : GREEN
     summary = summarize(data)
     extra = ""
@@ -150,7 +141,6 @@ ws.on_message do |msg|
     end
     log "#{status_color}#{action.ljust(11)}#{RESET} #{DIM}#{from.ljust(12)}#{RESET} #{summary}#{extra} #{DIM}(#{elapsed_ms}ms)#{RESET}"
 
-    # Wrap in protocol result
     result_payload = JSON::Any.new({
       "_proto"  => JSON::Any.new("arcana/1"),
       "_status" => JSON::Any.new("result"),
@@ -170,7 +160,6 @@ ws.on_message do |msg|
     }.to_json
     ws.send(reply)
   rescue ex
-    # Send error reply
     if envelope
       error_payload = JSON::Any.new({
         "_proto"  => JSON::Any.new("arcana/1"),
@@ -198,19 +187,19 @@ end
 
 ws.on_close do |code, message|
   log "#{YELLOW}●#{RESET} disconnected (#{code}: #{message})"
-  memo.close
+  namespaces.close_all
   exit 0
 end
 
 Signal::INT.trap do
   STDERR.puts ""
   log "#{YELLOW}●#{RESET} shutting down"
-  memo.close
+  namespaces.close_all
   exit 0
 end
 
 Signal::TERM.trap do
-  memo.close
+  namespaces.close_all
   exit 0
 end
 

@@ -1,70 +1,118 @@
 require "../memo"
+require "./namespaces"
 require "json"
 
 module Memo
-  # Thin Arcana bus service wrapper around Memo::Service.
-  #
-  # Dispatches incoming requests by `action` field to the corresponding
-  # Memo::Service method and returns JSON results.
+  # Arcana bus service wrapper. Routes requests to per-namespace
+  # Memo::Service instances for multi-project isolation.
   class ArcanaService
-    SCHEMA = JSON.parse(%({"type":"object","required":["action"],"properties":{"action":{"type":"string","enum":["index","index_batch","search","delete","stats","help"]},"source_type":{"type":"string"},"source_id":{"type":"string"},"text":{"type":"string"},"documents":{"type":"array"},"query":{"type":"string"},"limit":{"type":"integer"},"min_score":{"type":"number"}}}))
+    SCHEMA = JSON.parse(%({"type":"object","required":["action"],"properties":{"action":{"type":"string","enum":["open","close","list","index","index_batch","search","delete","stats","help"]},"ns":{"type":"string"},"db":{"type":"string"},"service":{"type":"string"},"source_type":{"type":"string"},"source_id":{"type":"string"},"text":{"type":"string"},"documents":{"type":"array"},"query":{"type":"string"},"limit":{"type":"integer"},"min_score":{"type":"number"}}}))
 
     GUIDE = <<-GUIDE
-    Memo semantic search service. Send an action with its parameters.
+    Memo semantic search service — multi-namespace router.
 
-    Actions:
-      index        — Index a document. Params: source_type, source_id, text
-      index_batch  — Index multiple documents. Params: documents (array of {source_type, source_id, text})
-      search       — Semantic search. Params: query, limit (default 10), min_score (default 0.7), source_type
-      delete       — Delete a document. Params: source_id, source_type
-      stats        — Get index statistics. No params.
+    Each `ns` (namespace) has its own isolated embedding space: separate
+    database, USearch index, and embedding service.
+
+    Management actions:
+      open   — Register and open a namespace. Params: ns, db, [service, format, api_key, model, index_dir]
+      close  — Close a namespace. Params: ns
+      list   — List registered namespaces.
+
+    Data actions (all require `ns`):
+      index        — Index a document. Params: ns, source_type, source_id, text
+      index_batch  — Index multiple documents. Params: ns, documents (array of {source_type, source_id, text})
+      search       — Semantic search. Params: ns, query, limit (default 10), min_score (default 0.7), source_type
+      delete       — Delete a document. Params: ns, source_id, source_type
+      stats        — Get index statistics. Params: ns
 
     Examples:
-      {"action": "index", "source_type": "note", "source_id": "42", "text": "Hello world"}
-      {"action": "search", "query": "greeting", "limit": 5}
-      {"action": "stats"}
+      {"action": "open", "ns": "wow", "db": "postgres://wow:wow@localhost/wow_dev", "service": "openai"}
+      {"action": "index", "ns": "wow", "source_type": "claim", "source_id": "42", "text": "..."}
+      {"action": "search", "ns": "wow", "query": "bitcoin", "limit": 5}
+      {"action": "stats", "ns": "wow"}
     GUIDE
 
-    getter memo : Memo::Service
+    getter namespaces : Namespaces
 
-    def initialize(@memo : Memo::Service)
+    def initialize(@namespaces : Namespaces)
     end
 
     def handle(data : JSON::Any) : JSON::Any
       action = data["action"]?.try(&.as_s?) || raise "missing action"
 
       case action
-      when "index"
-        handle_index(data)
-      when "index_batch"
-        handle_index_batch(data)
-      when "search"
-        handle_search(data)
-      when "delete"
-        handle_delete(data)
-      when "stats"
-        handle_stats
-      when "help"
-        JSON::Any.new({"guide" => JSON::Any.new(GUIDE)})
-      else
-        raise "unknown action: #{action}"
+      when "open"        then handle_open(data)
+      when "close"       then handle_close(data)
+      when "list"        then handle_list
+      when "index"       then handle_index(data)
+      when "index_batch" then handle_index_batch(data)
+      when "search"      then handle_search(data)
+      when "delete"      then handle_delete(data)
+      when "stats"       then handle_stats(data)
+      when "help"        then JSON::Any.new({"guide" => JSON::Any.new(GUIDE)})
+      else                    raise "unknown action: #{action}"
       end
     end
 
+    # =========================================================================
+    # Namespace management
+    # =========================================================================
+
+    private def handle_open(data : JSON::Any) : JSON::Any
+      ns = data["ns"]?.try(&.as_s?) || raise "missing ns"
+      db = data["db"]?.try(&.as_s?) || raise "missing db"
+
+      config = Namespaces::Config.new(
+        ns: ns,
+        db: db,
+        service: data["service"]?.try(&.as_s?),
+        format: data["format"]?.try(&.as_s?),
+        api_key: data["api_key"]?.try(&.as_s?),
+        model: data["model"]?.try(&.as_s?),
+        index_dir: data["index_dir"]?.try(&.as_s?),
+      )
+      @namespaces.open(config)
+      JSON::Any.new({"ok" => JSON::Any.new(true), "ns" => JSON::Any.new(ns)})
+    end
+
+    private def handle_close(data : JSON::Any) : JSON::Any
+      ns = data["ns"]?.try(&.as_s?) || raise "missing ns"
+      closed = @namespaces.close(ns)
+      JSON::Any.new({"ok" => JSON::Any.new(true), "closed" => JSON::Any.new(closed)})
+    end
+
+    private def handle_list : JSON::Any
+      items = @namespaces.list.map do |ns, opened|
+        JSON::Any.new({
+          "ns"     => JSON::Any.new(ns),
+          "opened" => JSON::Any.new(opened),
+        } of String => JSON::Any)
+      end
+      JSON::Any.new({"ok" => JSON::Any.new(true), "namespaces" => JSON::Any.new(items)})
+    end
+
+    # =========================================================================
+    # Data actions
+    # =========================================================================
+
+    private def memo_for(data : JSON::Any) : Memo::Service
+      ns = data["ns"]?.try(&.as_s?) || raise "missing ns"
+      @namespaces.get(ns)
+    end
+
     private def handle_index(data : JSON::Any) : JSON::Any
+      memo = memo_for(data)
       source_type = data["source_type"]?.try(&.as_s?) || raise "missing source_type"
       text = data["text"]?.try(&.as_s?) || raise "missing text"
       source_id = parse_source_id(data["source_id"]?)
 
-      chunks = @memo.index(
-        source_type: source_type,
-        source_id: source_id,
-        text: text,
-      )
+      chunks = memo.index(source_type: source_type, source_id: source_id, text: text)
       JSON::Any.new({"ok" => JSON::Any.new(true), "chunks" => JSON::Any.new(chunks.to_i64)})
     end
 
     private def handle_index_batch(data : JSON::Any) : JSON::Any
+      memo = memo_for(data)
       docs_json = data["documents"]?.try(&.as_a?) || raise "missing documents"
 
       docs = docs_json.map do |d|
@@ -74,17 +122,18 @@ module Memo
         Memo::Document.new(source_type: st, source_id: sid, text: txt)
       end
 
-      chunks = @memo.index_batch(docs)
+      chunks = memo.index_batch(docs)
       JSON::Any.new({"ok" => JSON::Any.new(true), "chunks" => JSON::Any.new(chunks.to_i64)})
     end
 
     private def handle_search(data : JSON::Any) : JSON::Any
+      memo = memo_for(data)
       query = data["query"]?.try(&.as_s?) || raise "missing query"
       limit = data["limit"]?.try(&.as_i?) || 10
       min_score = data["min_score"]?.try(&.as_f?) || 0.7
       source_type = data["source_type"]?.try(&.as_s?)
 
-      results, timings = @memo.search_with_timings(
+      results, timings = memo.search_with_timings(
         query: query,
         limit: limit.to_i32,
         min_score: min_score,
@@ -115,15 +164,17 @@ module Memo
     end
 
     private def handle_delete(data : JSON::Any) : JSON::Any
+      memo = memo_for(data)
       source_id = parse_source_id(data["source_id"]?) || raise "missing source_id"
       source_type = data["source_type"]?.try(&.as_s?)
 
-      deleted = @memo.delete(source_id: source_id, source_type: source_type)
+      deleted = memo.delete(source_id: source_id, source_type: source_type)
       JSON::Any.new({"ok" => JSON::Any.new(true), "deleted" => JSON::Any.new(deleted.to_i64)})
     end
 
-    private def handle_stats : JSON::Any
-      s = @memo.stats
+    private def handle_stats(data : JSON::Any) : JSON::Any
+      memo = memo_for(data)
+      s = memo.stats
       JSON::Any.new({
         "ok"                 => JSON::Any.new(true),
         "embeddings"         => JSON::Any.new(s.embeddings),

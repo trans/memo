@@ -1,3 +1,4 @@
 bin/memo                       usr/bin/
 bin/memo-arcana                usr/bin/
 debian/memo.env                etc/memo/
+debian/namespaces.yaml         etc/memo/
