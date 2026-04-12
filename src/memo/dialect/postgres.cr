@@ -25,12 +25,11 @@ module Memo
         "eid"
       end
 
-      def schema_statements : Array(String)
-        schema_path = File.join(__DIR__, "../../../db/schema/memo_schema_pg.sql")
-        sql = File.read(schema_path)
+      SCHEMA_SQL = {{ read_file("#{__DIR__}/../../../db/schema/memo_schema_pg.sql") }}
 
+      def schema_statements : Array(String)
         # Smart split: don't split on ';' inside $$ blocks
-        split_statements(sql)
+        split_statements(SCHEMA_SQL)
       end
 
       def db_file_path(db : DB::Database) : String?

@@ -24,11 +24,10 @@ module Memo
         "rowid"
       end
 
-      def schema_statements : Array(String)
-        schema_path = File.join(__DIR__, "../../../db/schema/memo_schema.sql")
-        sql = File.read(schema_path)
+      SCHEMA_SQL = {{ read_file("#{__DIR__}/../../../db/schema/memo_schema.sql") }}
 
-        statements = sql.split(";").map(&.strip).reject(&.empty?)
+      def schema_statements : Array(String)
+        statements = SCHEMA_SQL.split(";").map(&.strip).reject(&.empty?)
         statements.reject do |statement|
           statement.lines.all? { |line| line.strip.empty? || line.strip.starts_with?("--") }
         end
