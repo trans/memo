@@ -19,6 +19,8 @@ jobs:
           pacman -S --noconfirm sqlite file openssl pcre2 gc gcc-libs zlib cmake make gcc
 
       - name: Build
+        env:
+          USEARCH_ARCH: "-march=x86-64-v3"
         run: |
           shards install --production
           crystal build --release --no-debug bin/memo.cr -o bin/memo
@@ -56,6 +58,8 @@ jobs:
         run: ln -s pkg/debian debian
 
       - name: Build package
+        env:
+          USEARCH_ARCH: "-march=x86-64-v3"
         run: dpkg-buildpackage -us -uc -b
 
       - name: Collect deb
