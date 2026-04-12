@@ -23,8 +23,8 @@ jobs:
           USEARCH_ARCH: "-march=x86-64-v3"
         run: |
           shards install --production
-          crystal build --release --no-debug bin/memo.cr -o bin/memo
-          crystal build --release --no-debug bin/memo-arcana.cr -o bin/memo-arcana
+          crystal build --release --no-debug --mcpu=x86-64-v3 bin/memo.cr -o bin/memo
+          crystal build --release --no-debug --mcpu=x86-64-v3 bin/memo-arcana.cr -o bin/memo-arcana
 
       - name: Package
         run: |
