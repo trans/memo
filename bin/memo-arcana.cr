@@ -32,16 +32,34 @@ def truncate(s : String, max : Int32 = 50) : String
   s.size > max ? "#{s[0, max]}…" : s
 end
 
+SENSITIVE_KEYS = Set{"api_key", "password", "secret", "token", "key"}
+
+def sensitive?(key : String) : Bool
+  k = key.downcase
+  SENSITIVE_KEYS.any? { |s| k.includes?(s) }
+end
+
+def redact_db_url(url : String) : String
+  # Redact password in postgres://user:PASSWORD@host/db style URLs
+  url.gsub(/(:\/\/[^:]+:)[^@]+(@)/, "\\1***\\2")
+end
+
 def summarize(data : JSON::Any) : String
   return "" unless data.as_h?
   parts = [] of String
   data.as_h.each do |k, v|
     next if k == "action"
-    val = case raw = v.raw
-          when String then %("#{truncate(raw, 40)}")
-          when Array  then "[#{raw.size}]"
-          when Hash   then "{…}"
-          else             raw.to_s
+    val = if sensitive?(k)
+            "***"
+          else
+            case raw = v.raw
+            when String
+              display = k == "db" ? redact_db_url(raw) : raw
+              %("#{truncate(display, 40)}")
+            when Array then "[#{raw.size}]"
+            when Hash  then "{…}"
+            else            raw.to_s
+            end
           end
     parts << "#{k}=#{val}"
   end
