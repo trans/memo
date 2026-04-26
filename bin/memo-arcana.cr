@@ -1,13 +1,16 @@
 require "../src/arcana/service"
 require "../src/memo/pg"
-require "http/web_socket"
-require "json"
+require "arcana-core"
 
 # Memo Arcana Bus Service
 #
 # Connects to an Arcana server via WebSocket and exposes Memo's
 # core API as a multi-namespace bus service. Each namespace (ns)
 # is an isolated embedding space with its own DB and USearch index.
+#
+# The same WebSocket connection is shared with Memo::Providers::Bus
+# so namespaces using the bus/openai or bus/voyage formats can
+# route embedding requests through the bus.
 #
 # Environment variables:
 #   ARCANA_HOST           — Arcana server host (default: 127.0.0.1)
@@ -40,7 +43,6 @@ def sensitive?(key : String) : Bool
 end
 
 def redact_db_url(url : String) : String
-  # Redact password in postgres://user:PASSWORD@host/db style URLs
   url.gsub(/(:\/\/[^:]+:)[^@]+(@)/, "\\1***\\2")
 end
 
@@ -84,7 +86,6 @@ STDERR.puts "#{DIM}│#{RESET} namespaces #{DIM}│#{RESET} #{namespaces.configs
 STDERR.puts "#{DIM}│#{RESET} bus        #{DIM}│#{RESET} #{arcana_host}:#{arcana_port}"
 STDERR.puts "#{DIM}└──────────────────────────────────────────────────#{RESET}"
 
-# Preload any namespaces flagged with preload: true
 namespaces.configs.each_value do |c|
   log "#{DIM}registered#{RESET} ns=#{BOLD}#{c.ns}#{RESET} #{DIM}db=#{truncate(c.db, 40)} preload=#{c.preload}#{RESET}"
 end
@@ -95,47 +96,35 @@ end
 
 handler = Memo::ArcanaService.new(namespaces)
 
-ws_url = "ws://#{arcana_host}:#{arcana_port}/bus"
-ws = HTTP::WebSocket.new(URI.parse(ws_url))
-
-join_msg = {
-  type:        "join",
-  address:     "memo:rag",
-  name:        "Memo RAG",
+# Arcana::Client gives us join + correlation tracking + request/reply.
+# The same client is shared with Memo::Providers::Bus for outbound
+# embedding calls (bus/openai, bus/voyage formats).
+client = Arcana::Client.new(
+  url: "ws://#{arcana_host}:#{arcana_port}/bus",
+  address: "memo:rag",
+  name: "Memo RAG",
   description: "Multi-namespace retrieval-augmented generation service: semantic search, vector storage, embeddings",
-  tags:        ["rag", "search", "vectors", "embeddings"],
-}.to_json
-ws.send(join_msg)
+  tags: ["rag", "search", "vectors", "embeddings"],
+)
+Memo::Providers::Bus.client = client
 
-log "#{GREEN}●#{RESET} registered as #{BOLD}memo:rag#{RESET}, listening for requests"
-STDERR.puts ""
-
-ws.on_message do |msg|
+client.on_message do |envelope|
   begin
-    envelope = JSON.parse(msg)
-
-    payload = envelope["payload"]?
-    data = if payload && payload["_proto"]?
+    payload = envelope.payload
+    data = if payload.as_h? && payload["_proto"]?
              payload["data"]? || JSON::Any.new(nil)
            else
-             payload || JSON::Any.new(nil)
+             payload
            end
 
     action = data["action"]?.try(&.as_s?) || "?"
-    from = envelope["from"]?.try(&.as_s?) || "?"
+    from = envelope.from
     t_start = Time.instant
 
-    if payload && payload["_intent"]?.try(&.as_s?) == "help"
-      result_payload = JSON.parse(%({"_proto":"arcana/1","_status":"help","guide":#{Memo::ArcanaService::GUIDE.to_json},"schema":#{Memo::ArcanaService::SCHEMA.to_json}}))
-      reply = {
-        type:           "send",
-        from:           "memo:rag",
-        to:             envelope["reply_to"]?.try(&.as_s?) || envelope["from"]?.try(&.as_s?) || "",
-        subject:        envelope["subject"]?.try(&.as_s?) || "",
-        payload:        result_payload,
-        correlation_id: envelope["correlation_id"]?.try(&.as_s?) || "",
-      }.to_json
-      ws.send(reply)
+    # Help intent
+    if payload.as_h? && payload["_intent"]?.try(&.as_s?) == "help"
+      help_payload = JSON.parse(%({"_proto":"arcana/1","_status":"help","guide":#{Memo::ArcanaService::GUIDE.to_json},"schema":#{Memo::ArcanaService::SCHEMA.to_json}}))
+      client.send(envelope.reply(from: "memo:rag", payload: help_payload))
       next
     end
 
@@ -162,62 +151,39 @@ ws.on_message do |msg|
       "_proto"  => JSON::Any.new("arcana/1"),
       "_status" => JSON::Any.new("result"),
       "data"    => result,
-    })
+    } of String => JSON::Any)
 
-    reply_to = envelope["reply_to"]?.try(&.as_s?) || envelope["from"]?.try(&.as_s?) || ""
-    next if reply_to.empty?
-
-    reply = {
-      type:           "send",
-      from:           "memo:rag",
-      to:             reply_to,
-      subject:        envelope["subject"]?.try(&.as_s?) || "",
-      payload:        result_payload,
-      correlation_id: envelope["correlation_id"]?.try(&.as_s?) || "",
-    }.to_json
-    ws.send(reply)
+    client.send(envelope.reply(from: "memo:rag", payload: result_payload))
   rescue ex
-    if envelope
-      error_payload = JSON::Any.new({
-        "_proto"  => JSON::Any.new("arcana/1"),
-        "_status" => JSON::Any.new("error"),
-        "message" => JSON::Any.new(ex.message || "Unknown error"),
-      })
-
-      reply_to = envelope["reply_to"]?.try(&.as_s?) || envelope["from"]?.try(&.as_s?) || ""
-      unless reply_to.empty?
-        reply = {
-          type:           "send",
-          from:           "memo:rag",
-          to:             reply_to,
-          subject:        envelope["subject"]?.try(&.as_s?) || "",
-          payload:        error_payload,
-          correlation_id: envelope["correlation_id"]?.try(&.as_s?) || "",
-        }.to_json
-        ws.send(reply)
-      end
+    error_payload = JSON::Any.new({
+      "_proto"  => JSON::Any.new("arcana/1"),
+      "_status" => JSON::Any.new("error"),
+      "message" => JSON::Any.new(ex.message || "Unknown error"),
+    } of String => JSON::Any)
+    begin
+      client.send(envelope.reply(from: "memo:rag", payload: error_payload))
+    rescue
+      # client may be closed
     end
-
     log "#{RED}error#{RESET}      #{ex.message}"
   end
 end
 
-ws.on_close do |code, message|
-  log "#{YELLOW}●#{RESET} disconnected (#{code}: #{message})"
-  namespaces.close_all
-  exit 0
-end
+log "#{GREEN}●#{RESET} registered as #{BOLD}memo:rag#{RESET}, listening for requests"
+STDERR.puts ""
 
 Signal::INT.trap do
   STDERR.puts ""
   log "#{YELLOW}●#{RESET} shutting down"
   namespaces.close_all
+  client.close
   exit 0
 end
 
 Signal::TERM.trap do
   namespaces.close_all
+  client.close
   exit 0
 end
 
-ws.run
+client.connect

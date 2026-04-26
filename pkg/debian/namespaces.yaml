@@ -10,15 +10,26 @@
 #   ns          — Short identifier (used in every API call)
 #   db          — SQLite path or postgres:// connection string
 #   service     — Embedding service name (mock, openai, voyage)
+#   format      — Override the API format (openai, voyage, bus/openai, bus/voyage, mock)
+#                 The bus/* formats route through the Arcana bus instead of
+#                 calling the embedding API directly. Requires the bus to be up.
 #   api_key     — API key for the embedding provider (optional, falls back to env)
+#                 Not needed for bus/* formats — the bus owns the API key.
 #   model       — Override default model for the service (optional)
 #   index_dir   — USearch index directory (default: /var/lib/memo/indices)
 #   preload     — Open at boot instead of on first request (default: false)
 
 namespaces:
-  # Example — uncomment and edit:
+  # Direct OpenAI (no bus involvement) — needs api_key:
   #
   # - ns: myproject
   #   db: postgres://user:pass@localhost/myproject_dev
   #   service: openai
+  #   preload: true
+  #
+  # Bus-routed (Arcana handles the API call, billing, audit, rate limit):
+  #
+  # - ns: myproject
+  #   db: postgres://user:pass@localhost/myproject_dev
+  #   service: openai-bus
   #   preload: true

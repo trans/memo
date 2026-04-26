@@ -61,6 +61,18 @@ INSERT INTO memo_services (name, format, base_url, model, dimensions, max_tokens
 VALUES ('mock', 'mock', NULL, 'mock-8d', 8, 100, 0, 0)
 ON CONFLICT (name) DO NOTHING;
 
+-- Bus-routed services: route embedding requests through the Arcana bus
+-- (openai:embed / voyage:embed) instead of calling the API directly.
+-- Requires memo-arcana to be running with a connected Arcana::Client.
+
+INSERT INTO memo_services (name, format, base_url, model, dimensions, max_tokens, is_default, created_at)
+VALUES ('openai-bus', 'bus/openai', NULL, 'text-embedding-3-small', 1536, 8191, 0, 0)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO memo_services (name, format, base_url, model, dimensions, max_tokens, is_default, created_at)
+VALUES ('voyage-bus', 'bus/voyage', NULL, 'voyage-3', 1024, 32000, 0, 0)
+ON CONFLICT (name) DO NOTHING;
+
 -- =============================================================================
 -- Embeddings registry
 --

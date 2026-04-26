@@ -30,7 +30,10 @@ dependencies:
     version: ~> 0.1
   arcana:
     github: trans/arcana
-    version: ~> 0.16.0
+    version: ~> 0.17.0
+  arcana-core:
+    github: trans/arcana-core
+    version: ~> 0.5.1
   pg:
     github: will/crystal-pg
     branch: master

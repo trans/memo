@@ -53,6 +53,10 @@ module Memo
             endpoint: final_base_url
           )
           Providers::Arcana.new(arcana_provider, model: model)
+        when "bus/openai"
+          Providers::Bus.new(target: "openai:embed", model: model)
+        when "bus/voyage"
+          Providers::Bus.new(target: "voyage:embed", model: model)
         when "mock"
           Providers::Mock.new
         else

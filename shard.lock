@@ -6,11 +6,11 @@ shards:
 
   arcana:
     git: https://github.com/trans/arcana.git
-    version: 0.16.0
+    version: 0.17.0
 
   arcana-core:
     git: https://github.com/trans/arcana-core.git
-    version: 0.4.0
+    version: 0.5.1
 
   baked_file_system:
     git: https://github.com/ralsina/baked_file_system.git
@@ -58,7 +58,7 @@ shards:
 
   sixteen:
     git: https://github.com/ralsina/sixteen.git
-    version: 0.7.0
+    version: 0.8.0
 
   sqlite3:
     git: https://github.com/crystal-lang/crystal-sqlite3.git
