@@ -100,15 +100,14 @@ ws = HTTP::WebSocket.new(URI.parse(ws_url))
 
 join_msg = {
   type:        "join",
-  address:     "memo:service",
-  name:        "Memo Service",
-  kind:        "service",
-  description: "Multi-namespace semantic search & vector storage service",
-  tags:        ["search", "vectors", "embeddings"],
+  address:     "memo:rag",
+  name:        "Memo RAG",
+  description: "Multi-namespace retrieval-augmented generation service: semantic search, vector storage, embeddings",
+  tags:        ["rag", "search", "vectors", "embeddings"],
 }.to_json
 ws.send(join_msg)
 
-log "#{GREEN}●#{RESET} registered as #{BOLD}memo:service#{RESET}, listening for requests"
+log "#{GREEN}●#{RESET} registered as #{BOLD}memo:rag#{RESET}, listening for requests"
 STDERR.puts ""
 
 ws.on_message do |msg|
@@ -130,7 +129,7 @@ ws.on_message do |msg|
       result_payload = JSON.parse(%({"_proto":"arcana/1","_status":"help","guide":#{Memo::ArcanaService::GUIDE.to_json},"schema":#{Memo::ArcanaService::SCHEMA.to_json}}))
       reply = {
         type:           "send",
-        from:           "memo:service",
+        from:           "memo:rag",
         to:             envelope["reply_to"]?.try(&.as_s?) || envelope["from"]?.try(&.as_s?) || "",
         subject:        envelope["subject"]?.try(&.as_s?) || "",
         payload:        result_payload,
@@ -170,7 +169,7 @@ ws.on_message do |msg|
 
     reply = {
       type:           "send",
-      from:           "memo:service",
+      from:           "memo:rag",
       to:             reply_to,
       subject:        envelope["subject"]?.try(&.as_s?) || "",
       payload:        result_payload,
@@ -189,7 +188,7 @@ ws.on_message do |msg|
       unless reply_to.empty?
         reply = {
           type:           "send",
-          from:           "memo:service",
+          from:           "memo:rag",
           to:             reply_to,
           subject:        envelope["subject"]?.try(&.as_s?) || "",
           payload:        error_payload,

@@ -6,11 +6,31 @@ shards:
 
   arcana:
     git: https://github.com/trans/arcana.git
-    version: 0.2.1
+    version: 0.16.0
+
+  arcana-core:
+    git: https://github.com/trans/arcana-core.git
+    version: 0.4.0
+
+  baked_file_system:
+    git: https://github.com/ralsina/baked_file_system.git
+    version: 0.10.0+git.commit.beb373124c7a235cfb9cd94e36849d8168eaa04b
+
+  base58:
+    git: https://github.com/crystal-china/base58.cr.git
+    version: 0.1.0+git.commit.0e2c44d16a8098b00d8bf0b74add8bb9ea2f1c5f
+
+  crimage:
+    git: https://github.com/naqvis/crimage.git
+    version: 1.0.5+git.commit.2b3abbcdca426a2a13a39b986326f9a2f7f65bc6
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
     version: 0.14.0
+
+  docopt:
+    git: https://github.com/ralsina/docopt.cr.git
+    version: 0.3.1
 
   ignore:
     git: https://github.com/trans/ignore.git
@@ -24,13 +44,29 @@ shards:
     git: https://github.com/naqvis/magic.cr.git
     version: 0.1.0+git.commit.48388767a31b305ee15422caef01253667f8ec2f
 
+  markd:
+    git: https://github.com/icyleaf/markd.git
+    version: 0.5.0
+
+  markterm:
+    git: https://github.com/ralsina/markterm.git
+    version: 0.6.3
+
   pg:
     git: https://github.com/will/crystal-pg.git
     version: 0.29.0+git.commit.c16d54814405e2b9748d9bddc3d8ce0d41d2190f
 
+  sixteen:
+    git: https://github.com/ralsina/sixteen.git
+    version: 0.7.0
+
   sqlite3:
     git: https://github.com/crystal-lang/crystal-sqlite3.git
     version: 0.22.0
+
+  tartrazine:
+    git: https://github.com/ralsina/tartrazine.git
+    version: 0.20.1
 
   usearch:
     git: https://github.com/trans/usearch.cr.git
