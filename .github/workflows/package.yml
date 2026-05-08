@@ -65,7 +65,7 @@ jobs:
       - name: Collect deb
         run: |
           mkdir -p dist
-          cp ../memo_*.deb dist/
+          cp ../memo-rag_*.deb dist/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

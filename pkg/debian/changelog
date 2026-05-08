@@ -1,3 +1,17 @@
+memo-rag (0.12.1-1) unstable; urgency=medium
+
+  * Rename Debian source/binary package from "memo" to "memo-rag"
+    to avoid silent collision with Debian's unrelated note-taking
+    "memo" package (apt was upgrading installs to memo 1.7.x).
+  * Add Conflicts: memo and Replaces: memo (<< 1.0~) so existing
+    trans/memo 0.x installs upgrade cleanly and Debian's memo is
+    blocked at install time.
+  * Doc dir moves to /usr/share/doc/memo-rag/.
+  * Binary names (/usr/bin/memo, /usr/bin/memo-arcana), config
+    paths (/etc/memo/), system user, and systemd unit are unchanged.
+
+ -- trans <trans@github.com>  Fri, 08 May 2026 00:00:00 +0000
+
 memo (0.12.0-1) unstable; urgency=medium
 
   * Add ${VAR} expansion in namespaces.yaml from process env
