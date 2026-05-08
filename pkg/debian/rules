@@ -12,16 +12,16 @@ override_dh_auto_install:
 	dh_auto_install
 	# Shell completions
 	bin/memo --completions bash | install -Dm644 /dev/stdin \
-		$(CURDIR)/debian/memo/usr/share/bash-completion/completions/memo
+		$(CURDIR)/debian/memo-rag/usr/share/bash-completion/completions/memo
 	bin/memo --completions zsh | install -Dm644 /dev/stdin \
-		$(CURDIR)/debian/memo/usr/share/zsh/vendor-completions/_memo
+		$(CURDIR)/debian/memo-rag/usr/share/zsh/vendor-completions/_memo
 	bin/memo --completions fish | install -Dm644 /dev/stdin \
-		$(CURDIR)/debian/memo/usr/share/fish/vendor_completions.d/memo.fish
+		$(CURDIR)/debian/memo-rag/usr/share/fish/vendor_completions.d/memo.fish
 	# License
-	install -Dm644 LICENSE $(CURDIR)/debian/memo/usr/share/doc/memo/copyright
+	install -Dm644 LICENSE $(CURDIR)/debian/memo-rag/usr/share/doc/memo-rag/copyright
 	# Secrets env example (documents expected keys for deployment tooling)
 	install -Dm644 debian/secrets.env.example \
-		$(CURDIR)/debian/memo/usr/share/doc/memo/secrets.env.example
+		$(CURDIR)/debian/memo-rag/usr/share/doc/memo-rag/secrets.env.example
 
 override_dh_auto_test:
 	true

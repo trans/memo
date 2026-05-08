@@ -1,4 +1,4 @@
-Source: memo
+Source: memo-rag
 Section: utils
 Priority: optional
 Maintainer: trans <trans@github.com>
@@ -6,9 +6,11 @@ Build-Depends: debhelper-compat (= 13), crystal, cmake, build-essential, libsqli
 Standards-Version: 4.6.0
 Homepage: https://github.com/trans/memo
 
-Package: memo
+Package: memo-rag
 Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}, libsqlite3-0, libmagic1, libssl3, libpcre2-8-0, libgc1, zlib1g, adduser
+Conflicts: memo
+Replaces: memo (<< 1.0~)
 Description: Semantic search and vector storage CLI
  Memo provides chunking, embedding storage, similarity search, and
  RRF fusion. Supports OpenAI and Voyage AI embedding providers with
